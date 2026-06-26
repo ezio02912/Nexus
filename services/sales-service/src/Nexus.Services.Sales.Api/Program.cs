@@ -1,9 +1,11 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
 using Nexus.BuildingBlocks.Web.DependencyInjection;
 using Nexus.Services.Sales.Api.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("sales-service");
 
 var connectionString = builder.Configuration.GetConnectionString("SalesDb")
     ?? "Host=localhost;Port=5432;Database=sales_db;Username=nexus;Password=nexus_dev_password";
@@ -77,6 +79,7 @@ app.MapPost("/api/sales/orders/{id:guid}/complete", async (Guid id, SalesDbConte
     return Results.Ok(order);
 });
 
+app.MapNexusObservability();
 app.Run();
 
 public sealed record CreateSalesOrderDto(Guid TenantId, Guid CustomerId, string OrderNo, IReadOnlyCollection<CreateSalesOrderLineDto> Lines);

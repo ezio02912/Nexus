@@ -20,7 +20,15 @@ public static class UiCatalogs
         new("INVOICE", "Invoice - Hóa đơn"),
         new("PAYROLL", "Payroll - Lương"),
         new("ATTENDANCE", "Attendance - Chấm công"),
-        new("REPORT", "Report - Báo cáo")
+        new("REPORT", "Report - Báo cáo"),
+        new("WORKFLOW", "Workflow - Quy trình")
+    ];
+
+    public static readonly List<SelectedItem> SubscriptionPlans =
+    [
+        new("FREE", "Miễn phí"),
+        new("STANDARD", "Thông dụng"),
+        new("PREMIUM", "Nâng cao")
     ];
 
     public static readonly List<SelectedItem> Roles =

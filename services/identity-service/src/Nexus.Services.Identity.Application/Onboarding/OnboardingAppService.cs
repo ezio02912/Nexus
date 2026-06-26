@@ -159,7 +159,7 @@ public sealed class OnboardingAppService : NexusAppServiceBase, IOnboardingAppSe
             throw new NexusBusinessException(OnboardingErrorCodes.CodeUnavailable, "Tenant code is not available.");
         }
 
-        var defaultModules = _configuration.GetSection("Onboarding:DefaultModules").Get<string[]>() ?? ["CRM", "WORKFLOW"];
+        var defaultPlanCode = _configuration["Onboarding:DefaultPlanCode"] ?? "FREE";
         var tenant = await _tenantServiceClient.CreateTenantAsync(new CreateInternalTenantDto
         {
             Code = input.Code,
@@ -168,7 +168,7 @@ public sealed class OnboardingAppService : NexusAppServiceBase, IOnboardingAppSe
             Phone = input.Phone,
             RepresentativeName = input.RepresentativeName,
             ContactEmail = email,
-            DefaultModules = defaultModules
+            PlanCode = defaultPlanCode
         }, cancellationToken);
 
         var userName = ResolveUserName(input.UserName, email);

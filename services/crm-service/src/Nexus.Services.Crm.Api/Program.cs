@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.Web.Auth;
@@ -17,6 +18,7 @@ using Nexus.Services.Crm.Domain.Enums;
 using Nexus.SharedKernel.Exceptions;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("crm-service");
 
 var connectionString = builder.Configuration.GetConnectionString("CrmDb")
     ?? "Host=localhost;Port=5432;Database=crm_db;Username=nexus;Password=nexus_dev_password";
@@ -196,6 +198,7 @@ crm.MapGet("/dashboard", async (ICrmDashboardAppService service, CancellationTok
     await ExecuteAsync(() => service.GetAsync(ct)))
     .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Dashboard.View));
 
+app.MapNexusObservability();
 app.Run();
 
 static async Task<IResult> ExecuteAsync<T>(Func<Task<T>> action)

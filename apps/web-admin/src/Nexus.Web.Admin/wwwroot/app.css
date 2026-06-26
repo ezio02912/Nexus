@@ -594,6 +594,40 @@ h1:focus {
     }
 }
 
+/* Tenant table module badges */
+.admin-tenant-modules-cell {
+    white-space: normal;
+    word-break: break-word;
+}
+
+.admin-tenant-module-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.admin-tenant-module-badges .badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.dashboard-kpi-label {
+    color: var(--app-text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+}
+
+.dashboard-kpi-value {
+    color: var(--app-text);
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.dashboard-kpi-meta {
+    margin-top: 0.35rem;
+}
+
 /* Permission assignment layout */
 .admin-permission-toolbar {
     max-width: 320px;
@@ -644,4 +678,60 @@ h1:focus {
     color: var(--ocean-700);
     white-space: normal;
     word-break: break-word;
+}
+
+/* Monitoring page */
+.monitor-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.monitor-stat-label {
+    color: var(--app-text-muted);
+    font-size: 0.85rem;
+}
+
+.monitor-stat-value {
+    font-size: 1.5rem;
+    color: var(--ocean-700);
+}
+
+.monitor-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 0.75rem;
+}
+
+.monitor-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-surface);
+    color: var(--app-text);
+    text-decoration: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.monitor-link:hover {
+    border-color: var(--ocean-400);
+    box-shadow: 0 4px 16px rgba(0, 150, 255, 0.1);
+    color: var(--ocean-700);
+}
+
+.monitor-grafana-frame {
+    width: 100%;
+    min-height: 520px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: #fff;
+}
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }

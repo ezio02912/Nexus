@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
@@ -6,6 +7,7 @@ using Nexus.BuildingBlocks.Web.DependencyInjection;
 using Nexus.Services.Workflow.Api.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("workflow-service");
 
 var connectionString = builder.Configuration.GetConnectionString("WorkflowDb")
     ?? "Host=localhost;Port=5432;Database=workflow_db;Username=nexus;Password=nexus_dev_password";
@@ -91,6 +93,7 @@ app.MapPost("/api/workflow-instances/{id:guid}/reject", async (Guid id, Workflow
     return Results.Ok(instance);
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Workflow.Approve));
 
+app.MapNexusObservability();
 app.Run();
 
 public sealed record CreateWorkflowDefinitionDto(Guid? TenantId, string Code, string Name, IReadOnlyCollection<string> Steps);

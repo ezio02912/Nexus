@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.BuildingBlocks.Auditing;
 using Nexus.BuildingBlocks.Web.Auth;
@@ -17,6 +18,7 @@ using Nexus.SharedKernel.Auditing;
 using Nexus.SharedKernel.Exceptions;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("identity-service");
 
 var connectionString = builder.Configuration.GetConnectionString("IdentityDb")
     ?? "Host=localhost;Port=5432;Database=identity_db;Username=nexus;Password=nexus_dev_password";
@@ -187,4 +189,37 @@ app.MapPost("/api/onboarding/complete", async (CompleteOnboardingDto input, IOnb
     }
 });
 
+var internalApiKey = builder.Configuration["Internal:ApiKey"] ?? "nexus-internal-dev-key";
+
+app.MapGet("/api/internal/platform/user-stats", async (IdentityDbContext db, HttpContext httpContext, CancellationToken cancellationToken) =>
+{
+    if (!httpContext.Request.Headers.TryGetValue("X-Internal-Api-Key", out var key) || key != internalApiKey)
+    {
+        return Results.Unauthorized();
+    }
+
+    var now = DateTimeOffset.UtcNow;
+    var since7 = now.AddDays(-7);
+    var since30 = now.AddDays(-30);
+    var creationTimes = await db.Users
+        .IgnoreQueryFilters()
+        .Where(x => x.CreationTime >= since30)
+        .Select(x => x.CreationTime)
+        .ToListAsync(cancellationToken);
+
+    var series = creationTimes
+        .GroupBy(x => DateOnly.FromDateTime(x.UtcDateTime))
+        .OrderBy(x => x.Key)
+        .Select(x => new { Date = x.Key, Count = x.Count() })
+        .ToArray();
+
+    return Results.Ok(new
+    {
+        NewUsersLast7Days = creationTimes.Count(x => x >= since7),
+        NewUsersLast30Days = creationTimes.Count,
+        UserGrowthSeries = series
+    });
+});
+
+app.MapNexusObservability();
 app.Run();

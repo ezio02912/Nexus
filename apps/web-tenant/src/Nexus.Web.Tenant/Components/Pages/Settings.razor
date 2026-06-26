@@ -30,9 +30,15 @@
                         <tr><th>Tên</th><td>@Session.Tenant?.Name</td></tr>
                         <tr><th>Mã</th><td>@Session.Tenant?.Code</td></tr>
                         <tr><th>Trạng thái</th><td><span class="app-status-badge app-status-active">@Session.Tenant?.Status</span></td></tr>
+                        <tr><th>Gói dịch vụ</th><td>@(Session.Tenant?.Subscription?.PlanName ?? "—")</td></tr>
+                        <tr><th>Hết hạn gói</th><td>@(Session.Tenant?.Subscription?.ExpiresAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</td></tr>
                         <tr><th>Người dùng</th><td>@Session.UserName</td></tr>
                     </tbody>
                 </table>
+                @if (!IsPremium)
+                {
+                    <a class="btn btn-primary" href="subscription"><i class="fa-solid fa-arrow-up me-1"></i>Nâng cấp gói dịch vụ</a>
+                }
             </section>
             <section class="app-card">
                 <h2>Phân hệ</h2>
@@ -56,3 +62,8 @@
         </div>
     }
 </section>
+
+@code {
+    private bool IsPremium =>
+        string.Equals(Session.Tenant?.Subscription?.PlanCode, "PREMIUM", StringComparison.OrdinalIgnoreCase);
+}

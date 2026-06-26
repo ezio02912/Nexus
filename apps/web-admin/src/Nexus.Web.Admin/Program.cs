@@ -34,7 +34,9 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 });
 
 builder.Services.Configure<CoreServiceOptions>(builder.Configuration.GetSection("CoreServices"));
+builder.Services.Configure<ObservabilityOptions>(builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 builder.Services.AddScoped<CoreApiClient>();
+builder.Services.AddScoped<MonitoringService>();
 builder.Services.AddScoped<AdminSessionService>();
 builder.Services.AddScoped<TenantLookupService>();
 

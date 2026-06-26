@@ -104,7 +104,7 @@ public static class TenantPermissionCatalog
             {
                 var actions = menu.Actions
                     .Where(x => catalogSet.Contains(x.Key))
-                    .Where(x => MatchesFilter(x, filter))
+                    .Where(x => MatchesFilter(area.AreaLabel, menu.MenuLabel, x, filter))
                     .ToList();
                 if (actions.Count > 0)
                 {
@@ -117,6 +117,13 @@ public static class TenantPermissionCatalog
                 yield return new AreaPermissionGroup(area.AreaLabel, menus);
             }
         }
+    }
+
+    /// <summary>Extracts the service segment from a permission key (e.g. Nexus.Crm.Customers.View → Nexus.Crm.Customers).</summary>
+    public static string GetServiceKey(string permission)
+    {
+        var parts = permission.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length >= 3 ? string.Join('.', parts[..^1]) : permission;
     }
 
     public static string FormatPermissionLabel(string permission)
@@ -141,10 +148,13 @@ public static class TenantPermissionCatalog
     public static IReadOnlyList<string> AllPermissionKeys() =>
         Areas.SelectMany(a => a.Menus).SelectMany(m => m.Actions).Select(a => a.Key).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-    private static bool MatchesFilter(PermissionAction action, string? filter) =>
+    private static bool MatchesFilter(string areaLabel, string menuLabel, PermissionAction action, string? filter) =>
         string.IsNullOrWhiteSpace(filter)
         || action.Key.Contains(filter, StringComparison.OrdinalIgnoreCase)
-        || action.Label.Contains(filter, StringComparison.OrdinalIgnoreCase);
+        || action.Label.Contains(filter, StringComparison.OrdinalIgnoreCase)
+        || areaLabel.Contains(filter, StringComparison.OrdinalIgnoreCase)
+        || menuLabel.Contains(filter, StringComparison.OrdinalIgnoreCase)
+        || GetServiceKey(action.Key).Contains(filter, StringComparison.OrdinalIgnoreCase);
 
     private static MenuPermissionGroup Menu(string label, IReadOnlyList<PermissionAction> actions) =>
         new(label, actions);

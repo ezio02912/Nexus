@@ -1,0 +1,57 @@
+@page "/subscription-plans"
+@inject CoreApiClient Api
+@inject ToastService ToastService
+
+<PageTitle>Gói dịch vụ</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Gói dịch vụ</h1>
+        <p>Catalog gói subscription được cấu hình trên tenant-service.</p>
+    </div>
+</section>
+
+<Card HeaderText="Danh sách gói" IsShadow="true">
+    <BodyTemplate>
+        @if (_loading)
+        {
+            <Spinner Color="Color.Primary" />
+        }
+        else
+        {
+            <Table TItem="SubscriptionPlanDto" Items="@_plans" IsStriped="true" IsBordered="true" IsPagination="false">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.PlanCode" Text="Mã gói" />
+                    <TableColumn @bind-Field="@context.Name" Text="Tên" />
+                    <TableColumn @bind-Field="@context.MonthlyPrice" Text="Giá/tháng" FormatString="N0" />
+                    <TableColumn @bind-Field="@context.MaxUsers" Text="Max users" />
+                    <TableColumn @bind-Field="@context.StorageGb" Text="Storage (GB)" />
+                    <TableColumn @bind-Field="@context.PlanCode" Text="Module" Sortable="false">
+                        <Template Context="v">@string.Join(", ", v.Row.Modules ?? [])</Template>
+                    </TableColumn>
+                </TableColumns>
+            </Table>
+        }
+    </BodyTemplate>
+</Card>
+
+@code {
+    private bool _loading = true;
+    private List<SubscriptionPlanDto> _plans = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _plans = (await Api.GetSubscriptionPlansAsync())?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

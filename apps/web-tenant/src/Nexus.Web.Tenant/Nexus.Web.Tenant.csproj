@@ -14,4 +14,8 @@
     <ProjectReference Include="../../../../shared/api-contracts/src/Nexus.ApiContracts/Nexus.ApiContracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Locales\*.json" />
+  </ItemGroup>
+
 </Project>

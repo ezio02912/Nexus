@@ -7,6 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
     <ProjectReference Include="../Nexus.Services.Tenant.Contracts/Nexus.Services.Tenant.Contracts.csproj" />
     <ProjectReference Include="../Nexus.Services.Tenant.Domain/Nexus.Services.Tenant.Domain.csproj" />
     <ProjectReference Include="../../../../shared/building-blocks/src/Nexus.BuildingBlocks/Nexus.BuildingBlocks.csproj" />

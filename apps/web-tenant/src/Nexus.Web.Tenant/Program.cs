@@ -23,7 +23,7 @@ builder.Services.AddSingleton(HtmlEncoder.Create(UnicodeRanges.All));
 builder.Services.AddBootstrapBlazor(options =>
 {
     options.SupportedCultures = ["vi", "en"];
-    options.FallbackCulture = "vi";
+    options.FallbackCulture = "en";
 });
 
 var supportedCultures = new[] { "vi", "en" };

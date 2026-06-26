@@ -1,48 +1,175 @@
 @page "/"
 @* Pin the home page as a permanent, non-closeable tab so its title is always shown *@
 @attribute [TabItemOption(Text = "Tổng quan", Icon = "fa-solid fa-gauge-high", Closable = false)]
+@inject CoreApiClient Api
+@inject ToastService ToastService
 
 <PageTitle>Nexus Admin</PageTitle>
 
 <section class="page-header">
     <div>
-        <h1>Nexus Admin</h1>
-        <p>Vận hành lõi cho khách thuê, danh tính, phân quyền, nhật ký, tệp tin, đánh số và quy trình.</p>
+        <h1>Tổng quan nền tảng</h1>
+        <p>KPI SaaS: khách thuê, người dùng, gói dịch vụ và doanh thu mock.</p>
     </div>
 </section>
 
-<div class="row g-3">
-    @foreach (var tile in _tiles)
-    {
-        <div class="col-12 col-sm-6 col-xl-4">
-            <a class="text-decoration-none" href="@tile.Url">
-                <Card IsShadow="true" class="dashboard-tile h-100">
-                    <BodyTemplate>
-                        <div class="d-flex align-items-center">
-                            <span class="dashboard-tile-icon">
-                                <i class="@tile.Icon"></i>
-                            </span>
-                            <div class="ms-3">
-                                <strong class="d-block">@tile.Title</strong>
-                                <span class="text-muted small">@tile.Description</span>
-                            </div>
-                        </div>
-                    </BodyTemplate>
-                </Card>
-            </a>
+@if (_loading)
+{
+    <div class="text-center py-5">
+        <Spinner Color="Color.Primary" />
+    </div>
+}
+else if (_dashboard is null)
+{
+    <div class="app-alert">Không tải được dữ liệu dashboard.</div>
+}
+else
+{
+    <div class="row g-3 mb-3">
+        <div class="col-md-6 col-xl-3">
+            <Card IsShadow="true" class="dashboard-kpi h-100">
+                <BodyTemplate>
+                    <div class="dashboard-kpi-label">Tổng khách thuê</div>
+                    <div class="dashboard-kpi-value">@_dashboard.TotalTenants</div>
+                    <div class="dashboard-kpi-meta text-muted small">Active: @_dashboard.ActiveTenants · Suspended: @_dashboard.SuspendedTenants</div>
+                </BodyTemplate>
+            </Card>
         </div>
-    }
-</div>
+        <div class="col-md-6 col-xl-3">
+            <Card IsShadow="true" class="dashboard-kpi h-100">
+                <BodyTemplate>
+                    <div class="dashboard-kpi-label">Khách thuê mới</div>
+                    <div class="dashboard-kpi-value">@_dashboard.NewTenantsLast30Days</div>
+                    <div class="dashboard-kpi-meta text-muted small">7 ngày: @_dashboard.NewTenantsLast7Days</div>
+                </BodyTemplate>
+            </Card>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <Card IsShadow="true" class="dashboard-kpi h-100">
+                <BodyTemplate>
+                    <div class="dashboard-kpi-label">Người dùng mới</div>
+                    <div class="dashboard-kpi-value">@_dashboard.NewUsersLast30Days</div>
+                    <div class="dashboard-kpi-meta text-muted small">7 ngày: @_dashboard.NewUsersLast7Days</div>
+                </BodyTemplate>
+            </Card>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <Card IsShadow="true" class="dashboard-kpi h-100">
+                <BodyTemplate>
+                    <div class="dashboard-kpi-label">MRR (mock)</div>
+                    <div class="dashboard-kpi-value">@FormatMoney(_dashboard.MonthlyRecurringRevenue)</div>
+                    <div class="dashboard-kpi-meta text-muted small">Gói active: @_dashboard.ActiveSubscriptions</div>
+                </BodyTemplate>
+            </Card>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-7">
+            <Card HeaderText="Khách thuê mới (30 ngày)" IsShadow="true">
+                <BodyTemplate>
+                    <Chart Height="280px" ChartType="ChartType.Line" OnInitAsync="OnInitTenantGrowthChartAsync" />
+                </BodyTemplate>
+            </Card>
+        </div>
+        <div class="col-lg-5">
+            <Card HeaderText="Phân bố gói dịch vụ" IsShadow="true">
+                <BodyTemplate>
+                    <Chart Height="280px" ChartType="ChartType.Doughnut" OnInitAsync="OnInitPlanChartAsync" />
+                </BodyTemplate>
+            </Card>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <Card HeaderText="Doanh thu mock (6 tháng)" IsShadow="true">
+                <BodyTemplate>
+                    <Chart Height="280px" ChartType="ChartType.Bar" OnInitAsync="OnInitRevenueChartAsync" />
+                </BodyTemplate>
+            </Card>
+        </div>
+        <div class="col-lg-5">
+            <Card HeaderText="Khách thuê mới gần đây" IsShadow="true">
+                <BodyTemplate>
+                    <Table TItem="PlatformRecentTenantDto" Items="@(_dashboard.RecentTenants ?? [])"
+                           IsStriped="true" IsBordered="true" IsPagination="false">
+                        <TableColumns>
+                            <TableColumn @bind-Field="@context.Code" Text="Mã" />
+                            <TableColumn @bind-Field="@context.Name" Text="Tên" />
+                            <TableColumn @bind-Field="@context.PlanCode" Text="Gói" />
+                        </TableColumns>
+                    </Table>
+                </BodyTemplate>
+            </Card>
+        </div>
+    </div>
+}
 
 @code {
-    private readonly (string Title, string Description, string Url, string Icon)[] _tiles =
-    [
-        ("Khách thuê", "Công ty, mô-đun, cấu hình", "tenants", "fa-solid fa-building"),
-        ("Người dùng", "Danh tính và gán vai trò", "users", "fa-solid fa-users"),
-        ("Phân quyền", "Quyền vai trò và kiểm tra", "permissions", "fa-solid fa-user-shield"),
-        ("Quy trình", "Định nghĩa và phiên phê duyệt", "workflow", "fa-solid fa-diagram-project"),
-        ("Tệp tin", "Thông tin và liên kết chứng từ", "files", "fa-solid fa-folder-open"),
-        ("Đánh số", "Chuỗi số chứng từ", "numbering", "fa-solid fa-hashtag"),
-        ("Nhật ký", "Nhật ký truy cập và thay đổi", "audit", "fa-solid fa-clipboard-list"),
-    ];
+    private PlatformDashboardDto? _dashboard;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _dashboard = await Api.GetPlatformDashboardAsync();
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task<ChartDataSource> OnInitTenantGrowthChartAsync()
+    {
+        var ds = new ChartDataSource();
+        var series = _dashboard?.TenantGrowthSeries ?? [];
+        ds.Labels = series.Select(x => x.Date.ToString("dd/MM")).ToList();
+        ds.Data.Add(new ChartDataset
+        {
+            Label = "Khách thuê mới",
+            Data = series.Select(x => (object)x.Count).ToList()
+        });
+        ds.Options.ShowLegend = false;
+        ds.Options.X.Title = "Ngày";
+        ds.Options.Y.Title = "Số lượng";
+        return Task.FromResult(ds);
+    }
+
+    private Task<ChartDataSource> OnInitPlanChartAsync()
+    {
+        var ds = new ChartDataSource();
+        var plans = _dashboard?.ActiveSubscriptionsByPlan ?? new Dictionary<string, int>();
+        ds.Labels = plans.Keys.ToList();
+        ds.Data.Add(new ChartDataset
+        {
+            Label = "Gói",
+            Data = plans.Values.Select(x => (object)x).ToList()
+        });
+        return Task.FromResult(ds);
+    }
+
+    private Task<ChartDataSource> OnInitRevenueChartAsync()
+    {
+        var ds = new ChartDataSource();
+        var revenue = _dashboard?.RevenueLast6Months ?? [];
+        ds.Labels = revenue.Select(x => x.Month).ToList();
+        ds.Data.Add(new ChartDataset
+        {
+            Label = "Doanh thu",
+            Data = revenue.Select(x => (object)x.Amount).ToList()
+        });
+        ds.Options.ShowLegend = false;
+        ds.Options.Y.Title = "VND";
+        return Task.FromResult(ds);
+    }
+
+    private static string FormatMoney(decimal amount)
+        => amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
 }

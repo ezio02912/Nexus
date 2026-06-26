@@ -91,7 +91,16 @@ public sealed class Tenant : FullAuditedAggregateRoot<Guid>
 
     public void SetSubscription(string planCode, DateTimeOffset? expiresAt, Guid? modifierId, DateTimeOffset now)
     {
-        Subscription = new TenantSubscription(Guid.NewGuid(), Id, NormalizeCode(planCode), expiresAt);
+        var normalized = NormalizeCode(planCode);
+        if (Subscription is null)
+        {
+            Subscription = new TenantSubscription(Guid.NewGuid(), Id, normalized, expiresAt);
+        }
+        else
+        {
+            Subscription.ChangePlan(normalized, expiresAt);
+        }
+
         SetModificationAudit(modifierId, now);
     }
 

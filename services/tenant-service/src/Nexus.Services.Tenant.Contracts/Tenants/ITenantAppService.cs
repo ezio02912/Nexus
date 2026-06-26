@@ -15,4 +15,5 @@ public interface ITenantAppService
     Task<TenantDto> SuspendAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TenantDto> EnableModuleAsync(Guid id, ChangeTenantModuleDto input, CancellationToken cancellationToken = default);
     Task<TenantDto> DisableModuleAsync(Guid id, ChangeTenantModuleDto input, CancellationToken cancellationToken = default);
+    Task<TenantDto> ChangeSubscriptionAsync(Guid id, ChangeTenantSubscriptionDto input, CancellationToken cancellationToken = default);
 }

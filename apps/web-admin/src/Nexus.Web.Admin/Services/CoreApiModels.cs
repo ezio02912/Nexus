@@ -14,12 +14,21 @@ public sealed record TenantDto
     public string RepresentativeName { get; set; } = "";
     public string ContactEmail { get; set; } = "";
     public string Status { get; set; } = "";
+    public TenantSubscriptionDto? Subscription { get; set; }
     public IReadOnlyList<TenantModuleDto>? Modules { get; set; }
     public IReadOnlyDictionary<string, string>? Settings { get; set; }
     public string? ConcurrencyStamp { get; set; }
 }
+public sealed record TenantSubscriptionDto
+{
+    public string PlanCode { get; set; } = "";
+    public string PlanName { get; set; } = "";
+    public decimal MonthlyPrice { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
+}
 public sealed record TenantModuleDto(string ModuleCode, bool IsEnabled);
-public sealed record CreateTenantRequest(string Code, string Name, string? Address = null, string? Phone = null, string RepresentativeName = "", string ContactEmail = "");
+public sealed record CreateTenantRequest(string Code, string Name, string? Address = null, string? Phone = null, string RepresentativeName = "", string ContactEmail = "", string PlanCode = "FREE");
+public sealed record ChangeTenantSubscriptionRequest(string PlanCode);
 public sealed record UpdateTenantProfileRequest(string Name, string? Address, string? Phone, string RepresentativeName, string ContactEmail);
 public sealed record ChangeTenantModuleRequest(string ModuleCode);
 public sealed record UpdateTenantSettingsRequest(IReadOnlyDictionary<string, string> Settings);
@@ -95,6 +104,8 @@ public sealed record WorkflowActionRequest(Guid UserId, string? Comment);
 public sealed record WorkflowInstanceRecord(Guid Id, Guid? TenantId, Guid WorkflowDefinitionId, string SourceModule, string SourceType, string SourceId, string Status, IReadOnlyList<WorkflowActionRecord> Actions, DateTimeOffset CreatedAt);
 public sealed record WorkflowActionRecord(Guid Id, Guid UserId, string Action, string? Comment, DateTimeOffset CreatedAt);
 
+public sealed record MasterDataCategoryDto(string Code, string Label);
+
 public sealed record LookupItemDto
 {
     public Guid Id { get; set; }
@@ -107,3 +118,55 @@ public sealed record LookupItemDto
 
 public sealed record CreateLookupItemRequest(string Category, string Code, string Name, int SortOrder, bool IsActive);
 public sealed record UpdateLookupItemRequest(string Code, string Name, int SortOrder, bool IsActive);
+
+public sealed record SubscriptionPlanDto
+{
+    public string PlanCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public decimal MonthlyPrice { get; set; }
+    public IReadOnlyList<string>? Modules { get; set; }
+    public int MaxUsers { get; set; }
+    public int StorageGb { get; set; }
+    public int TierOrder { get; set; }
+}
+
+public sealed record PlatformDashboardDto
+{
+    public int TotalTenants { get; set; }
+    public int ActiveTenants { get; set; }
+    public int SuspendedTenants { get; set; }
+    public int NewTenantsLast7Days { get; set; }
+    public int NewTenantsLast30Days { get; set; }
+    public int NewUsersLast7Days { get; set; }
+    public int NewUsersLast30Days { get; set; }
+    public int ActiveSubscriptions { get; set; }
+    public decimal MonthlyRecurringRevenue { get; set; }
+    public IReadOnlyDictionary<string, int>? ActiveSubscriptionsByPlan { get; set; }
+    public IReadOnlyList<PlatformTimeSeriesPointDto>? TenantGrowthSeries { get; set; }
+    public IReadOnlyList<PlatformTimeSeriesPointDto>? UserGrowthSeries { get; set; }
+    public IReadOnlyList<PlatformRevenuePointDto>? RevenueLast6Months { get; set; }
+    public IReadOnlyList<PlatformRecentTenantDto>? RecentTenants { get; set; }
+}
+
+public sealed record PlatformTimeSeriesPointDto(DateOnly Date, int Count);
+public sealed record PlatformRevenuePointDto(string Month, decimal Amount);
+public sealed class PlatformRecentTenantDto
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? PlanCode { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed record SubscriptionPaymentDto
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string PlanCode { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string Status { get; set; } = "";
+    public string? MockReference { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? PaidAt { get; set; }
+}

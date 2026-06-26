@@ -38,7 +38,7 @@ public partial class CrmLeads
     {
         _isCreate = true;
         _modalTitle = "Thêm lead";
-        _model = new LeadFormModel { Source = "Website" };
+        _model = new LeadFormModel();
         return _editModal!.Show();
     }
 

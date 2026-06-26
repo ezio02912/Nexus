@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Nexus.BuildingBlocks.Observability/Nexus.BuildingBlocks.Observability.csproj" />
     <ProjectReference Include="../../../api-contracts/src/Nexus.ApiContracts/Nexus.ApiContracts.csproj" />
     <ProjectReference Include="../../../common-kernel/src/Nexus.SharedKernel/Nexus.SharedKernel.csproj" />
   </ItemGroup>

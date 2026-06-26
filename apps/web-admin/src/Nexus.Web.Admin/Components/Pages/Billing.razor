@@ -1,0 +1,56 @@
+@page "/billing"
+@inject CoreApiClient Api
+@inject ToastService ToastService
+
+<PageTitle>Thanh toán</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Thanh toán mock</h1>
+        <p>Lịch sử checkout và thanh toán nâng cấp gói trên toàn nền tảng.</p>
+    </div>
+</section>
+
+<Card HeaderText="Hóa đơn / thanh toán gần đây" IsShadow="true">
+    <BodyTemplate>
+        @if (_loading)
+        {
+            <Spinner Color="Color.Primary" />
+        }
+        else
+        {
+            <Table TItem="SubscriptionPaymentDto" Items="@_payments" IsStriped="true" IsBordered="true" IsPagination="true" PageItemsSource="@_pageItems">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.TenantId" Text="Tenant ID" />
+                    <TableColumn @bind-Field="@context.PlanCode" Text="Gói" />
+                    <TableColumn @bind-Field="@context.Amount" Text="Số tiền" FormatString="N0" />
+                    <TableColumn @bind-Field="@context.Status" Text="Trạng thái" />
+                    <TableColumn @bind-Field="@context.MockReference" Text="Mã mock" />
+                    <TableColumn @bind-Field="@context.PaidAt" Text="Thanh toán lúc" FormatString="dd/MM/yyyy HH:mm" />
+                </TableColumns>
+            </Table>
+        }
+    </BodyTemplate>
+</Card>
+
+@code {
+    private bool _loading = true;
+    private List<SubscriptionPaymentDto> _payments = [];
+    private static readonly int[] _pageItems = [10, 20, 50];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _payments = (await Api.GetPlatformBillingInvoicesAsync())?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

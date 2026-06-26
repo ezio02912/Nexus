@@ -1,7 +1,20 @@
 namespace Nexus.Web.Tenant.Services;
 
 public sealed record PagedResult<T>(long TotalCount, IReadOnlyList<T> Items);
-public sealed record TenantDto(Guid Id, string Code, string Name, string Status, IReadOnlyList<TenantModuleDto>? Modules, IReadOnlyDictionary<string, string>? Settings, string? ConcurrencyStamp);
+public sealed record TenantSubscriptionDto(string PlanCode, string PlanName, decimal MonthlyPrice, DateTimeOffset? ExpiresAt);
+public sealed record TenantDto(
+    Guid Id,
+    string Code,
+    string Name,
+    string Status,
+    IReadOnlyList<TenantModuleDto>? Modules,
+    IReadOnlyDictionary<string, string>? Settings,
+    string? ConcurrencyStamp,
+    TenantSubscriptionDto? Subscription = null);
+public sealed record SubscriptionPlanDto(string PlanCode, string Name, decimal MonthlyPrice, IReadOnlyList<string>? Modules, int MaxUsers, int StorageGb, int TierOrder);
+public sealed record CreateCheckoutRequest(string TargetPlanCode);
+public sealed record CheckoutSessionDto(Guid CheckoutId, string TargetPlanCode, string TargetPlanName, decimal Amount, string MockCardNumber);
+public sealed record SubscriptionPaymentDto(Guid Id, Guid TenantId, string PlanCode, decimal Amount, string Status, string? MockReference, DateTimeOffset CreatedAt, DateTimeOffset? PaidAt);
 public sealed record TenantModuleDto(string ModuleCode, bool IsEnabled);
 public sealed record LoginRequest(Guid TenantId, string UserName, string Password);
 public sealed record LoginEmailRequest(string Email, string Password);

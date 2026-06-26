@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
@@ -7,6 +8,7 @@ using Nexus.Services.Notification.Api.Email;
 using Nexus.Services.Notification.Api.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("notification-service");
 
 var connectionString = builder.Configuration.GetConnectionString("NotificationDb")
     ?? "Host=localhost;Port=5432;Database=notification_db;Username=nexus;Password=nexus_dev_password";
@@ -107,6 +109,7 @@ notifications.MapPost("/{id:guid}/read", async (Guid id, NotificationDbContext d
     return Results.Ok(notification);
 });
 
+app.MapNexusObservability();
 app.Run();
 
 public sealed record CreateNotificationDto(Guid? TenantId, Guid? RecipientUserId, string? RecipientEmail, string Channel, string Subject, string Body);

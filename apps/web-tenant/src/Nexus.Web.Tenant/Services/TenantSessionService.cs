@@ -14,6 +14,9 @@ public sealed class TenantSessionService(ProtectedLocalStorage storage)
 
     public bool IsInitialized { get; private set; }
 
+    /// <summary>Raised when the active tenant (modules, subscription) changes so the shell can rebuild its menu.</summary>
+    public event Action? TenantChanged;
+
     public bool IsAuthenticated => Login is not null && Tenant is not null && Login.ExpiresAt > DateTimeOffset.UtcNow;
     public Guid? TenantId => Tenant?.Id;
 
@@ -65,6 +68,7 @@ public sealed class TenantSessionService(ProtectedLocalStorage storage)
         RefreshPermissions();
         IsInitialized = true;
         await storage.SetAsync(StorageKey, new PersistedSession(userName, login, tenant));
+        TenantChanged?.Invoke();
     }
 
     public async Task SignOutAsync()
@@ -74,6 +78,18 @@ public sealed class TenantSessionService(ProtectedLocalStorage storage)
         Tenant = null;
         _permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await storage.DeleteAsync(StorageKey);
+    }
+
+    public async Task UpdateTenantAsync(TenantDto tenant)
+    {
+        if (Login is null || UserName is null)
+        {
+            return;
+        }
+
+        Tenant = tenant;
+        await storage.SetAsync(StorageKey, new PersistedSession(UserName, Login, tenant));
+        TenantChanged?.Invoke();
     }
 
     private void RefreshPermissions()

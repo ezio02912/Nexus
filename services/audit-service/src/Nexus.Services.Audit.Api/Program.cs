@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
@@ -7,6 +8,7 @@ using Nexus.Services.Audit.Api.Persistence;
 using Nexus.SharedKernel.Auditing;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("audit-service");
 
 var connectionString = builder.Configuration.GetConnectionString("AuditDb")
     ?? "Host=localhost;Port=5432;Database=audit_db;Username=nexus;Password=nexus_dev_password";
@@ -74,6 +76,7 @@ app.MapPost("/api/audit-logs", async (CreateAuditLogDto input, AuditDbContext db
     return Results.Created($"/api/audit-logs/{entry.Id}", entry);
 }).RequireAuthorization();
 
+app.MapNexusObservability();
 app.Run();
 
 public sealed record CreateAuditLogDto(

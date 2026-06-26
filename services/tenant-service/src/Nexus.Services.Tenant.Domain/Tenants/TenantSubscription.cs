@@ -21,4 +21,10 @@ public sealed class TenantSubscription : NexusEntity<Guid>
     public Guid TenantId { get; private set; }
     public string PlanCode { get; private set; }
     public DateTimeOffset? ExpiresAt { get; private set; }
+
+    public void ChangePlan(string planCode, DateTimeOffset? expiresAt)
+    {
+        PlanCode = Check.Length(Check.NotNullOrWhiteSpace(planCode, nameof(planCode)), nameof(planCode), TenantConsts.PlanCodeMaxLength);
+        ExpiresAt = expiresAt;
+    }
 }

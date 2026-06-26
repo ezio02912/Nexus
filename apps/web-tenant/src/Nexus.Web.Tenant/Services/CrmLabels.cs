@@ -100,6 +100,9 @@ public static class CrmLabels
         _ => value.ToString()
     };
 
+    // First declared customer type, used as the default selection on the create form.
+    public static string DefaultCustomerType() => Enum.GetValues<CustomerType>().First().ToString();
+
     public static List<SelectedItem> CustomerTypeOptions(bool includePlaceholder = false)
     {
         var items = Enum.GetValues<CustomerType>()

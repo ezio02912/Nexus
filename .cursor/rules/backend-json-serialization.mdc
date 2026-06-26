@@ -1,0 +1,32 @@
+---
+description: JSON serialization rules for Nexus backend minimal APIs and services
+globs: services/**/*.cs,shared/building-blocks/**/*.cs
+alwaysApply: false
+---
+
+# Backend JSON Serialization Rules
+
+All Nexus microservices that call `AddNexusWeb()` MUST accept enum values as **JSON strings** (e.g. `"Company"`, `"Individual"`), not only numeric values.
+
+## Required setup
+
+`AddNexusWeb()` registers:
+
+```csharp
+services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNameCaseInsensitive = true;
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+```
+
+Do **not** remove this when adding new services. If a service does not use `AddNexusWeb()`, add the same `ConfigureHttpJsonOptions` block in its `Program.cs`.
+
+## Client alignment
+
+- Blazor HTTP clients (`CrmApiClient`, etc.) may also use `JsonStringEnumConverter` — payloads should use enum **names**, not integers.
+- Domain enums persisted as strings in EF (`HasConversion<string>()`) must stay consistent with JSON names.
+
+## Error handling
+
+When request body deserialization fails (invalid enum, malformed JSON), return a **400** with a short message instead of exposing raw stack traces to clients.

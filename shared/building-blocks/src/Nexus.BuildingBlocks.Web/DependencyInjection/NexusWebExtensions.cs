@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
@@ -28,6 +29,13 @@ public static class NexusWebExtensions
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddAuthorization();
+
+        // Accept enum names as JSON strings (e.g. "Company") across minimal APIs and controllers.
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.PropertyNameCaseInsensitive = true;
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        });
 
         return services;
     }

@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../../../shared/building-blocks/src/Nexus.BuildingBlocks.Observability/Nexus.BuildingBlocks.Observability.csproj" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
 

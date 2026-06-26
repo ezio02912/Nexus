@@ -117,6 +117,7 @@
     <Project Path="shared/building-blocks/src/Nexus.BuildingBlocks.EntityFrameworkCore/Nexus.BuildingBlocks.EntityFrameworkCore.csproj" />
     <Project Path="shared/building-blocks/src/Nexus.BuildingBlocks.Web/Nexus.BuildingBlocks.Web.csproj" />
     <Project Path="shared/building-blocks/src/Nexus.BuildingBlocks.Messaging/Nexus.BuildingBlocks.Messaging.csproj" />
+    <Project Path="shared/building-blocks/src/Nexus.BuildingBlocks.Observability/Nexus.BuildingBlocks.Observability.csproj" />
   </Folder>
   <Folder Name="/shared/common-kernel/" />
   <Folder Name="/shared/common-kernel/src/">

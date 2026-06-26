@@ -53,3 +53,16 @@ After migration and service startup, web tenant demo login is:
 - Notification: `7210`
 - Master Data: `7211`
 - Workers: no public port by default
+
+## Observability
+
+```bash
+docker compose -f deploy/docker-compose/docker-compose.yml up -d
+./tools/scripts/run-core-services.zsh
+./tools/scripts/open-observability.zsh
+```
+
+- Grafana: http://localhost:3000 (admin / nexus)
+- Web Admin monitoring: http://localhost:7100/monitoring
+
+Chi tiết: `docs/observability.md`.

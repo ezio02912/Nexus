@@ -58,6 +58,8 @@ dotnet run --project apps/web-admin/src/Nexus.Web.Admin/Nexus.Web.Admin.csproj -
 
 Web Admin login flow xem tại `docs/web-admin.md`.
 
+Observability & monitoring (Grafana, Loki, Prometheus): `docs/observability.md`.
+
 Build Tenant + Identity riêng:
 
 ```bash

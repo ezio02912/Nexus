@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
 @inject TenantSessionService Session
 @inject NavigationManager Navigation
 
@@ -119,9 +120,17 @@
             return;
         }
 
+        Session.TenantChanged += OnTenantChanged;
         BuildMenus();
         _ready = true;
         StateHasChanged();
+    }
+
+    private void OnTenantChanged()
+    {
+        // Rebuild the sidebar so newly enabled modules appear immediately after an upgrade.
+        BuildMenus();
+        InvokeAsync(StateHasChanged);
     }
 
     private void BuildMenus()
@@ -161,4 +170,9 @@
 
     private static string Initials(string? name)
         => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+
+    public void Dispose()
+    {
+        Session.TenantChanged -= OnTenantChanged;
+    }
 }

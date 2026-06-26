@@ -15,6 +15,7 @@ public sealed class CreateTenantDto
     public string? Phone { get; init; }
     public string RepresentativeName { get; init; } = string.Empty;
     public string ContactEmail { get; init; } = string.Empty;
+    public string PlanCode { get; init; } = "FREE";
 }
 
 public sealed class CreateInternalTenantDto
@@ -25,7 +26,13 @@ public sealed class CreateInternalTenantDto
     public string? Phone { get; init; }
     public required string RepresentativeName { get; init; }
     public required string ContactEmail { get; init; }
+    public string PlanCode { get; init; } = "FREE";
     public IReadOnlyList<string> DefaultModules { get; init; } = [];
+}
+
+public sealed class ChangeTenantSubscriptionDto
+{
+    public required string PlanCode { get; init; }
 }
 
 public sealed class UpdateTenantProfileDto
@@ -47,6 +54,14 @@ public sealed class ChangeTenantModuleDto
     public required string ModuleCode { get; init; }
 }
 
+public sealed class TenantSubscriptionDto
+{
+    public string PlanCode { get; init; } = string.Empty;
+    public string PlanName { get; init; } = string.Empty;
+    public decimal MonthlyPrice { get; init; }
+    public DateTimeOffset? ExpiresAt { get; init; }
+}
+
 public sealed class TenantDto
 {
     public Guid Id { get; init; }
@@ -57,6 +72,7 @@ public sealed class TenantDto
     public string RepresentativeName { get; init; } = string.Empty;
     public string ContactEmail { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
+    public TenantSubscriptionDto? Subscription { get; init; }
     public IReadOnlyList<TenantModuleDto> Modules { get; init; } = [];
     public IReadOnlyDictionary<string, string> Settings { get; init; } = new Dictionary<string, string>();
     public string ConcurrencyStamp { get; init; } = string.Empty;

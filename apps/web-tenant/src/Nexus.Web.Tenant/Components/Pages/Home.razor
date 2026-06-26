@@ -14,6 +14,17 @@
     </a>
 </section>
 
+@if (CanUpgrade)
+{
+    <div class="subscription-upgrade-banner mb-3">
+        <div>
+            <strong>Nâng cấp để mở thêm phân hệ</strong>
+            <span>Mở khoá Bán hàng, Kho và nhiều phân hệ khác cho tenant của bạn.</span>
+        </div>
+        <a class="btn btn-light" href="subscription"><i class="fa-solid fa-arrow-up me-1"></i>Nâng cấp gói</a>
+    </div>
+}
+
 <div class="row g-3 mb-3">
     @foreach (var tile in Tiles)
     {
@@ -84,6 +95,7 @@
                     <a href="tenant-users"><i class="fa-solid fa-users"></i>Quản lý người dùng</a>
                     <a href="tenant-permissions"><i class="fa-solid fa-user-shield"></i>Phân quyền vai trò</a>
                     <a href="reports"><i class="fa-solid fa-chart-line"></i>Báo cáo</a>
+                    <a href="subscription"><i class="fa-solid fa-gem"></i>Nâng cấp gói</a>
                     <a href="settings"><i class="fa-solid fa-gear"></i>Thiết lập tenant</a>
                 </div>
             </BodyTemplate>
@@ -94,11 +106,16 @@
 @code {
     private (string Label, string Value, string Icon)[] Tiles =>
     [
+        ("Gói hiện tại", Session.Tenant?.Subscription?.PlanName ?? "Miễn phí", "fa-solid fa-gem"),
         ("Module đã bật", Session.EnabledModules.Count.ToString(), "fa-solid fa-cubes"),
         ("Mã tenant", Session.Tenant?.Code ?? "-", "fa-solid fa-building"),
-        ("Người dùng", Session.UserName ?? "-", "fa-solid fa-user"),
         ("Trạng thái", Session.Tenant?.Status ?? "Chưa đăng nhập", "fa-solid fa-circle-check"),
     ];
+
+    private bool CanUpgrade =>
+        Session.IsAuthenticated
+        && Session.IsGranted(NexusPermissions.TenantAdmin.Settings.View)
+        && !string.Equals(Session.Tenant?.Subscription?.PlanCode, "PREMIUM", StringComparison.OrdinalIgnoreCase);
 
     private static string ModuleUrl(string module) => module.ToUpperInvariant() switch
     {

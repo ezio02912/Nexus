@@ -102,3 +102,34 @@ public sealed class TenantCreatedHandler : IIntegrationEventHandler<TenantCreate
             body), cancellationToken);
     }
 }
+
+public sealed class SubscriptionChangedHandler : IIntegrationEventHandler<SubscriptionChangedIntegrationEvent>
+{
+    private readonly AuditApiClient _audit;
+    private readonly ILogger<SubscriptionChangedHandler> _logger;
+
+    public SubscriptionChangedHandler(AuditApiClient audit, ILogger<SubscriptionChangedHandler> logger)
+    {
+        _audit = audit;
+        _logger = logger;
+    }
+
+    public async Task HandleAsync(SubscriptionChangedIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Handling SubscriptionChanged for tenant {TenantId}: {OldPlan} -> {NewPlan}.",
+            integrationEvent.ChangedTenantId,
+            integrationEvent.OldPlanCode,
+            integrationEvent.NewPlanCode);
+
+        await _audit.WriteAsync(new CreateAuditLogRequest(
+            integrationEvent.ChangedTenantId,
+            null,
+            "background-worker",
+            "TenantSubscription",
+            integrationEvent.ChangedTenantId.ToString(),
+            "Update",
+            $"Subscription changed from '{integrationEvent.OldPlanCode}' to '{integrationEvent.NewPlanCode}' (amount {integrationEvent.Amount}).",
+            integrationEvent.CorrelationId), cancellationToken);
+    }
+}

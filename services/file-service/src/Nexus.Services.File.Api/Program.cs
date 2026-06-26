@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
@@ -7,6 +8,7 @@ using Nexus.Services.File.Api.Persistence;
 using Nexus.Services.File.Api.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("file-service");
 
 var connectionString = builder.Configuration.GetConnectionString("FileDb")
     ?? "Host=localhost;Port=5432;Database=file_db;Username=nexus;Password=nexus_dev_password";
@@ -121,6 +123,7 @@ app.MapPost("/api/file-links", async (CreateFileLinkDto input, FileDbContext db,
     return Results.Created($"/api/files/{input.FileId}", new FileLinkDto(link.Id, link.FileId, link.Module, link.EntityType, link.EntityId, link.CreatedAt));
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Files.Upload));
 
+app.MapNexusObservability();
 app.Run();
 
 public sealed record CreateFileDto(Guid? TenantId, string FileName, string ContentType, long Size, string StoragePath);

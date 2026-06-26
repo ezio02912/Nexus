@@ -1,4 +1,7 @@
+using Nexus.BuildingBlocks.Observability;
+
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("api-gateway");
 
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
@@ -20,4 +23,5 @@ app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", CheckedAt = Dat
 // Forwards requests (including the Authorization header) to the downstream services.
 app.MapReverseProxy();
 
+app.MapNexusObservability();
 app.Run();

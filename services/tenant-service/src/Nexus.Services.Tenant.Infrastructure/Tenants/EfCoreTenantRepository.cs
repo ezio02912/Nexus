@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Nexus.BuildingBlocks.EntityFrameworkCore;
 using Nexus.BuildingBlocks.EntityFrameworkCore.Repositories;
+using Nexus.Services.Tenant.Domain.Billing;
 using Nexus.Services.Tenant.Domain.Tenants;
 using TenantAggregate = Nexus.Services.Tenant.Domain.Tenants.Tenant;
 
@@ -46,6 +47,22 @@ public sealed class EfCoreTenantRepository : EfCoreRepository<TenantAggregate, G
                 && !await Context.Set<TenantSetting>().AnyAsync(x => x.Id == setting.Id, cancellationToken))
             {
                 entry.State = EntityState.Added;
+            }
+        }
+
+        if (entity.Subscription is not null)
+        {
+            var subscriptionEntry = Context.Entry(entity.Subscription);
+            if (subscriptionEntry.State == EntityState.Detached)
+            {
+                Context.Set<TenantSubscription>().Add(entity.Subscription);
+                subscriptionEntry = Context.Entry(entity.Subscription);
+            }
+
+            if (subscriptionEntry.State == EntityState.Modified
+                && !await Context.Set<TenantSubscription>().AnyAsync(x => x.Id == entity.Subscription.Id, cancellationToken))
+            {
+                subscriptionEntry.State = EntityState.Added;
             }
         }
 

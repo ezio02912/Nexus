@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
@@ -6,6 +7,7 @@ using Nexus.BuildingBlocks.Web.DependencyInjection;
 using Nexus.Services.Numbering.Api.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("numbering-service");
 
 var connectionString = builder.Configuration.GetConnectionString("NumberingDb")
     ?? "Host=localhost;Port=5432;Database=numbering_db;Username=nexus;Password=nexus_dev_password";
@@ -60,6 +62,7 @@ app.MapGet("/api/numbering/sequences", async (NumberingDbContext db, Cancellatio
     return Results.Ok(items);
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Numbering.View));
 
+app.MapNexusObservability();
 app.Run();
 
 static string BuildKey(Guid? tenantId, string module, string documentType, string? period)

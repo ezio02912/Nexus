@@ -101,6 +101,32 @@ public sealed class TenantPortalApiClient
     public Task<SalesOrderRecord?> ApproveSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/approve", new { });
     public Task<SalesOrderRecord?> CompleteSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/complete", new { });
 
+    public Task<IReadOnlyList<SubscriptionPlanDto>?> GetSubscriptionPlansAsync() =>
+        GetAsync<IReadOnlyList<SubscriptionPlanDto>>(_options.Tenant, "/api/subscription-plans/");
+
+    public Task<CheckoutSessionDto?> CreateCheckoutAsync(CreateCheckoutRequest request) =>
+        PostAsync<CheckoutSessionDto>(_options.Tenant, "/api/billing/checkout", request);
+
+    public Task<TenantSubscriptionDto?> ConfirmCheckoutAsync(Guid checkoutId) =>
+        PostAsync<TenantSubscriptionDto>(_options.Tenant, $"/api/billing/checkout/{checkoutId}/confirm", new { });
+
+    public Task<IReadOnlyList<SubscriptionPaymentDto>?> GetBillingInvoicesAsync() =>
+        GetAsync<IReadOnlyList<SubscriptionPaymentDto>>(_options.Tenant, "/api/billing/invoices");
+
+    public async Task RefreshTenantSessionAsync()
+    {
+        if (_session.TenantId is not Guid tenantId || _session.Login is null)
+        {
+            return;
+        }
+
+        var tenant = await GetTenantAsync(tenantId);
+        if (tenant is not null && _session.UserName is not null)
+        {
+            await _session.UpdateTenantAsync(tenant);
+        }
+    }
+
     private async Task<T?> GetAsync<T>(string baseUrl, string path)
     {
         var response = await CreateClient().GetAsync(BuildUrl(baseUrl, path));
@@ -138,9 +164,47 @@ public sealed class TenantPortalApiClient
             return default;
         }
 
+        if (response.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(await ReadErrorMessageAsync(response));
+        }
+
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<T>();
     }
+
+    private static async Task<string> ReadErrorMessageAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var error = await response.Content.ReadFromJsonAsync<ApiError>();
+            if (error?.Code is { Length: > 0 } code && TranslateErrorCode(code) is { } translated)
+            {
+                return translated;
+            }
+
+            if (!string.IsNullOrWhiteSpace(error?.Message))
+            {
+                return error!.Message!;
+            }
+        }
+        catch
+        {
+            // Fall through to the generic message when the body is not JSON.
+        }
+
+        return "Yêu cầu không thực hiện được. Vui lòng thử lại.";
+    }
+
+    private static string? TranslateErrorCode(string code) => code switch
+    {
+        "Billing.UpgradeNotAllowed" => "Chỉ được nâng cấp lên gói cao hơn.",
+        "Billing.CheckoutNotFound" => "Phiên thanh toán không hợp lệ hoặc đã hết hạn.",
+        "Billing.InvalidPlan" => "Gói được chọn không yêu cầu thanh toán.",
+        _ => null
+    };
+
+    private sealed record ApiError(string? Code, string? Message);
 
     private async Task<T?> PutAsync<T>(string baseUrl, string path, object request)
     {

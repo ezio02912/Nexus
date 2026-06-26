@@ -31,7 +31,7 @@
                        ShowEditButton="false" ShowDeleteButton="false"
                        ShowExtendEditButton="false" ShowExtendDeleteButton="false"
                        ExtendButtonColumnWidth="180"
-                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
                     <TableToolbarTemplate>
                         @if (Can(NexusPermissions.Crm.Leads.Create))
                         {
@@ -97,9 +97,8 @@
                 <AppFormField Label="Điện thoại">
                     <BootstrapInput @bind-Value="_model.Phone" ShowLabel="false" />
                 </AppFormField>
-                <AppFormField Label="Nguồn">
-                    <BootstrapInput @bind-Value="_model.Source" ShowLabel="false" />
-                </AppFormField>
+                <MasterDataLookupSelect Category="@MasterDataCategories.Source" Label="Nguồn"
+                                        @bind-Value="_model.Source" PlaceHolder="Chọn nguồn..." />
                 @if (!_isCreate)
                 {
                     <AppFormField Label="Điểm lead">

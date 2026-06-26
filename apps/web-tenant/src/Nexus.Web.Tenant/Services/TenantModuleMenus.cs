@@ -110,6 +110,7 @@ public static class TenantAdminMenus
     [
         new("Người dùng", "tenant-users", "fa-solid fa-users", NexusPermissions.TenantAdmin.Users.View),
         new("Phân quyền", "tenant-permissions", "fa-solid fa-user-shield", NexusPermissions.TenantAdmin.Permissions.View),
+        new("Gói dịch vụ", "subscription", "fa-solid fa-tags", NexusPermissions.TenantAdmin.Settings.View),
         new("Thiết lập", "settings", "fa-solid fa-gear", NexusPermissions.TenantAdmin.Settings.View),
     ];
 

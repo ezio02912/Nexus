@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
@@ -7,6 +8,7 @@ using Nexus.Services.MasterData.Api.Persistence;
 using MasterDataCategories = Nexus.Services.MasterData.Api.MasterDataCategories;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("masterdata-service");
 
 var connectionString = builder.Configuration.GetConnectionString("MasterDataDb")
     ?? "Host=localhost;Port=5432;Database=masterdata_db;Username=nexus;Password=nexus_dev_password";
@@ -143,6 +145,7 @@ masterData.MapDelete("/admin/items/{id:guid}", async (Guid id, MasterDataDbConte
     return Results.NoContent();
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.MasterData.Manage));
 
+app.MapNexusObservability();
 app.Run();
 
 static async Task SeedLookupItemsAsync(MasterDataDbContext db)

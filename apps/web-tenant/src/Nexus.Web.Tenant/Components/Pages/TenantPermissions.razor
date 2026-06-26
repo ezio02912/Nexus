@@ -25,10 +25,11 @@
     }
     else
     {
-        <div class="tenant-work-grid">
+        <div class="tenant-permissions-layout">
             <Card HeaderText="Gán quyền vai trò" IsShadow="true">
                 <BodyTemplate>
-                    <BootstrapInput @bind-Value="_roleName" DisplayText="Tên vai trò" ShowLabel="true" />
+                    <Select TValue="string" @bind-Value="_roleName" Items="@_roleOptions"
+                            DisplayText="Tên vai trò" ShowLabel="true" class="mb-2" />
                     <div class="form-text mb-3">Khóa theo tenant: <code>@ScopedRoleName</code></div>
                     <div class="app-actions app-actions-left">
                         <Button Text="Tải quyền" Color="Color.Secondary" IsAsync="true" OnClick="LoadRoleAsync" IsDisabled="_loadingRole" />
@@ -40,11 +41,11 @@
                 </BodyTemplate>
             </Card>
 
-            <Card HeaderText="Danh mục quyền theo menu" IsShadow="true" class="app-card-wide">
+            <Card HeaderText="Danh mục quyền theo menu / dịch vụ" IsShadow="true">
                 <BodyTemplate>
                     <div class="tenant-permission-toolbar">
                         <BootstrapInput @bind-Value="_filter" DisplayText="Lọc quyền" ShowLabel="false"
-                                        PlaceHolder="Lọc theo menu hoặc hành động..." />
+                                        PlaceHolder="Lọc theo module, menu, dịch vụ hoặc hành động..." />
                     </div>
 
                     @if (_loading || _loadingRole)
@@ -93,6 +94,9 @@
                                                     }
                                                     <span>
                                                         <strong>@action.Label</strong>
+                                                        <span class="tenant-permission-service">
+                                                            Dịch vụ: <code>@TenantPermissionCatalog.GetServiceKey(action.Key)</code>
+                                                        </span>
                                                         <code>@action.Key</code>
                                                     </span>
                                                 </label>
@@ -110,6 +114,12 @@
 </section>
 
 @code {
+    private static readonly List<SelectedItem> _roleOptions =
+    [
+        new("TenantAdmin", "TenantAdmin"),
+        new("User", "User")
+    ];
+
     private List<string> _catalog = [];
     private HashSet<string> _selectedPermissions = new(StringComparer.OrdinalIgnoreCase);
     private string _roleName = "TenantAdmin";
@@ -135,15 +145,18 @@
         {
             var remote = (await Api.GetPermissionCatalogAsync())?.ToHashSet(StringComparer.OrdinalIgnoreCase)
                          ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            _catalog = NexusPermissions.TenantAssignable
-                .Where(remote.Contains)
+            var assignable = NexusPermissions.TenantAssignable
+                .Where(x => remote.Count == 0 || remote.Contains(x))
                 .OrderBy(x => x)
                 .ToList();
+            _catalog = assignable.Count > 0
+                ? assignable
+                : NexusPermissions.TenantAssignable.OrderBy(x => x).ToList();
         }
         catch (Exception ex)
         {
             await ShowErrorAsync(ex);
-            _catalog = [];
+            _catalog = NexusPermissions.TenantAssignable.OrderBy(x => x).ToList();
         }
         finally
         {
@@ -166,6 +179,7 @@
         finally
         {
             _loadingRole = false;
+            StateHasChanged();
         }
     }
 
@@ -206,6 +220,7 @@
             _selectedPermissions.Remove(permission);
         }
 
+        StateHasChanged();
         return Task.CompletedTask;
     }
 
@@ -224,6 +239,7 @@
             }
         }
 
+        StateHasChanged();
         return Task.CompletedTask;
     }
 

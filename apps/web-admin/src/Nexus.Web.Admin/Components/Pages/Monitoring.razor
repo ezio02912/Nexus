@@ -1,0 +1,176 @@
+@page "/monitoring"
+@inject MonitoringService MonitoringService
+@inject IOptions<ObservabilityOptions> ObservabilityOptions
+@inject SwalService SwalService
+
+<PageTitle>Giám sát hệ thống</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Giám sát hệ thống</h1>
+        <p>Trạng thái dịch vụ, nhật ký tập trung và công cụ monitoring nền tảng.</p>
+    </div>
+    <div class="page-header-actions">
+        <Button Text="Làm mới" Icon="fa-solid fa-rotate-right" Color="Color.Primary"
+                IsAsync="true" OnClick="ReloadAsync" />
+    </div>
+</section>
+
+@if (_loading)
+{
+    <div class="app-loading">
+        <Spinner Color="Color.Primary" />
+        <span class="app-loading-text">Đang kiểm tra trạng thái dịch vụ...</span>
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <Card IsShadow="true">
+                <BodyTemplate>
+                    <div class="monitor-stat">
+                        <span class="monitor-stat-label">Dịch vụ hoạt động</span>
+                        <strong class="monitor-stat-value">@HealthyCount / @_services.Count</strong>
+                    </div>
+                </BodyTemplate>
+            </Card>
+        </div>
+        <div class="col-md-3">
+            <Card IsShadow="true">
+                <BodyTemplate>
+                    <div class="monitor-stat">
+                        <span class="monitor-stat-label">Grafana</span>
+                        <a href="@_observability.GrafanaUrl" target="_blank" rel="noopener">Mở bảng điều khiển</a>
+                    </div>
+                </BodyTemplate>
+            </Card>
+        </div>
+        <div class="col-md-3">
+            <Card IsShadow="true">
+                <BodyTemplate>
+                    <div class="monitor-stat">
+                        <span class="monitor-stat-label">Prometheus</span>
+                        <a href="@_observability.PrometheusUrl" target="_blank" rel="noopener">Xem metrics</a>
+                    </div>
+                </BodyTemplate>
+            </Card>
+        </div>
+        <div class="col-md-3">
+            <Card IsShadow="true">
+                <BodyTemplate>
+                    <div class="monitor-stat">
+                        <span class="monitor-stat-label">RabbitMQ</span>
+                        <a href="@_observability.RabbitMqManagementUrl" target="_blank" rel="noopener">Quản lý hàng đợi</a>
+                    </div>
+                </BodyTemplate>
+            </Card>
+        </div>
+    </div>
+
+    <Card HeaderText="Trạng thái dịch vụ" IsShadow="true" class="mb-3">
+        <BodyTemplate>
+            <Table TItem="ServiceHealthStatus" Items="@_services" IsStriped="true" IsBordered="true"
+                   IsPagination="false" ShowToolbar="false" ShowSearch="false">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.DisplayName" Text="Dịch vụ" />
+                    <TableColumn @bind-Field="@context.Name" Text="Mã" />
+                    <TableColumn @bind-Field="@context.IsHealthy" Text="Trạng thái">
+                        <Template Context="v">
+                            @if (v.Row.IsHealthy)
+                            {
+                                <span class="app-status-badge bg-success text-white">Healthy</span>
+                            }
+                            else
+                            {
+                                <span class="app-status-badge bg-danger text-white">Down</span>
+                            }
+                        </Template>
+                    </TableColumn>
+                    <TableColumn @bind-Field="@context.StatusCode" Text="HTTP">
+                        <Template Context="v">@(v.Row.StatusCode?.ToString() ?? "—")</Template>
+                    </TableColumn>
+                    <TableColumn @bind-Field="@context.ResponseTime" Text="Thời gian">
+                        <Template Context="v">@($"{v.Row.ResponseTime.TotalMilliseconds:0} ms")</Template>
+                    </TableColumn>
+                    <TableColumn @bind-Field="@context.Detail" Text="Chi tiết">
+                        <Template Context="v">
+                            <span class="text-muted small">@(v.Row.Detail ?? "—")</span>
+                        </Template>
+                    </TableColumn>
+                </TableColumns>
+            </Table>
+        </BodyTemplate>
+    </Card>
+
+    <Card HeaderText="Công cụ giám sát" IsShadow="true" class="mb-3">
+        <BodyTemplate>
+            <div class="monitor-links">
+                <a class="monitor-link" href="@_observability.GrafanaLogsDashboardUrl" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-scroll"></i>
+                    <span>Nhật ký tập trung (Grafana / Loki)</span>
+                </a>
+                <a class="monitor-link" href="@_observability.GrafanaOverviewDashboardUrl" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard tổng quan (Grafana)</span>
+                </a>
+                <a class="monitor-link" href="@_observability.MailpitUrl" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-envelope"></i>
+                    <span>Mailpit (email dev)</span>
+                </a>
+                <a class="monitor-link" href="@_observability.MinioConsoleUrl" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-database"></i>
+                    <span>MinIO Console</span>
+                </a>
+            </div>
+        </BodyTemplate>
+    </Card>
+
+    <Card HeaderText="Nhật ký trực tiếp (Grafana Explore)" IsShadow="true">
+        <BodyTemplate>
+            <p class="text-muted small mb-2">
+                Xem log realtime từ tất cả microservice. Cần chạy Docker observability stack và các service local.
+            </p>
+            <iframe class="monitor-grafana-frame" src="@GrafanaExploreUrl" title="Grafana Explore Logs"></iframe>
+        </BodyTemplate>
+    </Card>
+}
+
+@code {
+    private bool _loading = true;
+    private List<ServiceHealthStatus> _services = [];
+    private ObservabilityOptions _observability = new();
+
+    private int HealthyCount => _services.Count(x => x.IsHealthy);
+
+    private string GrafanaExploreUrl =>
+        $"{_observability.GrafanaUrl.TrimEnd('/')}/explore?orgId=1&left={Uri.EscapeDataString("{\"datasource\":\"loki\",\"queries\":[{\"refId\":\"A\",\"expr\":\"{job=\\\"nexus-services\\\"}\",\"queryType\":\"range\"}],\"range\":{\"from\":\"now-1h\",\"to\":\"now\"}}")}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _observability = ObservabilityOptions.Value;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _services = (await MonitoringService.GetServiceHealthAsync()).OrderBy(x => x.DisplayName).ToList();
+        }
+        catch (Exception ex)
+        {
+            await SwalService.Show(new SwalOption
+            {
+                Category = SwalCategory.Error,
+                Title = "Không thể tải trạng thái dịch vụ",
+                Content = ex.Message
+            });
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

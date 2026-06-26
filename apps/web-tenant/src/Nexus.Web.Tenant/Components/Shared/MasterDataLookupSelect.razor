@@ -1,20 +1,35 @@
 @inject MasterDataApiClient MasterDataApi
 
 <AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
-    <Select TValue="string"
-            @bind-Value="SelectedValue"
-            Items="@_options"
-            ShowLabel="false"
-            ShowSearch="true"
-            IsPopover="true"
-            PlaceHolder="@PlaceHolder"
-            OnSelectedItemChanged="OnSelectedItemChangedAsync" />
+    @if (_loading)
+    {
+        <div class="app-loading py-1">
+            <Spinner Size="Size.Small" Color="Color.Primary" />
+            <span class="app-loading-text">Đang tải...</span>
+        </div>
+    }
+    else
+    {
+        <Select TValue="string"
+                Value="@_selectedValue"
+                ValueChanged="OnValueChangedAsync"
+                Items="@_options"
+                ShowLabel="false"
+                ShowSearch="true"
+                IsPopover="true"
+                PlaceHolder="@PlaceHolder" />
+    }
 </AppFormField>
 
 @code {
+    private static readonly Dictionary<string, CachedOptions> Cache = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly string _selectId = $"masterdata-{Guid.NewGuid():N}";
     private List<SelectedItem> _options = [];
-    private readonly Dictionary<string, string> _nameByCode = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _nameByCode = new(StringComparer.OrdinalIgnoreCase);
+    private string _selectedValue = "";
+    private bool _loading = true;
+    private string? _loadedCategory;
 
     [Parameter] public string Category { get; set; } = "";
     [Parameter] public string Label { get; set; } = "";
@@ -23,12 +38,6 @@
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
 
-    private string? SelectedValue
-    {
-        get => ResolveSelectedCode(Value);
-        set => _ = ValueChanged.InvokeAsync(ResolveStoredValue(value));
-    }
-
     protected override async Task OnParametersSetAsync()
     {
         if (string.IsNullOrWhiteSpace(Category))
@@ -36,13 +45,25 @@
             return;
         }
 
-        await LoadOptionsAsync();
+        if (!string.Equals(_loadedCategory, Category, StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadOptionsAsync();
+        }
+
+        _selectedValue = ResolveForSelect(Value);
     }
 
     private async Task LoadOptionsAsync()
     {
+        _loading = true;
         try
         {
+            if (Cache.TryGetValue(Category, out var cached))
+            {
+                ApplyCachedOptions(cached);
+                return;
+            }
+
             var result = await MasterDataApi.GetItemsAsync(new LookupListQuery
             {
                 Category = Category,
@@ -54,41 +75,64 @@
             foreach (var item in result?.Items ?? [])
             {
                 _nameByCode[item.Code] = item.Name;
-                items.Add(new SelectedItem(item.Code, item.Name));
+                // Bind by display name — persisted customer fields store Vietnamese labels.
+                items.Add(new SelectedItem(item.Name, item.Name));
             }
 
             _options = items;
+            _loadedCategory = Category;
+            Cache[Category] = new CachedOptions(items, new Dictionary<string, string>(_nameByCode, StringComparer.OrdinalIgnoreCase));
         }
         catch
         {
             _options = [new SelectedItem("", PlaceHolder)];
+            _nameByCode.Clear();
+            _loadedCategory = Category;
+        }
+        finally
+        {
+            _loading = false;
         }
     }
 
-    private Task OnSelectedItemChangedAsync(SelectedItem item)
+    private void ApplyCachedOptions(CachedOptions cached)
     {
-        var stored = ResolveStoredValue(item.Value);
+        _options = cached.Options;
+        _nameByCode.Clear();
+        foreach (var pair in cached.NameByCode)
+        {
+            _nameByCode[pair.Key] = pair.Value;
+        }
+
+        _loadedCategory = Category;
+    }
+
+    private Task OnValueChangedAsync(string? value)
+    {
+        _selectedValue = value ?? "";
+        var stored = string.IsNullOrWhiteSpace(value) ? null : value;
         return ValueChanged.InvokeAsync(stored);
     }
 
-    private string? ResolveSelectedCode(string? storedValue)
+    private string ResolveForSelect(string? storedValue)
     {
         if (string.IsNullOrWhiteSpace(storedValue))
         {
             return "";
         }
 
-        var match = _nameByCode.FirstOrDefault(x => x.Value == storedValue);
-        return string.IsNullOrEmpty(match.Key) ? storedValue : match.Key;
-    }
-
-    private string? ResolveStoredValue(string? code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
+        if (_options.Any(x => string.Equals(x.Value, storedValue, StringComparison.Ordinal)))
         {
-            return null;
+            return storedValue;
         }
 
-        return _nameByCode.TryGetValue(code, out var name) ? name : code;
+        if (_nameByCode.TryGetValue(storedValue, out var name))
+        {
+            return name;
+        }
+
+        return storedValue;
     }
+
+    private sealed record CachedOptions(List<SelectedItem> Options, Dictionary<string, string> NameByCode);
 }

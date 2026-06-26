@@ -25,7 +25,9 @@
         <Table @ref="_table" TItem="LookupItemDto" OnQueryAsync="OnQueryAsync"
                IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
                ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
-               ShowEditButton="false" ShowDeleteButton="false" ExtendButtonColumnWidth="160"
+               ShowEditButton="false" ShowDeleteButton="false"
+               ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+               ExtendButtonColumnWidth="160"
                ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
             <TableToolbarTemplate>
                 <TableToolbarButton TItem="LookupItemDto" Color="Color.Primary" Icon="fa-solid fa-plus"
@@ -56,14 +58,33 @@
     private Table<LookupItemDto>? _table;
     private string _categoryFilter = "";
     private static readonly int[] _pageItems = [10, 20, 50];
+    private List<SelectedItem> _categoryOptions = [new("", "Tất cả danh mục")];
+    private Dictionary<string, string> _categoryLabels = new(StringComparer.Ordinal);
 
-    private static readonly List<SelectedItem> _categoryOptions =
-    [
-        new("", "Tất cả danh mục"),
-        new("Industry", "Ngành"),
-        new("City", "Thành phố"),
-        new("Source", "Nguồn")
-    ];
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoriesAsync();
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            var categories = await Api.GetMasterDataCategoriesAsync();
+            _categoryOptions = [new("", "Tất cả danh mục")];
+            _categoryLabels = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (var category in categories ?? [])
+            {
+                _categoryOptions.Add(new SelectedItem(category.Code, category.Label));
+                _categoryLabels[category.Code] = category.Label;
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
 
     private async Task<QueryData<LookupItemDto>> OnQueryAsync(QueryPageOptions options)
     {
@@ -95,9 +116,10 @@
 
     private Task ShowCreateAsync(IEnumerable<LookupItemDto> _)
     {
+        var defaultCategory = _categoryOptions.Skip(1).FirstOrDefault()?.Value ?? "Industry";
         var model = new LookupItemFormModel
         {
-            Category = string.IsNullOrWhiteSpace(_categoryFilter) ? "Industry" : _categoryFilter,
+            Category = string.IsNullOrWhiteSpace(_categoryFilter) ? defaultCategory : _categoryFilter,
             IsActive = true
         };
 
@@ -218,13 +240,8 @@
         }
     }
 
-    private static string FormatCategory(string category) => category switch
-    {
-        "Industry" => "Ngành",
-        "City" => "Thành phố",
-        "Source" => "Nguồn",
-        _ => category
-    };
+    private string FormatCategory(string category) =>
+        _categoryLabels.TryGetValue(category, out var label) ? label : category;
 
     private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
     {

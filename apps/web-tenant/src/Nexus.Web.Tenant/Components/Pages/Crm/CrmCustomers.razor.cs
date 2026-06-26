@@ -11,10 +11,10 @@ public partial class CrmCustomers
     private CustomerDto? _editing;
     private CustomerFormModel _createModel = new();
     private CustomerFormModel _editModel = new();
-    private string _customerTypeText = "";
-    private bool _showCustomerCode => !string.IsNullOrWhiteSpace(_customerTypeText);
+    // Default to the first customer type so the form is valid out of the box.
+    private string _customerTypeText = CrmLabels.DefaultCustomerType();
     private string _customerStatusText = CustomerStatus.Active.ToString();
-    private List<SelectedItem> _customerTypeOptions = CrmLabels.CustomerTypeOptions(includePlaceholder: true);
+    private List<SelectedItem> _customerTypeOptions = CrmLabels.CustomerTypeOptions();
     private List<SelectedItem> _customerStatusOptions = CrmLabels.CustomerStatusOptions();
     private Dictionary<string, (string Text, string BadgeClass)> _customerStatusMeta = CrmLabels.CustomerStatusMeta();
 
@@ -44,7 +44,7 @@ public partial class CrmCustomers
         _modalTitle = "Thêm khách hàng";
         _createModel = new CustomerFormModel();
         _editModel = new CustomerFormModel();
-        _customerTypeText = "";
+        _customerTypeText = CrmLabels.DefaultCustomerType();
         return _editModal!.Show();
     }
 

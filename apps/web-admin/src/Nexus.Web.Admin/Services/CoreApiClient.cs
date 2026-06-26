@@ -39,6 +39,10 @@ public sealed class CoreApiClient
     public Task<TenantDto?> DisableTenantModuleAsync(Guid id, ChangeTenantModuleRequest request) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/modules/disable", request);
     public Task<TenantDto?> UpdateTenantSettingsAsync(Guid id, UpdateTenantSettingsRequest request) => PutAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/settings", request);
     public Task<TenantDto?> UpdateTenantProfileAsync(Guid id, UpdateTenantProfileRequest request) => PutAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/profile", request);
+    public Task<TenantDto?> ChangeTenantSubscriptionAsync(Guid id, ChangeTenantSubscriptionRequest request) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/subscription/change", request);
+    public Task<IReadOnlyList<SubscriptionPlanDto>?> GetSubscriptionPlansAsync() => GetAsync<IReadOnlyList<SubscriptionPlanDto>>(_options.Tenant, "/api/subscription-plans/");
+    public Task<PlatformDashboardDto?> GetPlatformDashboardAsync() => GetAsync<PlatformDashboardDto>(_options.Tenant, "/api/platform/dashboard");
+    public Task<IReadOnlyList<SubscriptionPaymentDto>?> GetPlatformBillingInvoicesAsync() => GetAsync<IReadOnlyList<SubscriptionPaymentDto>>(_options.Tenant, "/api/platform/billing/invoices");
 
     public Task<PagedResult<UserDto>?> GetUsersAsync() => GetAsync<PagedResult<UserDto>>(_options.Identity, "/api/users/");
     public Task<UserDto?> CreateUserAsync(CreateUserRequest request) => PostAsync<UserDto>(_options.Identity, "/api/users/", request);
@@ -64,6 +68,9 @@ public sealed class CoreApiClient
     public Task<WorkflowDefinitionRecord?> CreateWorkflowDefinitionAsync(CreateWorkflowDefinitionRequest request) => PostAsync<WorkflowDefinitionRecord>(_options.Workflow, "/api/workflow-definitions", request);
     public Task DeleteWorkflowDefinitionAsync(Guid id) => DeleteAsync(_options.Workflow, $"/api/workflow-definitions/{id}");
     public Task<WorkflowInstanceRecord?> CreateWorkflowInstanceAsync(CreateWorkflowInstanceRequest request) => PostAsync<WorkflowInstanceRecord>(_options.Workflow, "/api/workflow-instances", request);
+
+    public Task<IReadOnlyList<MasterDataCategoryDto>?> GetMasterDataCategoriesAsync()
+        => GetAsync<IReadOnlyList<MasterDataCategoryDto>>(_options.MasterData, "/api/master-data/categories");
 
     public Task<IReadOnlyList<LookupItemDto>?> GetMasterDataItemsAsync(string? category = null)
     {

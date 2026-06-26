@@ -31,7 +31,7 @@
                        ShowEditButton="false" ShowDeleteButton="false"
                        ShowExtendEditButton="false" ShowExtendDeleteButton="false"
                        ExtendButtonColumnWidth="180"
-                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
                     <TableToolbarTemplate>
                         @if (Can(NexusPermissions.Crm.Customers.Create))
                         {
@@ -85,7 +85,7 @@
                 <AppFormField Label="Loại khách hàng" Required="true">
                     <Select TValue="string" @bind-Value="_customerTypeText" Items="@_customerTypeOptions" ShowLabel="false" ShowSearch="true" PlaceHolder="Chọn loại khách hàng..." />
                 </AppFormField>
-                @if (_isCreate && _showCustomerCode)
+                @if (_isCreate)
                 {
                     <AppFormField Label="Mã khách hàng" Required="true">
                         <BootstrapInput @bind-Value="_createModel.Code" ShowLabel="false" PlaceHolder="Nhập mã khách hàng..." />
@@ -113,7 +113,7 @@
                 </AppFormField>
                 <MasterDataLookupSelect Category="@MasterDataCategories.Source" Label="Nguồn" @bind-Value="_editModel.Source" PlaceHolder="Chọn nguồn..." />
                 <AppFormField Label="Mô tả">
-                    <BootstrapInput @bind-Value="_editModel.Description" ShowLabel="false" />
+                    <Textarea @bind-Value="_editModel.Description" ShowLabel="false" rows="3" PlaceHolder="Nhập mô tả khách hàng..." />
                 </AppFormField>
                 @if (!_isCreate)
                 {

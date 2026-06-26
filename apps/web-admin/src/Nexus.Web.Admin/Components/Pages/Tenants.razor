@@ -38,8 +38,19 @@
                 <TableColumn @bind-Field="@context.RepresentativeName" Text="Người đại diện" Sortable="true" Searchable="true" />
                 <TableColumn @bind-Field="@context.Phone" Text="SĐT" Sortable="false" Searchable="true" />
                 <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true" Searchable="true" />
-                <TableColumn @bind-Field="@context.Id" Text="Mô-đun đang bật" Sortable="false">
-                    <Template Context="v">@EnabledModules(v.Row)</Template>
+                <TableColumn @bind-Field="@context.ConcurrencyStamp" Text="Gói dịch vụ" Sortable="false" Width="110" TextWrap="true">
+                    <Template Context="v">@PlanLabel(v.Row)</Template>
+                </TableColumn>
+                <TableColumn @bind-Field="@context.Id" Text="Mô-đun đang bật" Sortable="false"
+                             Width="220" TextWrap="true" HeaderTextWrap="true" CssClass="admin-tenant-modules-cell">
+                    <Template Context="v">
+                        <div class="admin-tenant-module-badges">
+                            @foreach (var moduleCode in EnabledModuleCodes(v.Row))
+                            {
+                                <span class="badge text-bg-secondary">@moduleCode</span>
+                            }
+                        </div>
+                    </Template>
                 </TableColumn>
             </TableColumns>
         </Table>
@@ -109,7 +120,8 @@
                         model.Address,
                         model.Phone,
                         model.RepresentativeName,
-                        model.ContactEmail));
+                        model.ContactEmail,
+                        model.PlanCode));
                     await ToastService.Success("Thành công", "Đã tạo khách thuê.");
                     await ReloadTableAsync();
                     return true;
@@ -143,6 +155,9 @@
             <BootstrapInput @bind-Value="model.ContactEmail" DisplayText="Email liên hệ" ShowLabel="true" />
         </div>
         <div class="col-12">
+            <Select TValue="string" @bind-Value="model.PlanCode" Items="UiCatalogs.SubscriptionPlans" DisplayText="Gói dịch vụ" ShowLabel="true" />
+        </div>
+        <div class="col-12">
             <BootstrapInput @bind-Value="model.Address" DisplayText="Địa chỉ" ShowLabel="true" />
         </div>
     </div>;
@@ -161,6 +176,7 @@
             .Select(x => x.ModuleCode)
             .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
 
+        var originalPlan = tenant.Subscription?.PlanCode ?? "FREE";
         var model = new TenantEditModel
         {
             Id = tenant.Id,
@@ -171,6 +187,8 @@
             RepresentativeName = tenant.RepresentativeName,
             ContactEmail = tenant.ContactEmail,
             Status = tenant.Status,
+            PlanCode = originalPlan,
+            OriginalPlanCode = originalPlan,
             EnabledModules = new HashSet<string>(originallyEnabled, StringComparer.OrdinalIgnoreCase),
             ExistingSettings = tenant.Settings
         };
@@ -206,6 +224,11 @@
                         {
                             await Api.SuspendTenantAsync(model.Id);
                         }
+                    }
+
+                    if (!string.Equals(model.PlanCode, model.OriginalPlanCode, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await Api.ChangeTenantSubscriptionAsync(model.Id, new ChangeTenantSubscriptionRequest(model.PlanCode));
                     }
 
                     foreach (var moduleCode in _allModuleCodes)
@@ -275,6 +298,9 @@
         </div>
         <div class="col-12">
             <Select TValue="string" @bind-Value="model.Status" Items="_statusOptions" DisplayText="Trạng thái" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <Select TValue="string" @bind-Value="model.PlanCode" Items="UiCatalogs.SubscriptionPlans" DisplayText="Gói dịch vụ" ShowLabel="true" />
         </div>
         <div class="col-12">
             <label class="form-label">Mô-đun được bật</label>
@@ -352,8 +378,11 @@
         }
     }
 
-    private static string EnabledModules(TenantDto tenant)
-        => string.Join(", ", tenant.Modules?.Where(x => x.IsEnabled).Select(x => x.ModuleCode) ?? Enumerable.Empty<string>());
+    private static IEnumerable<string> EnabledModuleCodes(TenantDto tenant)
+        => tenant.Modules?.Where(x => x.IsEnabled).Select(x => x.ModuleCode) ?? Enumerable.Empty<string>();
+
+    private static string PlanLabel(TenantDto tenant)
+        => tenant.Subscription?.PlanName ?? tenant.Subscription?.PlanCode ?? "—";
 
     private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
     {
@@ -374,6 +403,7 @@
         public string? Phone { get; set; }
         public string ContactEmail { get; set; } = "";
         public string? Address { get; set; }
+        public string PlanCode { get; set; } = "FREE";
     }
 
     private sealed class TenantEditModel
@@ -386,6 +416,8 @@
         public string RepresentativeName { get; set; } = "";
         public string ContactEmail { get; set; } = "";
         public string Status { get; set; } = "";
+        public string PlanCode { get; set; } = "FREE";
+        public string OriginalPlanCode { get; set; } = "FREE";
         public HashSet<string> EnabledModules { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public string SettingKey { get; set; } = "";
         public string SettingValue { get; set; } = "";

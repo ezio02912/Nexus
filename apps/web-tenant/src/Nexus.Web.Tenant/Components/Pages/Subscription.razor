@@ -1,0 +1,269 @@
+@page "/subscription"
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject SwalService SwalService
+@inject ToastService ToastService
+
+<PageTitle>Gói dịch vụ</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Quản trị tenant</p>
+            <h1>Gói dịch vụ</h1>
+            <p>So sánh gói và nâng cấp bằng thanh toán mock.</p>
+        </div>
+        <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.IsAuthenticated)
+    {
+        <div class="app-alert">Đăng nhập để quản lý gói dịch vụ.</div>
+    }
+    else if (!Session.IsGranted(NexusPermissions.TenantAdmin.Settings.View))
+    {
+        <div class="app-alert">Bạn không có quyền quản lý gói dịch vụ.</div>
+    }
+    else
+    {
+        <section class="app-card subscription-current mb-3">
+            <div>
+                <p class="app-eyebrow mb-1">Gói hiện tại</p>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="app-status-badge app-status-active">@CurrentPlanName</span>
+                    @if (Session.Tenant?.Subscription?.ExpiresAt is DateTimeOffset expiresAt)
+                    {
+                        <span class="text-muted small">Hết hạn: @expiresAt.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                    }
+                </div>
+            </div>
+            <div class="subscription-current-price">
+                @FormatMoney(Session.Tenant?.Subscription?.MonthlyPrice ?? 0)<span class="small text-muted"> / tháng</span>
+            </div>
+        </section>
+
+        @if (_loading)
+        {
+            <div class="app-loading">
+                <Spinner Color="Color.Primary" />
+                <span class="app-loading-text">Đang tải gói dịch vụ...</span>
+            </div>
+        }
+        else
+        {
+            <Tab IsCard="true">
+                <TabItem Text="So sánh gói">
+                    <div class="subscription-plan-grid">
+                        @foreach (var plan in _plans.OrderBy(x => x.TierOrder))
+                        {
+                            var isCurrent = IsCurrentPlan(plan.PlanCode);
+                            var canUpgrade = CanUpgrade(plan.PlanCode);
+                            var recommended = IsRecommended(plan);
+                            var cssClass = "subscription-plan-card"
+                                + (isCurrent ? " is-current" : string.Empty)
+                                + (recommended ? " is-recommended" : string.Empty);
+                            <section class="@cssClass">
+                                @if (recommended)
+                                {
+                                    <span class="subscription-plan-tag">Phổ biến</span>
+                                }
+                                <h2>@plan.Name</h2>
+                                <p class="subscription-plan-price">
+                                    @FormatMoney(plan.MonthlyPrice)<span class="small text-muted"> / tháng</span>
+                                </p>
+                                <ul class="subscription-plan-specs">
+                                    <li><i class="fa-solid fa-users"></i> Tối đa @plan.MaxUsers người dùng</li>
+                                    <li><i class="fa-solid fa-hard-drive"></i> @plan.StorageGb GB lưu trữ</li>
+                                    <li><i class="fa-solid fa-cubes"></i> @((plan.Modules ?? []).Count) phân hệ</li>
+                                </ul>
+                                <div class="subscription-plan-modules">
+                                    @foreach (var module in plan.Modules ?? [])
+                                    {
+                                        <span class="app-status-badge app-status-active">@module</span>
+                                    }
+                                </div>
+                                @if (isCurrent)
+                                {
+                                    <Button Text="Đang sử dụng" Color="Color.Secondary" IsDisabled="true" IsBlock="true" />
+                                }
+                                else if (canUpgrade)
+                                {
+                                    <Button Text="Nâng cấp" Color="Color.Primary" IsBlock="true" IsAsync="true"
+                                            IsDisabled="@(_upgradingPlanCode is not null)"
+                                            OnClick="() => StartUpgradeAsync(plan)" />
+                                }
+                                else
+                                {
+                                    <Button Text="Không khả dụng" Color="Color.Secondary" IsDisabled="true" IsBlock="true" />
+                                }
+                            </section>
+                        }
+                    </div>
+                </TabItem>
+                <TabItem Text="Lịch sử thanh toán">
+                    @if (_invoices.Count == 0)
+                    {
+                        <div class="app-empty-state">Chưa có giao dịch thanh toán nào.</div>
+                    }
+                    else
+                    {
+                        <table class="app-table">
+                            <thead>
+                                <tr>
+                                    <th>Gói</th>
+                                    <th>Số tiền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Mã giao dịch</th>
+                                    <th>Ngày thanh toán</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var invoice in _invoices)
+                                {
+                                    <tr>
+                                        <td>@invoice.PlanCode</td>
+                                        <td>@FormatMoney(invoice.Amount)</td>
+                                        <td><span class="app-status-badge @StatusCss(invoice.Status)">@StatusLabel(invoice.Status)</span></td>
+                                        <td>@(invoice.MockReference ?? "—")</td>
+                                        <td>@(invoice.PaidAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </TabItem>
+            </Tab>
+        }
+    }
+</section>
+
+@code {
+    private bool _loading = true;
+    private string? _upgradingPlanCode;
+    private List<SubscriptionPlanDto> _plans = [];
+    private List<SubscriptionPaymentDto> _invoices = [];
+
+    private string CurrentPlanName => Session.Tenant?.Subscription?.PlanName ?? "Miễn phí";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Session.IsAuthenticated && Session.IsGranted(NexusPermissions.TenantAdmin.Settings.View))
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _plans = (await Api.GetSubscriptionPlansAsync())?.ToList() ?? [];
+            _invoices = (await Api.GetBillingInvoicesAsync())?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static bool IsRecommended(SubscriptionPlanDto plan)
+        => string.Equals(plan.PlanCode, "STANDARD", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsCurrentPlan(string planCode)
+        => string.Equals(Session.Tenant?.Subscription?.PlanCode ?? "FREE", planCode, StringComparison.OrdinalIgnoreCase);
+
+    private bool CanUpgrade(string targetPlanCode)
+    {
+        var current = Session.Tenant?.Subscription?.PlanCode ?? "FREE";
+        var currentOrder = _plans.FirstOrDefault(x => string.Equals(x.PlanCode, current, StringComparison.OrdinalIgnoreCase))?.TierOrder ?? 0;
+        var targetOrder = _plans.FirstOrDefault(x => string.Equals(x.PlanCode, targetPlanCode, StringComparison.OrdinalIgnoreCase))?.TierOrder ?? 0;
+        return targetOrder > currentOrder;
+    }
+
+    private IReadOnlyList<string> NewModules(SubscriptionPlanDto plan)
+    {
+        var currentModules = Session.EnabledModules;
+        return (plan.Modules ?? [])
+            .Where(m => !currentModules.Contains(m.ToUpperInvariant()))
+            .ToArray();
+    }
+
+    private async Task StartUpgradeAsync(SubscriptionPlanDto plan)
+    {
+        if (_upgradingPlanCode is not null)
+        {
+            return;
+        }
+
+        _upgradingPlanCode = plan.PlanCode;
+        try
+        {
+            var checkout = await Api.CreateCheckoutAsync(new CreateCheckoutRequest(plan.PlanCode));
+            if (checkout is null)
+            {
+                await ToastService.Error("Lỗi", "Không tạo được phiên thanh toán.");
+                return;
+            }
+
+            var newModules = NewModules(plan);
+            var moduleNote = newModules.Count > 0
+                ? $"<br/>Phân hệ mở thêm: {string.Join(", ", newModules)}"
+                : string.Empty;
+
+            var confirm = await SwalService.ShowModal(new SwalOption
+            {
+                Category = SwalCategory.Question,
+                Title = $"Thanh toán mock — {plan.Name}",
+                Content = $"Số tiền: {FormatMoney(checkout.Amount)}<br/>Thẻ mock: {checkout.MockCardNumber}{moduleNote}",
+                ShowClose = true,
+                ConfirmButtonText = "Xác nhận thanh toán",
+                CancelButtonText = "Huỷ"
+            });
+
+            if (!confirm)
+            {
+                return;
+            }
+
+            await Api.ConfirmCheckoutAsync(checkout.CheckoutId);
+            await Api.RefreshTenantSessionAsync();
+            await LoadAsync();
+            await ToastService.Success("Thành công", $"Đã nâng cấp lên gói {plan.Name}.");
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
+        finally
+        {
+            _upgradingPlanCode = null;
+        }
+    }
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "Paid" => "Đã thanh toán",
+        "Pending" => "Chờ thanh toán",
+        "Failed" => "Thất bại",
+        _ => status
+    };
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Paid" => "app-status-active",
+        "Failed" => "app-status-suspended",
+        _ => "app-status-pending"
+    };
+
+    private static string FormatMoney(decimal amount)
+        => amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
+}

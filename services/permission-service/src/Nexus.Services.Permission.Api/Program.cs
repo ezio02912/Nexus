@@ -1,3 +1,4 @@
+using Nexus.BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
@@ -6,6 +7,7 @@ using Nexus.BuildingBlocks.Web.DependencyInjection;
 using Nexus.Services.Permission.Api.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddNexusObservability("permission-service");
 
 var connectionString = builder.Configuration.GetConnectionString("PermissionDb")
     ?? "Host=localhost;Port=5432;Database=permission_db;Username=nexus;Password=nexus_dev_password";
@@ -74,6 +76,7 @@ app.MapPost("/api/permissions/check", async (CheckPermissionDto input, Permissio
     return Results.Ok(new PermissionCheckResultDto(input.Permission, granted));
 });
 
+app.MapNexusObservability();
 app.Run();
 
 static string Normalize(string value) => value.Trim().ToUpperInvariant();

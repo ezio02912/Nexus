@@ -1,6 +1,26 @@
 ﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <ErrorBoundary>
+            <ChildContent>
+                <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+            </ChildContent>
+            <ErrorContent Context="ex">
+                <LayoutView Layout="typeof(Layout.MainLayout)">
+                    <section class="app-page">
+                        <div class="app-alert app-alert-danger">
+                            <h2 class="h5 mb-2">Không thể hiển thị trang</h2>
+                            <p class="mb-3">Đã xảy ra lỗi khi tải nội dung. Vui lòng thử tải lại trang.</p>
+                            <Button Color="Color.Primary" Icon="fa-solid fa-rotate-right" Text="Tải lại"
+                                    OnClick="@(() => Navigation.NavigateTo(Navigation.Uri, forceLoad: true))" />
+                        </div>
+                    </section>
+                </LayoutView>
+            </ErrorContent>
+        </ErrorBoundary>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+}

@@ -11,6 +11,7 @@ public sealed class TenantDbContext : NexusDbContext
     }
 
     public DbSet<TenantAggregate> Tenants => Set<TenantAggregate>();
+    public DbSet<Domain.Billing.SubscriptionPayment> SubscriptionPayments => Set<Domain.Billing.SubscriptionPayment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -11,6 +11,10 @@ obj/
 .env
 .env.*
 !.env.example
+# Do not track appsettings (may contain secrets/connection strings)
+appsettings.json
+appsettings.*.json
+!appsettings.Example.json
 TestResults/
 coverage/
 node_modules/

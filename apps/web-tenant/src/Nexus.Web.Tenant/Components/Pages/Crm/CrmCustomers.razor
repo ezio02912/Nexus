@@ -1,7 +1,6 @@
 @page "/crm/customers"
 @attribute [TabItemOption(Text = "Khách hàng", Icon = "fa-solid fa-building-user")]
-@inject TenantPortalApiClient Api
-@inject TenantSessionService Session
+@inherits CrmPageBase
 
 <PageTitle>Khách hàng - CRM</PageTitle>
 
@@ -12,129 +11,120 @@
             <h1>Khách hàng</h1>
             <p>Quản lý danh sách khách hàng trong tenant hiện tại.</p>
         </div>
-        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
     </header>
 
-    @if (!Session.HasModule("CRM"))
+    @if (!Can(NexusPermissions.Crm.Customers.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
     {
         <div class="app-alert">Tenant này chưa được bật module CRM.</div>
     }
     else
     {
-        @if (!string.IsNullOrWhiteSpace(message))
-        {
-            <div class="@messageCss">@message</div>
-        }
-
-        <div class="tenant-work-grid">
-            <section class="app-card">
-                <h2>Tạo khách hàng</h2>
-                <div class="app-form-grid">
-                    <div>
-                        <label>Mã khách hàng *</label>
-                        <input class="form-control" @bind="customerCode" />
-                    </div>
-                    <div>
-                        <label>Tên khách hàng *</label>
-                        <input class="form-control" @bind="customerName" />
-                    </div>
-                    <div>
-                        <label>Email</label>
-                        <input class="form-control" @bind="customerEmail" />
-                    </div>
-                </div>
-                <Button Text="Tạo khách hàng" Color="Color.Primary" OnClick="CreateCustomerAsync" />
-            </section>
-
-            <section class="app-card app-card-wide">
-                <div class="app-toolbar">
-                    <h2>Danh sách khách hàng</h2>
-                    <input class="form-control app-search" placeholder="Tìm khách hàng" @bind="search" @bind:event="oninput" />
-                </div>
-                @if (isLoading)
-                {
-                    <div class="app-loading">Đang tải khách hàng...</div>
-                }
-                else if (!FilteredCustomers.Any())
-                {
-                    <div class="app-empty-state">Chưa có khách hàng.</div>
-                }
-                else
-                {
-                    <table class="app-table">
-                        <thead><tr><th>Mã</th><th>Tên</th><th>Email</th><th>Trạng thái</th></tr></thead>
-                        <tbody>
-                            @foreach (var item in FilteredCustomers)
-                            {
-                                <tr>
-                                    <td>@item.Code</td>
-                                    <td>@item.Name</td>
-                                    <td>@item.Email</td>
-                                    <td><span class="app-status-badge app-status-active">@item.Status</span></td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </section>
-        </div>
+        <Card HeaderText="Danh sách khách hàng" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="CustomerDto" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="180"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                    <TableToolbarTemplate>
+                        @if (Can(NexusPermissions.Crm.Customers.Create))
+                        {
+                            <TableToolbarButton TItem="CustomerDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                                Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewDetailAsync(context.Id))" />
+                        @if (Can(NexusPermissions.Crm.Customers.Edit))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                             OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Customers.Delete))
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                             OnClick="@(() => DeleteAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.CustomerType" Text="Loại">
+                            <Template Context="v">@CrmLabels.FormatCustomerType(v.Row.CustomerType)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Email" Text="Email" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Phone" Text="Điện thoại" />
+                        <TableColumn @bind-Field="@context.Industry" Text="Ngành" />
+                        <TableColumn @bind-Field="@context.City" Text="Thành phố" />
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v">
+                                <span class="@CrmLabels.StatusBadgeClass(v.Row.Status)">@CrmLabels.FormatCustomerStatus(v.Row.Status)</span>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
     }
 </section>
 
-@code {
-    private List<CustomerRecord> customers = [];
-    private bool isLoading;
-    private string search = "";
-    private string message = "";
-    private string messageCss = "app-alert";
-
-    private string customerCode = "";
-    private string customerName = "";
-    private string customerEmail = "";
-
-    private IEnumerable<CustomerRecord> FilteredCustomers => string.IsNullOrWhiteSpace(search)
-        ? customers
-        : customers.Where(x => x.Code.Contains(search, StringComparison.OrdinalIgnoreCase) || x.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
-
-    protected override async Task OnInitializedAsync() => await LoadAsync();
-
-    private async Task LoadAsync()
-    {
-        if (Session.TenantId is not Guid tenantId)
-        {
-            return;
-        }
-
-        isLoading = true;
-        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
-        isLoading = false;
-    }
-
-    private async Task CreateCustomerAsync()
-    {
-        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(customerCode) || string.IsNullOrWhiteSpace(customerName))
-        {
-            ShowError("Vui lòng nhập mã và tên khách hàng.");
-            return;
-        }
-
-        await Api.CreateCustomerAsync(new CreateCustomerRequest(tenantId, customerCode, customerName, customerEmail, null));
-        customerCode = "";
-        customerName = "";
-        customerEmail = "";
-        ShowSuccess("Đã tạo khách hàng.");
-        await LoadAsync();
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "app-alert";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "app-alert app-alert-danger";
-    }
-}
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_modalTitle" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Loại khách hàng" Required="true">
+                    <Select TValue="string" @bind-Value="_customerTypeText" Items="@_customerTypeOptions" ShowLabel="false" ShowSearch="true" PlaceHolder="Chọn loại khách hàng..." />
+                </AppFormField>
+                @if (_isCreate && _showCustomerCode)
+                {
+                    <AppFormField Label="Mã khách hàng" Required="true">
+                        <BootstrapInput @bind-Value="_createModel.Code" ShowLabel="false" PlaceHolder="Nhập mã khách hàng..." />
+                    </AppFormField>
+                }
+                <AppFormField Label="Tên khách hàng" Required="true">
+                    <BootstrapInput @bind-Value="_editModel.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_editModel.Email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_editModel.Phone" ShowLabel="false" />
+                </AppFormField>
+                <MasterDataLookupSelect Category="@MasterDataCategories.Industry" Label="Ngành" @bind-Value="_editModel.Industry" PlaceHolder="Chọn ngành..." />
+                <MasterDataLookupSelect Category="@MasterDataCategories.City" Label="Thành phố" @bind-Value="_editModel.City" PlaceHolder="Chọn thành phố..." />
+                <AppFormField Label="Website">
+                    <BootstrapInput @bind-Value="_editModel.Website" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Mã số thuế">
+                    <BootstrapInput @bind-Value="_editModel.TaxCode" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Địa chỉ">
+                    <BootstrapInput @bind-Value="_editModel.AddressLine1" ShowLabel="false" />
+                </AppFormField>
+                <MasterDataLookupSelect Category="@MasterDataCategories.Source" Label="Nguồn" @bind-Value="_editModel.Source" PlaceHolder="Chọn nguồn..." />
+                <AppFormField Label="Mô tả">
+                    <BootstrapInput @bind-Value="_editModel.Description" ShowLabel="false" />
+                </AppFormField>
+                @if (!_isCreate)
+                {
+                    <AppStatusSelect Label="Trạng thái" @bind-Value="_customerStatusText"
+                                     Items="@_customerStatusOptions" Meta="@_customerStatusMeta" />
+                }
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

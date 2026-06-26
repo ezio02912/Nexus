@@ -94,3 +94,16 @@ public sealed record CreateWorkflowInstanceRequest(Guid? TenantId, Guid Workflow
 public sealed record WorkflowActionRequest(Guid UserId, string? Comment);
 public sealed record WorkflowInstanceRecord(Guid Id, Guid? TenantId, Guid WorkflowDefinitionId, string SourceModule, string SourceType, string SourceId, string Status, IReadOnlyList<WorkflowActionRecord> Actions, DateTimeOffset CreatedAt);
 public sealed record WorkflowActionRecord(Guid Id, Guid UserId, string Action, string? Comment, DateTimeOffset CreatedAt);
+
+public sealed record LookupItemDto
+{
+    public Guid Id { get; set; }
+    public string Category { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public sealed record CreateLookupItemRequest(string Category, string Code, string Name, int SortOrder, bool IsActive);
+public sealed record UpdateLookupItemRequest(string Code, string Name, int SortOrder, bool IsActive);

@@ -1,7 +1,6 @@
 @page "/crm/leads"
 @attribute [TabItemOption(Text = "Leads", Icon = "fa-solid fa-user-plus")]
-@inject TenantPortalApiClient Api
-@inject TenantSessionService Session
+@inherits CrmPageBase
 
 <PageTitle>Leads - CRM</PageTitle>
 
@@ -12,115 +11,108 @@
             <h1>Leads</h1>
             <p>Quản lý lead tiềm năng trong tenant hiện tại.</p>
         </div>
-        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
     </header>
 
-    @if (!Session.HasModule("CRM"))
+    @if (!Can(NexusPermissions.Crm.Leads.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
     {
         <div class="app-alert">Tenant này chưa được bật module CRM.</div>
     }
     else
     {
-        @if (!string.IsNullOrWhiteSpace(message))
-        {
-            <div class="@messageCss">@message</div>
-        }
-
-        <div class="tenant-work-grid">
-            <section class="app-card">
-                <h2>Tạo lead</h2>
-                <div class="app-form-grid">
-                    <div>
-                        <label>Họ tên *</label>
-                        <input class="form-control" @bind="leadName" />
-                    </div>
-                    <div>
-                        <label>Công ty</label>
-                        <input class="form-control" @bind="leadCompany" />
-                    </div>
-                    <div>
-                        <label>Nguồn</label>
-                        <input class="form-control" @bind="leadSource" />
-                    </div>
-                </div>
-                <Button Text="Tạo lead" Color="Color.Primary" OnClick="CreateLeadAsync" />
-            </section>
-
-            <section class="app-card app-card-wide">
-                <h2>Danh sách leads</h2>
-                @if (isLoading)
-                {
-                    <div class="app-loading">Đang tải leads...</div>
-                }
-                else if (leads.Count == 0)
-                {
-                    <div class="app-empty-state">Chưa có lead.</div>
-                }
-                else
-                {
-                    <table class="app-table">
-                        <thead><tr><th>Tên</th><th>Công ty</th><th>Nguồn</th><th>Trạng thái</th></tr></thead>
-                        <tbody>
-                            @foreach (var item in leads)
-                            {
-                                <tr><td>@item.FullName</td><td>@item.CompanyName</td><td>@item.Source</td><td>@item.Status</td></tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </section>
-        </div>
+        <Card HeaderText="Danh sách leads" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="LeadDto" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="180"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                    <TableToolbarTemplate>
+                        @if (Can(NexusPermissions.Crm.Leads.Create))
+                        {
+                            <TableToolbarButton TItem="LeadDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                            Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewDetailAsync(context.Id))" />
+                        @if (Can(NexusPermissions.Crm.Leads.Edit))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                         OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Leads.Delete))
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                         OnClick="@(() => DeleteAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.FullName" Text="Họ tên" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.CompanyName" Text="Công ty" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Email" Text="Email" />
+                        <TableColumn @bind-Field="@context.Phone" Text="Điện thoại" />
+                        <TableColumn @bind-Field="@context.Source" Text="Nguồn" />
+                        <TableColumn @bind-Field="@context.LeadScore" Text="Điểm" Sortable="true" />
+                        <TableColumn @bind-Field="@context.Rating" Text="Xếp hạng">
+                            <Template Context="v">@(v.Row.Rating.HasValue ? CrmLabels.FormatLeadRating(v.Row.Rating.Value) : "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v">
+                                <span class="@CrmLabels.StatusBadgeClass(v.Row.Status)">@CrmLabels.FormatLeadStatus(v.Row.Status)</span>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
     }
 </section>
 
-@code {
-    private List<LeadRecord> leads = [];
-    private bool isLoading;
-    private string message = "";
-    private string messageCss = "app-alert";
-
-    private string leadName = "";
-    private string leadCompany = "";
-    private string leadSource = "Website";
-
-    protected override async Task OnInitializedAsync() => await LoadAsync();
-
-    private async Task LoadAsync()
-    {
-        if (Session.TenantId is not Guid tenantId)
-        {
-            return;
-        }
-
-        isLoading = true;
-        leads = (await Api.GetLeadsAsync(tenantId))?.ToList() ?? [];
-        isLoading = false;
-    }
-
-    private async Task CreateLeadAsync()
-    {
-        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(leadName))
-        {
-            ShowError("Vui lòng nhập tên lead.");
-            return;
-        }
-
-        await Api.CreateLeadAsync(new CreateLeadRequest(tenantId, leadName, leadCompany, null, null, leadSource));
-        leadName = "";
-        leadCompany = "";
-        ShowSuccess("Đã tạo lead.");
-        await LoadAsync();
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "app-alert";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "app-alert app-alert-danger";
-    }
-}
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_modalTitle" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Họ tên" Required="true">
+                    <BootstrapInput @bind-Value="_model.FullName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Công ty">
+                    <BootstrapInput @bind-Value="_model.CompanyName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Chức danh">
+                    <BootstrapInput @bind-Value="_model.Title" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_model.Email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_model.Phone" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Nguồn">
+                    <BootstrapInput @bind-Value="_model.Source" ShowLabel="false" />
+                </AppFormField>
+                @if (!_isCreate)
+                {
+                    <AppFormField Label="Điểm lead">
+                        <BootstrapInputNumber @bind-Value="_model.LeadScore" ShowLabel="false" />
+                    </AppFormField>
+                    <AppStatusSelect Label="Trạng thái" @bind-Value="_statusText"
+                                     Items="@_statusOptions" Meta="@_statusMeta" />
+                }
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

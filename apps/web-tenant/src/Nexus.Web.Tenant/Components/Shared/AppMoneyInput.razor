@@ -1,0 +1,60 @@
+@using Nexus.Web.Tenant.Services
+
+<AppFormField Label="@Label" Required="@Required" InputId="@_inputId">
+    <input id="@_inputId"
+           class="form-control app-money-input"
+           type="text"
+           inputmode="decimal"
+           placeholder="@Placeholder"
+           disabled="@Disabled"
+           value="@_displayValue"
+           @oninput="OnInputAsync"
+           @onblur="OnBlurAsync" />
+</AppFormField>
+
+@code {
+    private readonly string _inputId = $"money-{Guid.NewGuid():N}";
+
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public int DecimalPlaces { get; set; }
+    [Parameter] public decimal Value { get; set; }
+    [Parameter] public EventCallback<decimal> ValueChanged { get; set; }
+
+    private string _displayValue = "";
+    private bool _focused;
+
+    protected override void OnParametersSet()
+    {
+        if (!_focused)
+        {
+            _displayValue = VnMoney.Format(Value, DecimalPlaces);
+        }
+    }
+
+    private Task OnInputAsync(ChangeEventArgs e)
+    {
+        _focused = true;
+        _displayValue = e.Value?.ToString() ?? "";
+        if (VnMoney.TryParse(_displayValue, out var parsed))
+        {
+            Value = parsed;
+        }
+
+        return ValueChanged.InvokeAsync(Value);
+    }
+
+    private async Task OnBlurAsync()
+    {
+        _focused = false;
+        if (VnMoney.TryParse(_displayValue, out var parsed))
+        {
+            Value = parsed;
+        }
+
+        _displayValue = VnMoney.Format(Value, DecimalPlaces);
+        await ValueChanged.InvokeAsync(Value);
+    }
+}

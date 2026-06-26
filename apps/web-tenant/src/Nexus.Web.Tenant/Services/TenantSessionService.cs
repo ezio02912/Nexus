@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Nexus.ApiContracts.Permissions;
 
 namespace Nexus.Web.Tenant.Services;
 
 public sealed class TenantSessionService(ProtectedLocalStorage storage)
 {
     private const string StorageKey = "nexus.tenant.session";
+    private HashSet<string> _permissions = new(StringComparer.OrdinalIgnoreCase);
 
     public LoginResult? Login { get; private set; }
     public TenantDto? Tenant { get; private set; }
@@ -15,10 +17,14 @@ public sealed class TenantSessionService(ProtectedLocalStorage storage)
     public bool IsAuthenticated => Login is not null && Tenant is not null && Login.ExpiresAt > DateTimeOffset.UtcNow;
     public Guid? TenantId => Tenant?.Id;
 
+    public IReadOnlyCollection<string> Permissions => _permissions;
+
     public IReadOnlyCollection<string> EnabledModules =>
         Tenant?.Modules?.Where(x => x.IsEnabled).Select(x => x.ModuleCode.ToUpperInvariant()).ToArray() ?? [];
 
     public bool HasModule(string moduleCode) => EnabledModules.Contains(moduleCode.ToUpperInvariant());
+
+    public bool IsGranted(string permission) => NexusPermissionLegacy.IsGranted(_permissions, permission);
 
     public async Task InitializeAsync()
     {
@@ -36,6 +42,7 @@ public sealed class TenantSessionService(ProtectedLocalStorage storage)
                 UserName = session.UserName;
                 Login = session.Login;
                 Tenant = session.Tenant;
+                RefreshPermissions();
             }
             else if (stored.Success)
             {
@@ -55,6 +62,7 @@ public sealed class TenantSessionService(ProtectedLocalStorage storage)
         UserName = userName;
         Login = login;
         Tenant = tenant;
+        RefreshPermissions();
         IsInitialized = true;
         await storage.SetAsync(StorageKey, new PersistedSession(userName, login, tenant));
     }
@@ -64,7 +72,15 @@ public sealed class TenantSessionService(ProtectedLocalStorage storage)
         UserName = null;
         Login = null;
         Tenant = null;
+        _permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await storage.DeleteAsync(StorageKey);
+    }
+
+    private void RefreshPermissions()
+    {
+        _permissions = new HashSet<string>(
+            JwtPermissionReader.ReadPermissions(Login?.AccessToken),
+            StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed record PersistedSession(string UserName, LoginResult Login, TenantDto Tenant);

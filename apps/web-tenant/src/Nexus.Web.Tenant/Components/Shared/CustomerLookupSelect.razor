@@ -1,0 +1,69 @@
+@inject CrmApiClient CrmApi
+
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+    <Select TValue="string"
+            @bind-Value="SelectedCustomerId"
+            ShowLabel="false"
+            ShowSearch="true"
+            IsVirtualize="true"
+            IsPopover="true"
+            PlaceHolder="@PlaceHolder"
+            OnQueryAsync="QueryCustomersAsync"
+            DisplayTemplate="RenderSelectedCustomer">
+        <ItemTemplate Context="item">
+            <div class="lookup-item">
+                <strong>@item.Text</strong>
+            </div>
+        </ItemTemplate>
+    </Select>
+</AppFormField>
+
+@code {
+    private readonly string _selectId = $"customer-lookup-{Guid.NewGuid():N}";
+    private readonly Dictionary<string, string> _labels = new(StringComparer.Ordinal);
+
+    [Parameter] public string Label { get; set; } = "Khách hàng";
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string PlaceHolder { get; set; } = "Tìm theo mã hoặc tên khách hàng...";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private string? SelectedCustomerId
+    {
+        get => Value;
+        set => _ = ValueChanged.InvokeAsync(value);
+    }
+
+    private async Task<QueryData<SelectedItem>> QueryCustomersAsync(VirtualizeQueryOption option)
+    {
+        try
+        {
+            var result = await CrmApi.GetCustomersAsync(new CustomerListQuery
+            {
+                Search = option.SearchText,
+                SkipCount = option.StartIndex,
+                MaxResultCount = Math.Max(option.Count, 20)
+            });
+
+            var items = (result?.Items ?? []).Select(c =>
+            {
+                var label = $"{c.Code} — {c.Name}";
+                _labels[c.Id.ToString()] = label;
+                return new SelectedItem(c.Id.ToString(), label);
+            }).ToList();
+
+            return new QueryData<SelectedItem>
+            {
+                Items = items,
+                TotalCount = (int)(result?.TotalCount ?? items.Count)
+            };
+        }
+        catch
+        {
+            return new QueryData<SelectedItem> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private RenderFragment<SelectedItem> RenderSelectedCustomer => item =>
+    @<span class="lookup-selected">@(item?.Text ?? PlaceHolder)</span>;
+}

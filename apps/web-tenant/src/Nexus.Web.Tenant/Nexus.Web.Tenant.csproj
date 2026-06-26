@@ -9,7 +9,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.0" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.14.0" />
     <ProjectReference Include="../../../../external/bootstrap-blazor/src/BootstrapBlazor/BootstrapBlazor.csproj" />
+    <ProjectReference Include="../../../../shared/api-contracts/src/Nexus.ApiContracts/Nexus.ApiContracts.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,6 @@
 @page "/crm/opportunities"
 @attribute [TabItemOption(Text = "Cơ hội", Icon = "fa-solid fa-bullseye")]
-@inject TenantPortalApiClient Api
-@inject TenantSessionService Session
+@inherits CrmPageBase
 
 <PageTitle>Cơ hội - CRM</PageTitle>
 
@@ -12,125 +11,102 @@
             <h1>Cơ hội</h1>
             <p>Quản lý cơ hội bán hàng trong tenant hiện tại.</p>
         </div>
-        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+        <Button Text="Kanban" Color="Color.Info" Icon="fa-solid fa-table-columns" OnClick="GoToBoard" />
     </header>
 
-    @if (!Session.HasModule("CRM"))
+    @if (!Can(NexusPermissions.Crm.Opportunities.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
     {
         <div class="app-alert">Tenant này chưa được bật module CRM.</div>
     }
     else
     {
-        @if (!string.IsNullOrWhiteSpace(message))
-        {
-            <div class="@messageCss">@message</div>
-        }
-
-        <div class="tenant-work-grid">
-            <section class="app-card">
-                <h2>Tạo cơ hội</h2>
-                <div class="app-form-grid">
-                    <div>
-                        <label>Khách hàng</label>
-                        <select class="form-select" @bind="opportunityCustomerId">
-                            <option value="">Chưa chọn khách hàng</option>
-                            @foreach (var customer in customers)
-                            {
-                                <option value="@customer.Id">@CustomerOption(customer)</option>
-                            }
-                        </select>
-                    </div>
-                    <div>
-                        <label>Tên cơ hội *</label>
-                        <input class="form-control" @bind="opportunityName" />
-                    </div>
-                    <div>
-                        <label>Giá trị</label>
-                        <input class="form-control" type="number" @bind="opportunityAmount" />
-                    </div>
-                </div>
-                <Button Text="Tạo cơ hội" Color="Color.Primary" OnClick="CreateOpportunityAsync" />
-            </section>
-
-            <section class="app-card app-card-wide">
-                <h2>Danh sách cơ hội</h2>
-                @if (isLoading)
-                {
-                    <div class="app-loading">Đang tải cơ hội...</div>
-                }
-                else if (opportunities.Count == 0)
-                {
-                    <div class="app-empty-state">Chưa có cơ hội.</div>
-                }
-                else
-                {
-                    <table class="app-table">
-                        <thead><tr><th>Tên</th><th>Giai đoạn</th><th>Giá trị</th><th>Dự kiến chốt</th></tr></thead>
-                        <tbody>
-                            @foreach (var item in opportunities)
-                            {
-                                <tr><td>@item.Name</td><td>@item.Stage</td><td>@item.Amount.ToString("N2")</td><td>@item.ExpectedCloseDate</td></tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </section>
-        </div>
+        <Card HeaderText="Danh sách cơ hội" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="OpportunityDto" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="180"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                    <TableToolbarTemplate>
+                        @if (Can(NexusPermissions.Crm.Opportunities.Create))
+                        {
+                            <TableToolbarButton TItem="OpportunityDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                            Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewDetailAsync(context.Id))" />
+                        @if (Can(NexusPermissions.Crm.Opportunities.Edit))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                         OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Opportunities.Delete))
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                         OnClick="@(() => DeleteAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
+                            <Template Context="v">@CustomerName(v.Row.CustomerId)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Stage" Text="Giai đoạn" Sortable="true">
+                            <Template Context="v">
+                                <span class="@CrmLabels.StatusBadgeClass(v.Row.Stage)">@CrmLabels.FormatOpportunityStage(v.Row.Stage)</span>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Amount" Text="Giá trị" Sortable="true">
+                            <Template Context="v">@VnMoney.Format(v.Row.Amount) @v.Row.Currency</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Probability" Text="Xác suất (%)" Sortable="true" />
+                        <TableColumn @bind-Field="@context.ExpectedCloseDate" Text="Dự kiến chốt">
+                            <Template Context="v">@(v.Row.ExpectedCloseDate?.ToString("dd/MM/yyyy") ?? "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.NextStep" Text="Bước tiếp theo" />
+                        <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
     }
 </section>
 
-@code {
-    private List<CustomerRecord> customers = [];
-    private List<OpportunityRecord> opportunities = [];
-    private bool isLoading;
-    private string message = "";
-    private string messageCss = "app-alert";
-
-    private string opportunityCustomerId = "";
-    private string opportunityName = "";
-    private decimal opportunityAmount = 1000;
-
-    private static string CustomerOption(CustomerRecord customer) => $"{customer.Code} - {customer.Name}";
-
-    protected override async Task OnInitializedAsync() => await LoadAsync();
-
-    private async Task LoadAsync()
-    {
-        if (Session.TenantId is not Guid tenantId)
-        {
-            return;
-        }
-
-        isLoading = true;
-        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
-        opportunities = (await Api.GetOpportunitiesAsync(tenantId))?.ToList() ?? [];
-        isLoading = false;
-    }
-
-    private async Task CreateOpportunityAsync()
-    {
-        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(opportunityName))
-        {
-            ShowError("Vui lòng nhập tên cơ hội.");
-            return;
-        }
-
-        Guid? customerId = Guid.TryParse(opportunityCustomerId, out var parsedCustomerId) ? parsedCustomerId : null;
-        await Api.CreateOpportunityAsync(new CreateOpportunityRequest(tenantId, customerId, opportunityName, opportunityAmount, null));
-        opportunityName = "";
-        ShowSuccess("Đã tạo cơ hội.");
-        await LoadAsync();
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "app-alert";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "app-alert app-alert-danger";
-    }
-}
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_modalTitle" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <CustomerLookupSelect Label="Khách hàng" @bind-Value="_customerIdText" />
+                <AppFormField Label="Tên cơ hội" Required="true">
+                    <BootstrapInput @bind-Value="_model.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá trị" @bind-Value="_model.Amount" DecimalPlaces="0" />
+                @if (!_isCreate)
+                {
+                    <AppFormField Label="Xác suất (%)">
+                        <BootstrapInputNumber @bind-Value="_model.Probability" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Tiền tệ">
+                        <BootstrapInput @bind-Value="_model.Currency" ShowLabel="false" />
+                    </AppFormField>
+                    <AppStatusSelect Label="Giai đoạn" @bind-Value="_stageText"
+                                     Items="@_stageOptions" Meta="@_stageMeta" />
+                }
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

@@ -18,52 +18,29 @@
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Bảng điều khiển</NavLink>
         </div>
 
-        @if (Session.HasModule("CRM"))
+        @foreach (var module in TenantModuleMenus.GetEnabledModules(Session.HasModule, Session.IsGranted))
         {
-            <div class="nav-section">CRM</div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="crm/customers">Khách hàng</NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="crm/leads">Leads</NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="crm/opportunities">Cơ hội</NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="crm/quotations">Báo giá</NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="crm/contracts">Hợp đồng</NavLink>
-            </div>
+            <div class="nav-section">@module.Title</div>
+            @foreach (var item in module.Items)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="@item.Url">@item.Text</NavLink>
+                </div>
+            }
         }
 
-        @if (Session.HasModule("SALES"))
-        {
-            <div class="nav-section">Bán hàng</div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="sales/orders">Đơn hàng</NavLink>
-            </div>
+        @{
+            var adminMenus = TenantAdminMenus.GetVisibleMenus(Session.IsGranted).ToList();
         }
-
-        @if (Session.IsAuthenticated)
+        @if (adminMenus.Count > 0)
         {
             <div class="nav-section">Quản trị tenant</div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="tenant-users">Người dùng</NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="tenant-permissions">Phân quyền</NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="workflow">Quy trình</NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="reports">Báo cáo</NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="settings">Thiết lập</NavLink>
-            </div>
+            @foreach (var item in adminMenus)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="@item.Url">@item.Text</NavLink>
+                </div>
+            }
         }
     </nav>
 </div>

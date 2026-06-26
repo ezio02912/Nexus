@@ -131,41 +131,26 @@
             new MenuItem("Tổng quan", "", "fa-solid fa-gauge-high") { Match = NavLinkMatch.All },
         ];
 
-        if (Session.HasModule("CRM"))
+        foreach (var module in TenantModuleMenus.GetEnabledModules(Session.HasModule, Session.IsGranted))
         {
             _menus.Add(new MenuItem
             {
-                Text = "CRM",
-                Icon = "fa-solid fa-address-book",
-                Items =
-                [
-                    new MenuItem("Khách hàng", "crm/customers", "fa-solid fa-building-user"),
-                    new MenuItem("Leads", "crm/leads", "fa-solid fa-user-plus"),
-                    new MenuItem("Cơ hội", "crm/opportunities", "fa-solid fa-bullseye"),
-                    new MenuItem("Báo giá", "crm/quotations", "fa-solid fa-file-invoice"),
-                    new MenuItem("Hợp đồng", "crm/contracts", "fa-solid fa-file-signature"),
-                ]
+                Text = module.Title,
+                Icon = module.Icon,
+                Items = TenantModuleMenus.ToMenuItems(module.Items).ToList()
             });
         }
 
-        if (Session.HasModule("SALES"))
+        var adminItems = TenantAdminMenus.GetVisibleMenus(Session.IsGranted).ToList();
+        if (adminItems.Count > 0)
         {
-            _menus.Add(new MenuItem("Bán hàng", "sales/orders", "fa-solid fa-cart-shopping"));
+            _menus.Add(new MenuItem
+            {
+                Text = "Quản trị tenant",
+                Icon = "fa-solid fa-screwdriver-wrench",
+                Items = TenantAdminMenus.ToMenuItems(adminItems).ToList()
+            });
         }
-
-        _menus.Add(new MenuItem
-        {
-            Text = "Quản trị tenant",
-            Icon = "fa-solid fa-screwdriver-wrench",
-            Items =
-            [
-                new MenuItem("Người dùng", "tenant-users", "fa-solid fa-users"),
-                new MenuItem("Phân quyền", "tenant-permissions", "fa-solid fa-user-shield"),
-                new MenuItem("Quy trình", "workflow", "fa-solid fa-diagram-project"),
-                new MenuItem("Báo cáo", "reports", "fa-solid fa-chart-line"),
-                new MenuItem("Thiết lập", "settings", "fa-solid fa-gear"),
-            ]
-        });
     }
 
     private async Task SignOut()

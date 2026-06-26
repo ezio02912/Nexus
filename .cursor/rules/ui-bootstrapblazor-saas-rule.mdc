@@ -1020,6 +1020,51 @@ Do not:
 
 ---
 
+# 30. Tenant Form UX Rules (Modal / Dialog)
+
+Every create/edit dialog MUST be usable without guessing field meaning.
+
+## Labels
+
+- Wrap each control in `<AppFormField Label="...">` with an explicit Vietnamese label.
+- Required fields append `*` via `Required="true"` on `AppFormField`.
+- Inside the field, set `ShowLabel="false"` on BootstrapBlazor inputs — the wrapper owns the label.
+- Never rely on `DisplayText` alone inside Modal/Dialog (BootstrapBlazor hides labels unless `ShowLabel="true"`).
+
+## Money inputs
+
+- Use `<AppMoneyInput>` / `VnMoney` helper for all currency amounts.
+- Format while typing/blur: `.` thousands separator, `,` decimal separator (vi-VN).
+- Display money columns with `VnMoney.Format(value)`.
+
+## Boolean fields
+
+- Use BootstrapBlazor `<Checkbox>` (not Switch) for true/false business flags.
+- Pair with helper text in `app-form-check-row` when meaning is not obvious.
+
+## Status / enum selects
+
+- Use `<AppStatusSelect>` with colored `app-status-badge` in dropdown and selected value.
+- Table status columns MUST render badge spans, not raw enum text.
+
+## Lookup / catalog selects (Select2-style)
+
+- Use `<CustomerLookupSelect>` or `Select` with `ShowSearch="true"`, `IsVirtualize="true"`, `OnQueryAsync` calling API.
+- Never preload entire customer lists into static `<Select Items="...">` when count can exceed ~50.
+
+## Kanban boards
+
+- Pipeline boards use horizontal scroll: `display:flex; overflow-x:auto; flex-wrap:nowrap`.
+- Columns have fixed width (`flex: 0 0 300px`) and `scroll-snap-align: start`.
+
+## Module menus (tenant)
+
+- Sidebar groups follow `TenantModuleMenus` catalog: CRM, Sales, Purchase, Inventory, ERP, Invoice, Accounting, Payroll, HRM, Attendance, Workflow, Report.
+- Show a module group only when `Session.HasModule(code)`.
+- Placeholder pages are acceptable until business screens ship.
+
+---
+
 # 29. Final Rule
 
 The system must look like a modern Ocean-inspired enterprise SaaS.

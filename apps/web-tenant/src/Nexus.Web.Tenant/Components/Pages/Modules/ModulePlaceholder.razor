@@ -1,0 +1,41 @@
+@page "/erp"
+@page "/purchase"
+@page "/inventory"
+@page "/invoice"
+@page "/accounting"
+@page "/payroll"
+@page "/hrm"
+@page "/attendance"
+@inject NavigationManager Navigation
+
+<PageTitle>@ModuleTitle</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Phân hệ</p>
+            <h1>@ModuleTitle</h1>
+            <p>Menu và workspace đang hiển thị cho phân hệ này. Trang nghiệp vụ sẽ được bổ sung trong các sprint tiếp theo.</p>
+        </div>
+    </header>
+
+    <div class="app-card app-empty-state">
+        <i class="fa-solid fa-compass fa-2x mb-3"></i>
+        <p>Phân hệ <strong>@ModuleTitle</strong> đã được kích hoạt trên tenant.</p>
+        <Button Text="Về bảng điều khiển" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/"))" />
+    </div>
+</section>
+
+@code {
+    private string ModuleTitle => Navigation.Uri.ToLowerInvariant() switch
+    {
+        var u when u.Contains("/purchase") => "Mua hàng",
+        var u when u.Contains("/inventory") => "Kho",
+        var u when u.Contains("/invoice") => "Hóa đơn",
+        var u when u.Contains("/accounting") => "Kế toán",
+        var u when u.Contains("/payroll") => "Lương",
+        var u when u.Contains("/hrm") => "Nhân sự",
+        var u when u.Contains("/attendance") => "Chấm công",
+        _ => "ERP"
+    };
+}

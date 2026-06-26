@@ -18,7 +18,9 @@
         <Table @ref="_table" TItem="TenantDto" OnQueryAsync="OnQueryAsync"
                IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
                ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
-               ShowEditButton="false" ShowDeleteButton="false" ExtendButtonColumnWidth="130"
+               ShowEditButton="false" ShowDeleteButton="false"
+               ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+               ExtendButtonColumnWidth="130"
                ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
             <TableToolbarTemplate>
                 <TableToolbarButton TItem="TenantDto" Color="Color.Primary" Icon="fa-solid fa-plus"
@@ -279,10 +281,14 @@
             <div class="admin-module-grid">
                 @foreach (var module in UiCatalogs.Modules)
                 {
-                    <Checkbox TValue="bool"
-                              DisplayText="@module.Text"
-                              Value="@model.EnabledModules.Contains(module.Value)"
-                              OnStateChanged="@((state, _) => ToggleModuleAsync(model, module.Value, state))" />
+                    <div class="admin-module-item">
+                        <Checkbox TValue="bool"
+                                  ShowLabel="false"
+                                  ShowAfterLabel="true"
+                                  DisplayText="@module.Text"
+                                  Value="@model.EnabledModules.Contains(module.Value)"
+                                  OnStateChanged="@((state, _) => ToggleModuleAsync(model, module.Value, state))" />
+                    </div>
                 }
             </div>
         </div>

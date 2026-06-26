@@ -55,18 +55,16 @@ Các endpoint dưới đây là bản core in-memory để bắt đầu phát tr
 
 ## CRM Service
 
-- `GET /api/crm/customers`
-- `POST /api/crm/customers`
-- `GET /api/crm/leads`
-- `POST /api/crm/leads`
-- `GET /api/crm/opportunities`
-- `POST /api/crm/opportunities`
-- `GET /api/crm/quotations`
-- `POST /api/crm/quotations`
-- `POST /api/crm/quotations/{id}/approve`
-- `GET /api/crm/contracts`
-- `POST /api/crm/contracts`
-- `POST /api/crm/contracts/{id}/sign`
+Tenant context via JWT / `x-tenant-id`. Full CRUD + workflow on all entities.
+
+- `GET|POST /api/crm/customers`, `GET|PUT|DELETE /api/crm/customers/{id}`
+- `GET|POST /api/crm/contacts`, `GET|PUT|DELETE /api/crm/contacts/{id}`
+- `GET|POST /api/crm/leads`, `GET|PUT|DELETE /api/crm/leads/{id}`, `POST /api/crm/leads/{id}/convert`
+- `GET|POST /api/crm/opportunities`, `GET|PUT|DELETE /api/crm/opportunities/{id}`, `PATCH /api/crm/opportunities/{id}/stage`
+- `GET|POST /api/crm/quotations`, `GET|PUT|DELETE /api/crm/quotations/{id}`, `POST .../approve|reject|send`
+- `GET|POST /api/crm/contracts`, `GET|PUT|DELETE /api/crm/contracts/{id}`, `POST .../sign|activate|terminate`
+- `GET|POST /api/crm/activities`, `GET|PUT|DELETE /api/crm/activities/{id}`, `POST /api/crm/activities/{id}/complete`
+- `GET /api/crm/dashboard`
 
 ## Sales Service
 

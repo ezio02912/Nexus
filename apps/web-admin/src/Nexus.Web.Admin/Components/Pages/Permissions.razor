@@ -15,14 +15,12 @@
 <div class="work-surface">
     <Card HeaderText="Gán quyền vai trò" IsShadow="true">
         <BodyTemplate>
-            <Select TValue="string" @bind-Value="_roleName" Items="UiCatalogs.Roles"
+            <Select TValue="string" Value="_roleName" ValueChanged="OnRoleChangedAsync" Items="UiCatalogs.Roles"
                     DisplayText="Tên vai trò" ShowLabel="true" class="mb-2" />
             <div class="form-text mb-3">Khóa vai trò: <code>@_roleName.ToUpperInvariant()</code></div>
             <div class="d-flex gap-2 flex-wrap">
-                <Button Text="Tải quyền" Icon="fa-solid fa-download" Color="Color.Secondary"
-                        IsAsync="true" OnClick="LoadRoleAsync" />
                 <Button Text="Lưu quyền" Icon="fa-solid fa-floppy-disk" Color="Color.Primary"
-                        IsAsync="true" OnClick="SaveAsync" />
+                        IsAsync="true" OnClick="SaveAsync" IsDisabled="_loadingRole" />
             </div>
         </BodyTemplate>
     </Card>
@@ -34,11 +32,11 @@
                                 PlaceHolder="Lọc quyền" />
             </div>
 
-            @if (_loading)
+            @if (_loading || _loadingRole)
             {
                 <div class="app-loading py-4">
                     <Spinner Color="Color.Primary" />
-                    <span class="app-loading-text">Đang tải danh mục quyền...</span>
+                    <span class="app-loading-text">@(_loading ? "Đang tải danh mục quyền..." : "Đang tải quyền vai trò...")</span>
                 </div>
             }
             else if (PermissionGroups.Count == 0)
@@ -81,8 +79,13 @@
     private string _roleName = "ADMIN";
     private string _filter = "";
     private bool _loading = true;
+    private bool _loadingRole;
 
-    protected override async Task OnInitializedAsync() => await LoadCatalogAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCatalogAsync();
+        await LoadRoleAsync();
+    }
 
     private IReadOnlyList<PermissionGroupView> PermissionGroups =>
         _catalog
@@ -125,16 +128,26 @@
 
     private async Task LoadRoleAsync()
     {
+        _loadingRole = true;
         try
         {
             var result = await Api.GetRolePermissionsAsync(_roleName);
             _selectedPermissions = new HashSet<string>(result?.Permissions ?? [], StringComparer.OrdinalIgnoreCase);
-            await ToastService.Success("Đã tải", $"Đã tải {_selectedPermissions.Count} quyền cho {_roleName}.");
         }
         catch (Exception ex)
         {
             await ShowErrorAsync(ex);
         }
+        finally
+        {
+            _loadingRole = false;
+        }
+    }
+
+    private async Task OnRoleChangedAsync(string roleName)
+    {
+        _roleName = roleName;
+        await LoadRoleAsync();
     }
 
     private async Task SaveAsync()

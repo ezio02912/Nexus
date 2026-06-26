@@ -23,7 +23,7 @@ builder.Services.AddSingleton(HtmlEncoder.Create(UnicodeRanges.All));
 builder.Services.AddBootstrapBlazor(options =>
 {
     options.SupportedCultures = ["vi", "en"];
-    options.FallbackCulture = "en";
+    options.FallbackCulture = "vi";
 });
 
 var supportedCultures = new[] { "vi", "en" };
@@ -36,6 +36,8 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 
 builder.Services.Configure<TenantPortalOptions>(builder.Configuration.GetSection("CoreServices"));
 builder.Services.AddScoped<TenantPortalApiClient>();
+builder.Services.AddScoped<CrmApiClient>();
+builder.Services.AddScoped<MasterDataApiClient>();
 builder.Services.AddScoped<TenantSessionService>();
 builder.Services.AddScoped<OnboardingStateService>();
 builder.Services.AddScoped<PendingAuthStateService>();

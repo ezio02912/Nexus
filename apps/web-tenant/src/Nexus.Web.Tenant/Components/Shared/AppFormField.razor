@@ -1,0 +1,17 @@
+<div class="app-form-field">
+    <label class="app-form-label" for="@InputId">
+        @Label
+        @if (Required)
+        {
+            <span class="app-form-required" aria-hidden="true">*</span>
+        }
+    </label>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string InputId { get; set; } = Guid.NewGuid().ToString("N");
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

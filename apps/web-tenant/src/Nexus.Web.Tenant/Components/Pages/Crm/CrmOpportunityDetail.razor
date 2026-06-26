@@ -1,0 +1,47 @@
+@page "/crm/opportunities/{Id:guid}"
+@attribute [TabItemOption(Text = "Chi tiết cơ hội", Icon = "fa-solid fa-bullseye")]
+@inherits CrmPageBase
+
+<PageTitle>Chi tiết cơ hội - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM / Cơ hội</p>
+            <h1>@(_item?.Name ?? "Chi tiết cơ hội")</h1>
+        </div>
+        <div class="d-flex gap-2">
+            <Button Text="Quay lại" Color="Color.Secondary" Icon="fa-solid fa-arrow-left" OnClick="GoBack" />
+            <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <div class="app-loading">
+            <Spinner Color="Color.Primary" />
+            <span class="app-loading-text">Đang tải dữ liệu...</span>
+        </div>
+    }
+    else if (_item is null)
+    {
+        <div class="app-empty-state">Không tìm thấy cơ hội.</div>
+    }
+    else
+    {
+        <section class="app-card app-card-wide">
+            <div class="app-detail-grid">
+                <div><span class="app-detail-label">Giai đoạn</span><span>@CrmLabels.FormatOpportunityStage(_item.Stage)</span></div>
+                <div><span class="app-detail-label">Giá trị</span><span>@_item.Amount.ToString("N0") @_item.Currency</span></div>
+                <div><span class="app-detail-label">Xác suất</span><span>@_item.Probability%</span></div>
+                <div><span class="app-detail-label">Dự kiến chốt</span><span>@(_item.ExpectedCloseDate?.ToString("dd/MM/yyyy") ?? "—")</span></div>
+                <div><span class="app-detail-label">Bước tiếp theo</span><span>@(_item.NextStep ?? "—")</span></div>
+                <div><span class="app-detail-label">Đối thủ</span><span>@(_item.Competitor ?? "—")</span></div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_item.Description))
+            {
+                <p class="mt-3 text-muted">@_item.Description</p>
+            }
+        </section>
+    }
+</section>

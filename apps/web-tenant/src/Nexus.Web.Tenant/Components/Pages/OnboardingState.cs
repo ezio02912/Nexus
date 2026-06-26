@@ -16,7 +16,6 @@ public sealed class OnboardingFormState
     [Required(ErrorMessage = "Vui lòng nhập tên người đại diện.")]
     public string RepresentativeName { get; set; } = "";
 
-    [Required(ErrorMessage = "Vui lòng nhập mã tenant.")]
     public string TenantCode { get; set; } = "";
 
     public string UserName { get; set; } = "";

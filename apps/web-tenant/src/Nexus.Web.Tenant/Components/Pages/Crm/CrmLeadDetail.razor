@@ -1,0 +1,72 @@
+@page "/crm/leads/{Id:guid}"
+@attribute [TabItemOption(Text = "Chi tiết Lead", Icon = "fa-solid fa-user-plus")]
+@inherits CrmPageBase
+
+<PageTitle>Chi tiết lead - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM / Leads</p>
+            <h1>@(_lead?.FullName ?? "Chi tiết lead")</h1>
+        </div>
+        <div class="d-flex gap-2">
+            <Button Text="Quay lại" Color="Color.Secondary" Icon="fa-solid fa-arrow-left" OnClick="GoBack" />
+            @if (_lead is not null && _lead.Status != LeadStatus.Converted)
+            {
+                <Button Text="Chuyển đổi" Color="Color.Success" Icon="fa-solid fa-right-left" IsAsync="true" OnClick="ShowConvertModalAsync" />
+            }
+            <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <div class="app-loading">
+            <Spinner Color="Color.Primary" />
+            <span class="app-loading-text">Đang tải dữ liệu...</span>
+        </div>
+    }
+    else if (_lead is null)
+    {
+        <div class="app-empty-state">Không tìm thấy lead.</div>
+    }
+    else
+    {
+        <section class="app-card app-card-wide">
+            <div class="app-detail-grid">
+                <div><span class="app-detail-label">Công ty</span><span>@(_lead.CompanyName ?? "—")</span></div>
+                <div><span class="app-detail-label">Email</span><span>@(_lead.Email ?? "—")</span></div>
+                <div><span class="app-detail-label">Điện thoại</span><span>@(_lead.Phone ?? "—")</span></div>
+                <div><span class="app-detail-label">Nguồn</span><span>@(_lead.Source ?? "—")</span></div>
+                <div><span class="app-detail-label">Điểm</span><span>@_lead.LeadScore</span></div>
+                <div><span class="app-detail-label">Trạng thái</span>
+                    <span class="@CrmLabels.StatusBadgeClass(_lead.Status)">@CrmLabels.FormatLeadStatus(_lead.Status)</span>
+                </div>
+                @if (_lead.ConvertedCustomerId.HasValue)
+                {
+                    <div><span class="app-detail-label">KH đã chuyển</span>
+                        <a href="crm/customers/@_lead.ConvertedCustomerId">Xem khách hàng</a>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</section>
+
+<Modal @ref="_convertModal" IsBackdrop="true">
+    <ModalDialog Title="Chuyển đổi lead" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <BootstrapInput @bind-Value="_convertModel.CustomerCode" DisplayText="Mã khách hàng *" />
+                <Select TValue="string" @bind-Value="_customerTypeText" Items="@_customerTypeOptions" DisplayText="Loại KH" />
+                <BootstrapInput @bind-Value="_convertModel.OpportunityName" DisplayText="Tên cơ hội *" />
+                <BootstrapInputNumber @bind-Value="_convertModel.OpportunityAmount" DisplayText="Giá trị cơ hội" />
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseConvertModalAsync" />
+            <Button Text="Chuyển đổi" Color="Color.Success" IsAsync="true" OnClick="ConvertAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

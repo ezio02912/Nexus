@@ -1,6 +1,7 @@
 @page "/sales/orders"
 @attribute [TabItemOption(Text = "Đơn hàng", Icon = "fa-solid fa-cart-shopping")]
 @inject TenantPortalApiClient Api
+@inject CrmApiClient CrmApi
 @inject TenantSessionService Session
 
 <PageTitle>Đơn hàng - Bán hàng</PageTitle>
@@ -105,7 +106,7 @@
 
 @code {
     private List<SalesOrderRecord> orders = [];
-    private List<CustomerRecord> customers = [];
+    private List<CustomerDto> customers = [];
     private bool isLoading;
     private string customerIdText = "";
     private string orderNo = "SO-0001";
@@ -127,7 +128,7 @@
 
         isLoading = true;
         orders = (await Api.GetSalesOrdersAsync(tenantId))?.Items.ToList() ?? [];
-        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
+        customers = (await CrmApi.GetCustomersAsync(new CustomerListQuery { MaxResultCount = 500 }))?.Items.ToList() ?? [];
         isLoading = false;
     }
 
@@ -169,7 +170,7 @@
         return string.Join(", ", order.Lines.Select(x => $"{x.ProductCode} x{x.Quantity:N0}"));
     }
 
-    private static string CustomerOption(CustomerRecord customer) => $"{customer.Code} - {customer.Name}";
+    private static string CustomerOption(CustomerDto customer) => $"{customer.Code} - {customer.Name}";
 
     private string CustomerText(Guid customerId)
     {

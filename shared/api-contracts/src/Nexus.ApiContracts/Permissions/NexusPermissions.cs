@@ -67,23 +67,159 @@ public static class NexusPermissions
         public const string Generate = Default + ".Generate";
     }
 
+    public static class MasterData
+    {
+        public const string Default = GroupName + ".MasterData";
+        public const string View = Default + ".View";
+        public const string Manage = Default + ".Manage";
+    }
+
     public static class Crm
     {
         public const string Default = GroupName + ".Crm";
-        public const string Customers = Default + ".Customers";
-        public const string Leads = Default + ".Leads";
-        public const string Opportunities = Default + ".Opportunities";
-        public const string Quotations = Default + ".Quotations";
-        public const string Contracts = Default + ".Contracts";
+
+        // Legacy coarse permissions kept for backward compatibility with existing role grants.
+        public const string CustomersLegacy = Default + ".Customers";
+        public const string ContactsLegacy = Default + ".Contacts";
+        public const string LeadsLegacy = Default + ".Leads";
+        public const string OpportunitiesLegacy = Default + ".Opportunities";
+        public const string QuotationsLegacy = Default + ".Quotations";
+        public const string ContractsLegacy = Default + ".Contracts";
+        public const string ActivitiesLegacy = Default + ".Activities";
+
+        public static class Dashboard
+        {
+            public const string View = Default + ".Dashboard.View";
+        }
+
+        public static class Customers
+        {
+            public const string View = Default + ".Customers.View";
+            public const string Create = Default + ".Customers.Create";
+            public const string Edit = Default + ".Customers.Edit";
+            public const string Delete = Default + ".Customers.Delete";
+        }
+
+        public static class Contacts
+        {
+            public const string View = Default + ".Contacts.View";
+            public const string Create = Default + ".Contacts.Create";
+            public const string Edit = Default + ".Contacts.Edit";
+            public const string Delete = Default + ".Contacts.Delete";
+        }
+
+        public static class Leads
+        {
+            public const string View = Default + ".Leads.View";
+            public const string Create = Default + ".Leads.Create";
+            public const string Edit = Default + ".Leads.Edit";
+            public const string Delete = Default + ".Leads.Delete";
+        }
+
+        public static class Opportunities
+        {
+            public const string View = Default + ".Opportunities.View";
+            public const string Create = Default + ".Opportunities.Create";
+            public const string Edit = Default + ".Opportunities.Edit";
+            public const string Delete = Default + ".Opportunities.Delete";
+        }
+
+        public static class OpportunityBoard
+        {
+            public const string View = Default + ".OpportunityBoard.View";
+            public const string Edit = Default + ".OpportunityBoard.Edit";
+        }
+
+        public static class Quotations
+        {
+            public const string View = Default + ".Quotations.View";
+            public const string Create = Default + ".Quotations.Create";
+            public const string Edit = Default + ".Quotations.Edit";
+            public const string Delete = Default + ".Quotations.Delete";
+            public const string Approve = Default + ".Quotations.Approve";
+        }
+
+        public static class Contracts
+        {
+            public const string View = Default + ".Contracts.View";
+            public const string Create = Default + ".Contracts.Create";
+            public const string Edit = Default + ".Contracts.Edit";
+            public const string Delete = Default + ".Contracts.Delete";
+            public const string Sign = Default + ".Contracts.Sign";
+        }
+
+        public static class Activities
+        {
+            public const string View = Default + ".Activities.View";
+            public const string Create = Default + ".Activities.Create";
+            public const string Edit = Default + ".Activities.Edit";
+            public const string Delete = Default + ".Activities.Delete";
+            public const string Complete = Default + ".Activities.Complete";
+        }
     }
 
     public static class Sales
     {
         public const string Default = GroupName + ".Sales";
-        public const string Orders = Default + ".Orders";
-        public const string ApproveOrders = Default + ".ApproveOrders";
-        public const string CompleteOrders = Default + ".CompleteOrders";
+
+        public const string OrdersLegacy = Default + ".Orders";
+        public const string ApproveOrdersLegacy = Default + ".ApproveOrders";
+        public const string CompleteOrdersLegacy = Default + ".CompleteOrders";
+
+        public static class Orders
+        {
+            public const string View = Default + ".Orders.View";
+            public const string Create = Default + ".Orders.Create";
+            public const string Edit = Default + ".Orders.Edit";
+            public const string Delete = Default + ".Orders.Delete";
+            public const string Approve = Default + ".Orders.Approve";
+            public const string Complete = Default + ".Orders.Complete";
+        }
     }
+
+    public static class TenantAdmin
+    {
+        public const string Default = GroupName + ".Tenant";
+
+        public static class Users
+        {
+            public const string View = Default + ".Users.View";
+            public const string Create = Default + ".Users.Create";
+            public const string Edit = Default + ".Users.Edit";
+            public const string Delete = Default + ".Users.Delete";
+        }
+
+        public static class Permissions
+        {
+            public const string View = Default + ".Permissions.View";
+            public const string Manage = Default + ".Permissions.Manage";
+        }
+
+        public static class Settings
+        {
+            public const string View = Default + ".Settings.View";
+            public const string Edit = Default + ".Settings.Edit";
+        }
+    }
+
+    /// <summary>Permissions assignable inside a tenant workspace (web-tenant role editor).</summary>
+    public static IReadOnlyList<string> TenantAssignable { get; } =
+    [
+        Crm.Dashboard.View,
+        Crm.Customers.View, Crm.Customers.Create, Crm.Customers.Edit, Crm.Customers.Delete,
+        Crm.Contacts.View, Crm.Contacts.Create, Crm.Contacts.Edit, Crm.Contacts.Delete,
+        Crm.Leads.View, Crm.Leads.Create, Crm.Leads.Edit, Crm.Leads.Delete,
+        Crm.Opportunities.View, Crm.Opportunities.Create, Crm.Opportunities.Edit, Crm.Opportunities.Delete,
+        Crm.OpportunityBoard.View, Crm.OpportunityBoard.Edit,
+        Crm.Quotations.View, Crm.Quotations.Create, Crm.Quotations.Edit, Crm.Quotations.Delete, Crm.Quotations.Approve,
+        Crm.Contracts.View, Crm.Contracts.Create, Crm.Contracts.Edit, Crm.Contracts.Delete, Crm.Contracts.Sign,
+        Crm.Activities.View, Crm.Activities.Create, Crm.Activities.Edit, Crm.Activities.Delete, Crm.Activities.Complete,
+        Sales.Orders.View, Sales.Orders.Create, Sales.Orders.Edit, Sales.Orders.Delete, Sales.Orders.Approve, Sales.Orders.Complete,
+        Workflow.View, Workflow.Approve,
+        TenantAdmin.Users.View, TenantAdmin.Users.Create, TenantAdmin.Users.Edit, TenantAdmin.Users.Delete,
+        TenantAdmin.Permissions.View, TenantAdmin.Permissions.Manage,
+        TenantAdmin.Settings.View, TenantAdmin.Settings.Edit
+    ];
 
     /// <summary>
     /// Returns the full catalog of permission names, used to seed the permission service.
@@ -98,7 +234,10 @@ public static class NexusPermissions
         Notifications.View, Notifications.Send,
         Workflow.View, Workflow.Manage, Workflow.Approve,
         Numbering.View, Numbering.Generate,
-        Crm.Customers, Crm.Leads, Crm.Opportunities, Crm.Quotations, Crm.Contracts,
-        Sales.Orders, Sales.ApproveOrders, Sales.CompleteOrders
+        MasterData.View, MasterData.Manage,
+        ..TenantAssignable,
+        Crm.CustomersLegacy, Crm.ContactsLegacy, Crm.LeadsLegacy, Crm.OpportunitiesLegacy,
+        Crm.QuotationsLegacy, Crm.ContractsLegacy, Crm.ActivitiesLegacy,
+        Sales.OrdersLegacy, Sales.ApproveOrdersLegacy, Sales.CompleteOrdersLegacy
     ];
 }

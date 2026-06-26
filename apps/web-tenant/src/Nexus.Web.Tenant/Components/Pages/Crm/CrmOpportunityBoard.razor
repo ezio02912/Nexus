@@ -1,0 +1,69 @@
+@page "/crm/opportunity-board"
+@attribute [TabItemOption(Text = "Kanban cơ hội", Icon = "fa-solid fa-table-columns")]
+@inherits CrmPageBase
+
+<PageTitle>Kanban cơ hội - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Kanban cơ hội</h1>
+            <p>Xem và di chuyển cơ hội theo giai đoạn pipeline.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <Button Text="Danh sách" Color="Color.Secondary" Icon="fa-solid fa-list" OnClick="GoToList" />
+            <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+        </div>
+    </header>
+
+    @if (!Can(NexusPermissions.Crm.OpportunityBoard.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
+    {
+        <div class="app-alert">Tenant này chưa được bật module CRM.</div>
+    }
+    else if (_loading)
+    {
+        <div class="app-loading">
+            <Spinner Color="Color.Primary" />
+            <span class="app-loading-text">Đang tải dữ liệu...</span>
+        </div>
+    }
+    else
+    {
+        <div class="crm-kanban-board">
+            @foreach (var stage in _stages)
+            {
+                <div class="crm-kanban-column app-card">
+                    <header class="crm-kanban-column-header">
+                        <h3>@CrmLabels.FormatOpportunityStage(stage)</h3>
+                        <span class="app-status-badge app-status-muted">@ColumnCount(stage)</span>
+                    </header>
+                    <div class="crm-kanban-cards">
+                        @foreach (var item in ItemsForStage(stage))
+                        {
+                            <div class="crm-kanban-card">
+                                <strong>@item.Name</strong>
+                                <p class="text-muted small mb-2">@VnMoney.Format(item.Amount) @item.Currency</p>
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach (var targetStage in _stages.Where(s => s != stage))
+                                    {
+                                        <Button Size="Size.ExtraSmall" Color="Color.Light"
+                                                Text="@CrmLabels.FormatOpportunityStage(targetStage)"
+                                                IsAsync="true"
+                                                OnClick="@(() => ChangeStageAsync(item, targetStage))" />
+                                    }
+                                </div>
+                                <Button Size="Size.ExtraSmall" Color="Color.Link" Text="Chi tiết"
+                                        OnClick="@(() => ViewDetailAsync(item.Id))" />
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</section>

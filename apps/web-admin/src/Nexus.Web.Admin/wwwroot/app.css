@@ -560,12 +560,38 @@ h1:focus {
 /* Tenant module picker inside edit dialog */
 .admin-module-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 0.5rem 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
     padding: 0.75rem;
     border: 1px solid var(--app-border);
     border-radius: var(--app-radius-sm);
     background: var(--app-surface);
+}
+
+.admin-module-item {
+    display: flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-surface-soft);
+}
+
+.admin-module-item .form-check {
+    margin: 0;
+}
+
+@media (max-width: 992px) {
+    .admin-module-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .admin-module-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Permission assignment layout */

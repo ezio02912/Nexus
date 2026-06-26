@@ -16,6 +16,10 @@
     {
         <div class="app-alert">Đăng nhập để xem thiết lập tenant.</div>
     }
+    else if (!Session.IsGranted(NexusPermissions.TenantAdmin.Settings.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem thiết lập tenant.</div>
+    }
     else
     {
         <div class="app-grid">

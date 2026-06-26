@@ -18,6 +18,10 @@
     {
         <div class="app-alert">Đăng nhập để quản lý người dùng tenant.</div>
     }
+    else if (!Session.IsGranted(NexusPermissions.TenantAdmin.Users.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem danh sách người dùng.</div>
+    }
     else
     {
         @if (!string.IsNullOrWhiteSpace(message))
@@ -26,8 +30,10 @@
         }
 
         <div class="tenant-work-grid">
-            <section class="app-card">
-                <h2>Tạo người dùng</h2>
+            @if (Session.IsGranted(NexusPermissions.TenantAdmin.Users.Create))
+            {
+                <section class="app-card">
+                    <h2>Tạo người dùng</h2>
                 <div class="app-form-grid">
                     <div>
                         <label>Tên đăng nhập *</label>
@@ -47,7 +53,8 @@
                     </div>
                 </div>
                 <Button Text="Tạo người dùng" Color="Color.Primary" OnClick="CreateAsync" />
-            </section>
+                </section>
+            }
 
             <section class="app-card app-card-wide">
                 <h2>Người dùng</h2>

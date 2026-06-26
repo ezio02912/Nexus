@@ -30,6 +30,7 @@ html, body {
     --app-sidebar-text: #475467;
     --app-sidebar-hover-bg: #F2F4F7;
     --app-sidebar-active-bg: var(--app-primary-soft);
+    --app-danger: #DC2626;
 }
 
 html,
@@ -714,16 +715,61 @@ h1:focus {
 
 .app-form-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 0.75rem;
-    align-items: end;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+.app-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.app-form-label {
+    color: var(--app-text-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.app-form-required {
+    color: var(--app-danger);
+    margin-left: 0.15rem;
 }
 
 .app-form-grid label {
-    color: var(--oeds-muted);
+    color: var(--app-text-muted);
     font-size: 0.82rem;
     font-weight: 700;
     margin-bottom: 0.25rem;
+}
+
+.app-money-input {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.lookup-item strong {
+    font-weight: 600;
+}
+
+.lookup-selected {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-form-check-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding-top: 1.35rem;
 }
 
 .app-table {
@@ -1238,6 +1284,48 @@ h1:focus {
     font-size: 0.82rem;
 }
 
+.tenant-permission-toolbar {
+    max-width: 360px;
+    margin-bottom: 1rem;
+}
+
+.tenant-permission-area {
+    margin-bottom: 1.5rem;
+}
+
+.tenant-permission-area > h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.05rem;
+    color: var(--app-text);
+}
+
+.tenant-permission-group {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-surface);
+}
+
+.tenant-permission-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.tenant-permission-group-header h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--ocean-700);
+}
+
+.tenant-permission-item strong {
+    display: block;
+    margin-bottom: 0.15rem;
+}
+
 .tenant-permission-catalog {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -1425,4 +1513,86 @@ body {
     .tenant-work-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.tenant-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.tenant-kpi-card h2 {
+    margin: .35rem 0 0;
+    font-size: 1.75rem;
+    color: var(--app-text);
+}
+
+.tenant-kpi-label {
+    margin: 0;
+    color: var(--app-text-muted);
+    font-size: .9rem;
+}
+
+.app-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: .85rem 1.25rem;
+}
+
+.app-detail-label {
+    display: block;
+    color: var(--app-text-muted);
+    font-size: .82rem;
+    margin-bottom: .2rem;
+}
+
+.crm-kanban-board {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.75rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+}
+
+.crm-kanban-board::-webkit-scrollbar {
+    height: 8px;
+}
+
+.crm-kanban-board::-webkit-scrollbar-thumb {
+    background: var(--app-border);
+    border-radius: 999px;
+}
+
+.crm-kanban-column {
+    flex: 0 0 300px;
+    min-height: 320px;
+    scroll-snap-align: start;
+}
+
+.crm-kanban-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .75rem;
+}
+
+.crm-kanban-column-header h3 {
+    margin: 0;
+    font-size: .95rem;
+}
+
+.crm-kanban-cards {
+    display: flex;
+    flex-direction: column;
+    gap: .65rem;
+}
+
+.crm-kanban-card {
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-surface-soft);
+    padding: .75rem;
 }

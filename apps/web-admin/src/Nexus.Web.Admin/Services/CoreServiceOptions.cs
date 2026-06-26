@@ -13,4 +13,5 @@ public sealed class CoreServiceOptions
     public string File { get; set; } = "http://localhost:7200/file";
     public string Numbering { get; set; } = "http://localhost:7200/numbering";
     public string Workflow { get; set; } = "http://localhost:7200/workflow";
+    public string MasterData { get; set; } = "http://localhost:7200/masterdata";
 }

@@ -1,0 +1,119 @@
+@page "/crm/contacts"
+@attribute [TabItemOption(Text = "Liên hệ", Icon = "fa-solid fa-address-book")]
+@inherits CrmPageBase
+
+<PageTitle>Liên hệ - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Liên hệ</h1>
+            <p>Quản lý người liên hệ của khách hàng.</p>
+        </div>
+    </header>
+
+    @if (!Can(NexusPermissions.Crm.Contacts.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
+    {
+        <div class="app-alert">Tenant này chưa được bật module CRM.</div>
+    }
+    else
+    {
+        <Card HeaderText="Danh sách liên hệ" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="ContactDto" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="140"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                    <TableToolbarTemplate>
+                        @if (Can(NexusPermissions.Crm.Contacts.Create))
+                        {
+                            <TableToolbarButton TItem="ContactDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                            Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        @if (Can(NexusPermissions.Crm.Contacts.Edit))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                         OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Contacts.Delete))
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                         OnClick="@(() => DeleteAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.FullName" Text="Họ tên" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
+                            <Template Context="v">@CustomerName(v.Row.CustomerId)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Email" Text="Email" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Phone" Text="Điện thoại" />
+                        <TableColumn @bind-Field="@context.Mobile" Text="Di động" />
+                        <TableColumn @bind-Field="@context.Position" Text="Chức vụ" />
+                        <TableColumn @bind-Field="@context.Department" Text="Phòng ban" />
+                        <TableColumn @bind-Field="@context.IsPrimary" Text="Chính">
+                            <Template Context="v">@(v.Row.IsPrimary ? "Có" : "Không")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.IsDecisionMaker" Text="Ra quyết định">
+                            <Template Context="v">@(v.Row.IsDecisionMaker ? "Có" : "Không")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_modalTitle" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="_customerIdText" />
+                <AppFormField Label="Họ tên" Required="true">
+                    <BootstrapInput @bind-Value="_model.FullName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_model.Email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_model.Phone" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Di động">
+                    <BootstrapInput @bind-Value="_model.Mobile" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Chức vụ">
+                    <BootstrapInput @bind-Value="_model.Position" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Phòng ban">
+                    <BootstrapInput @bind-Value="_model.Department" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Liên hệ chính">
+                    <div class="app-form-check-row">
+                        <Checkbox @bind-Value="_model.IsPrimary" ShowLabel="false" />
+                        <span>Đánh dấu là liên hệ chính</span>
+                    </div>
+                </AppFormField>
+                <AppFormField Label="Người ra quyết định">
+                    <div class="app-form-check-row">
+                        <Checkbox @bind-Value="_model.IsDecisionMaker" ShowLabel="false" />
+                        <span>Có quyền ra quyết định mua hàng</span>
+                    </div>
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

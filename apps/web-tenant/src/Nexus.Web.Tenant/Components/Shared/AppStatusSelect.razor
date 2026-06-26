@@ -1,0 +1,61 @@
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+    <Select TValue="string"
+            @bind-Value="SelectedValue"
+            Items="@Items"
+            ShowLabel="false"
+            IsMarkupString="true"
+            ShowSearch="@ShowSearch"
+            DisplayTemplate="RenderSelected">
+        <ItemTemplate Context="item">
+            @if (TryGetMeta(item.Value, out var meta))
+            {
+                <span class="@meta.BadgeClass">@meta.Text</span>
+            }
+            else
+            {
+                @item.Text
+            }
+        </ItemTemplate>
+    </Select>
+</AppFormField>
+
+@code {
+    private readonly string _selectId = $"status-{Guid.NewGuid():N}";
+
+    [Parameter] public string Label { get; set; } = "Trạng thái";
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public bool ShowSearch { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public List<SelectedItem> Items { get; set; } = [];
+    [Parameter] public Dictionary<string, (string Text, string BadgeClass)> Meta { get; set; } = [];
+
+    private string? SelectedValue
+    {
+        get => Value;
+        set => _ = ValueChanged.InvokeAsync(value);
+    }
+
+    private bool TryGetMeta(string? value, out (string Text, string BadgeClass) meta)
+    {
+        if (value is not null && Meta.TryGetValue(value, out meta))
+        {
+            return true;
+        }
+
+        meta = default;
+        return false;
+    }
+
+    private RenderFragment<SelectedItem> RenderSelected => item =>
+    @<span>
+        @if (item is not null && TryGetMeta(item.Value, out var meta))
+        {
+            <span class="@meta.BadgeClass">@meta.Text</span>
+        }
+        else
+        {
+            @(item?.Text ?? "—")
+        }
+    </span>;
+}

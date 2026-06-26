@@ -96,18 +96,6 @@ public sealed class TenantPortalApiClient
     public Task<IReadOnlyList<string>?> GetPermissionCatalogAsync() => GetAsync<IReadOnlyList<string>>(_options.Permission, "/api/permissions");
     public Task<RolePermissionDto?> GetRolePermissionsAsync(string roleName) => GetAsync<RolePermissionDto>(_options.Permission, $"/api/roles/{Uri.EscapeDataString(roleName)}/permissions");
     public Task<RolePermissionDto?> UpdateRolePermissionsAsync(string roleName, UpdateRolePermissionsRequest request) => PutAsync<RolePermissionDto>(_options.Permission, $"/api/roles/{Uri.EscapeDataString(roleName)}/permissions", request);
-    public Task<PagedResult<CustomerRecord>?> GetCustomersAsync(Guid tenantId) => GetAsync<PagedResult<CustomerRecord>>(_options.Crm, $"/api/crm/customers?tenantId={tenantId}");
-    public Task<CustomerRecord?> CreateCustomerAsync(CreateCustomerRequest request) => PostAsync<CustomerRecord>(_options.Crm, "/api/crm/customers", request);
-    public Task<IReadOnlyList<LeadRecord>?> GetLeadsAsync(Guid tenantId) => GetAsync<IReadOnlyList<LeadRecord>>(_options.Crm, $"/api/crm/leads?tenantId={tenantId}");
-    public Task<LeadRecord?> CreateLeadAsync(CreateLeadRequest request) => PostAsync<LeadRecord>(_options.Crm, "/api/crm/leads", request);
-    public Task<IReadOnlyList<OpportunityRecord>?> GetOpportunitiesAsync(Guid tenantId) => GetAsync<IReadOnlyList<OpportunityRecord>>(_options.Crm, $"/api/crm/opportunities?tenantId={tenantId}");
-    public Task<OpportunityRecord?> CreateOpportunityAsync(CreateOpportunityRequest request) => PostAsync<OpportunityRecord>(_options.Crm, "/api/crm/opportunities", request);
-    public Task<IReadOnlyList<QuotationRecord>?> GetQuotationsAsync(Guid tenantId) => GetAsync<IReadOnlyList<QuotationRecord>>(_options.Crm, $"/api/crm/quotations?tenantId={tenantId}");
-    public Task<QuotationRecord?> CreateQuotationAsync(CreateQuotationRequest request) => PostAsync<QuotationRecord>(_options.Crm, "/api/crm/quotations", request);
-    public Task<QuotationRecord?> ApproveQuotationAsync(Guid id) => PostAsync<QuotationRecord>(_options.Crm, $"/api/crm/quotations/{id}/approve", new { });
-    public Task<IReadOnlyList<ContractRecord>?> GetContractsAsync(Guid tenantId) => GetAsync<IReadOnlyList<ContractRecord>>(_options.Crm, $"/api/crm/contracts?tenantId={tenantId}");
-    public Task<ContractRecord?> CreateContractAsync(CreateContractRequest request) => PostAsync<ContractRecord>(_options.Crm, "/api/crm/contracts", request);
-    public Task<ContractRecord?> SignContractAsync(Guid id) => PostAsync<ContractRecord>(_options.Crm, $"/api/crm/contracts/{id}/sign", new { });
     public Task<PagedResult<SalesOrderRecord>?> GetSalesOrdersAsync(Guid tenantId) => GetAsync<PagedResult<SalesOrderRecord>>(_options.Sales, $"/api/sales/orders?tenantId={tenantId}");
     public Task<SalesOrderRecord?> CreateSalesOrderAsync(CreateSalesOrderRequest request) => PostAsync<SalesOrderRecord>(_options.Sales, "/api/sales/orders", request);
     public Task<SalesOrderRecord?> ApproveSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/approve", new { });
@@ -169,6 +157,12 @@ public sealed class TenantPortalApiClient
         if (_session.IsAuthenticated && !string.IsNullOrEmpty(_session.Login?.AccessToken))
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _session.Login.AccessToken);
+        }
+
+        if (_session.TenantId is Guid tenantId)
+        {
+            client.DefaultRequestHeaders.Remove("x-tenant-id");
+            client.DefaultRequestHeaders.Add("x-tenant-id", tenantId.ToString());
         }
 
         return client;

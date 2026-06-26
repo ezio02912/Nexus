@@ -1,3 +1,4 @@
+using Nexus.ApiContracts.Permissions;
 using Nexus.SharedKernel.Authorization;
 using Nexus.SharedKernel.Context;
 
@@ -18,8 +19,7 @@ public sealed class ClaimBasedPermissionChecker : IPermissionChecker
 
     public Task<bool> IsGrantedAsync(string permission, CancellationToken cancellationToken = default)
     {
-        var granted = _currentUser.Permissions.Contains("*")
-            || _currentUser.Permissions.Contains(permission);
+        var granted = NexusPermissionLegacy.IsGranted(_currentUser.Permissions, permission);
         return Task.FromResult(granted);
     }
 }

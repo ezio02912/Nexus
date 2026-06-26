@@ -19,6 +19,13 @@ usage and demos at https://www.blazor.zone/introduction.
   inputs) for fixed option sets (status, role, module, etc.).
 - Text/number/password inputs use `BootstrapInput` / `BootstrapInputNumber` /
   `BootstrapPassword`; group content in `<Card>`.
+- Modal/dialog forms MUST wrap controls in `<AppFormField Label="...">` with
+  `ShowLabel="false"` on inner BootstrapBlazor inputs.
+- Money fields use `<AppMoneyInput>` (vi-VN: `.` thousands, `,` decimals).
+- Boolean flags use `<Checkbox>`, not `<Switch>`.
+- Status enums use `<AppStatusSelect>` with colored badges.
+- Large catalog lookups use `<CustomerLookupSelect>` or `Select` with
+  `ShowSearch` + `OnQueryAsync` (Select2-style API search).
 - The admin shell body MUST be a Chrome-style tab workspace: the `<Layout>` uses
   `UseTabSet="true"` and `TabStyle="TabStyle.Chrome"` so menu clicks open closeable
   Chrome tabs.

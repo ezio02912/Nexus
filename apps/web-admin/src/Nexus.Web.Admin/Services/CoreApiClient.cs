@@ -65,6 +65,22 @@ public sealed class CoreApiClient
     public Task DeleteWorkflowDefinitionAsync(Guid id) => DeleteAsync(_options.Workflow, $"/api/workflow-definitions/{id}");
     public Task<WorkflowInstanceRecord?> CreateWorkflowInstanceAsync(CreateWorkflowInstanceRequest request) => PostAsync<WorkflowInstanceRecord>(_options.Workflow, "/api/workflow-instances", request);
 
+    public Task<IReadOnlyList<LookupItemDto>?> GetMasterDataItemsAsync(string? category = null)
+    {
+        var path = string.IsNullOrWhiteSpace(category)
+            ? "/api/master-data/admin/items"
+            : $"/api/master-data/admin/items?category={Uri.EscapeDataString(category)}";
+        return GetAsync<IReadOnlyList<LookupItemDto>>(_options.MasterData, path);
+    }
+
+    public Task<LookupItemDto?> CreateMasterDataItemAsync(CreateLookupItemRequest request)
+        => PostAsync<LookupItemDto>(_options.MasterData, "/api/master-data/admin/items", request);
+
+    public Task<LookupItemDto?> UpdateMasterDataItemAsync(Guid id, UpdateLookupItemRequest request)
+        => PutAsync<LookupItemDto>(_options.MasterData, $"/api/master-data/admin/items/{id}", request);
+
+    public Task DeleteMasterDataItemAsync(Guid id) => DeleteAsync(_options.MasterData, $"/api/master-data/admin/items/{id}");
+
     private async Task<T?> GetAsync<T>(string baseUrl, string path)
     {
         var client = CreateClient();

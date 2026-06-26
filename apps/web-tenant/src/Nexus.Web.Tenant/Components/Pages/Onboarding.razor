@@ -6,7 +6,7 @@
 @inject SwalService SwalService
 @inject ToastService ToastService
 
-<PageTitle>Thiết lập tenant</PageTitle>
+<PageTitle>Thiết lập doanh nghiệp</PageTitle>
 
 <div class="tenant-login-page">
     <div class="tenant-login-form-pane">
@@ -14,7 +14,7 @@
             <div class="tenant-login-heading">
                 <span class="brand-mark">N</span>
                 <div>
-                    <h1>Thiết lập tenant</h1>
+                    <h1>Thiết lập doanh nghiệp</h1>
                     <p>@StepTitle</p>
                 </div>
             </div>
@@ -30,11 +30,14 @@
             {
                 <EditForm Model="_state" OnValidSubmit="GoToStepTwoAsync" class="tenant-form">
                     <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger mb-3" />
                     <BootstrapInput @bind-Value="_state.CompanyName" DisplayText="Tên công ty" ShowLabel="true" class="mb-3" />
                     <BootstrapInput @bind-Value="_state.RepresentativeName" DisplayText="Người đại diện" ShowLabel="true" class="mb-3" />
                     <BootstrapInput @bind-Value="_state.Phone" DisplayText="Số điện thoại" ShowLabel="true" class="mb-3" />
                     <BootstrapInput @bind-Value="_state.Address" DisplayText="Địa chỉ" ShowLabel="true" class="mb-3" />
-                    <Button Text="Tiếp tục" ButtonType="ButtonType.Submit" Color="Color.Primary" IsBlock="true" IsAsync="true" />
+                    <Button Text="@(_stepOneLoading ? "Đang xử lý..." : "Tiếp tục")"
+                            ButtonType="ButtonType.Submit" Color="Color.Primary" IsBlock="true"
+                            IsDisabled="@_stepOneLoading" IsAsync="true" />
                 </EditForm>
             }
             else
@@ -44,14 +47,14 @@
                     <Alert Color="Color.Info" class="mb-3">
                         Email Google: <strong>@OnboardingState.Email</strong>
                     </Alert>
-                    <BootstrapInput @bind-Value="_state.TenantCode" DisplayText="Mã tenant" ShowLabel="true" class="mb-3" />
-                    <div class="form-text mb-3 text-muted">Hệ thống đề xuất mã tenant, bạn có thể chỉnh sửa trước khi xác nhận.</div>
+                    <BootstrapInput @bind-Value="_state.TenantCode" DisplayText="Mã doanh nghiệp" ShowLabel="true" class="mb-3" />
+                    <div class="form-text mb-3 text-muted">Hệ thống đề xuất mã doanh nghiệp, bạn có thể chỉnh sửa trước khi xác nhận.</div>
                     <BootstrapInput @bind-Value="_state.UserName" DisplayText="Tên đăng nhập (tuỳ chọn)" ShowLabel="true" class="mb-3" />
                     <BootstrapPassword @bind-Value="_state.Password" DisplayText="Mật khẩu (tuỳ chọn)" ShowLabel="true" class="mb-3" />
                     <BootstrapPassword @bind-Value="_state.ConfirmPassword" DisplayText="Xác nhận mật khẩu" ShowLabel="true" class="mb-3" />
                     <Button Text="@(_processing ? "Đang tạo và đăng nhập..." : "Hoàn tất và đăng nhập")"
                             ButtonType="ButtonType.Submit" Color="Color.Primary" IsBlock="true"
-                            IsDisabled="@_processing" />
+                            IsDisabled="@_processing" IsAsync="true" />
                     <Button Text="Quay lại" Color="Color.Secondary" IsOutline="true" IsBlock="true"
                             class="mt-2" OnClick="BackToStepOne" />
                 </EditForm>
@@ -63,7 +66,7 @@
         <div class="tenant-login-visual-inner">
             <span class="tenant-brand-badge">Bước @_state.Step / 2</span>
             <h2>Tạo không gian làm việc riêng</h2>
-            <p>Nhập đầy đủ thông tin doanh nghiệp để hệ thống tạo tenant và gửi mã xác nhận qua email.</p>
+            <p>Nhập đầy đủ thông tin doanh nghiệp để hệ thống tạo không gian làm việc và gửi mã xác nhận qua email.</p>
         </div>
     </div>
 </div>
@@ -71,11 +74,12 @@
 @code {
     private readonly OnboardingFormState _state = new();
     private bool _loading = true;
+    private bool _stepOneLoading;
     private bool _processing;
 
     private string StepTitle => _state.Step == 1
         ? "Bước 1/2 — Thông tin doanh nghiệp"
-        : "Bước 2/2 — Mã tenant và tài khoản";
+        : "Bước 2/2 — Mã doanh nghiệp và tài khoản";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -111,6 +115,7 @@
 
     private async Task GoToStepTwoAsync()
     {
+        _stepOneLoading = true;
         try
         {
             var preview = await Api.PreviewTenantCodeAsync(new PreviewTenantCodeRequest(_state.CompanyName));
@@ -122,9 +127,13 @@
             await SwalService.Show(new SwalOption
             {
                 Category = SwalCategory.Error,
-                Title = "Không thể tạo mã tenant",
+                Title = "Không thể tạo mã doanh nghiệp",
                 Content = ex.Message
             });
+        }
+        finally
+        {
+            _stepOneLoading = false;
         }
     }
 
@@ -132,6 +141,17 @@
 
     private async Task CompleteAsync()
     {
+        if (string.IsNullOrWhiteSpace(_state.TenantCode))
+        {
+            await SwalService.Show(new SwalOption
+            {
+                Category = SwalCategory.Warning,
+                Title = "Thiếu mã doanh nghiệp",
+                Content = "Vui lòng nhập mã doanh nghiệp."
+            });
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(_state.Password) && _state.Password != _state.ConfirmPassword)
         {
             await SwalService.Show(new SwalOption
@@ -158,12 +178,12 @@
 
             if (result is null)
             {
-                throw new InvalidOperationException("Không thể hoàn tất đăng ký tenant.");
+                throw new InvalidOperationException("Không thể hoàn tất đăng ký doanh nghiệp.");
             }
 
             await OnboardingState.ClearAsync();
             await Api.SignInFromLoginAsync(result.Login);
-            await ToastService.Success("Thành công", $"Tenant {result.TenantCode} đã được tạo. Mã tenant đã gửi qua email.");
+            await ToastService.Success("Thành công", $"Doanh nghiệp {result.TenantCode} đã được tạo. Mã doanh nghiệp đã gửi qua email.");
             Navigation.NavigateTo("/", replace: true);
         }
         catch (Exception ex)

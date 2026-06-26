@@ -1,0 +1,246 @@
+@page "/masterdata"
+@inject CoreApiClient Api
+@inject DialogService DialogService
+@inject SwalService SwalService
+@inject ToastService ToastService
+
+<PageTitle>Danh mục dùng chung</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Danh mục dùng chung</h1>
+        <p>Quản lý ngành, thành phố, nguồn dùng chung cho mọi tenant.</p>
+    </div>
+</section>
+
+<Card HeaderText="Danh sách mục danh mục" IsShadow="true">
+    <BodyTemplate>
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <Select TValue="string" @bind-Value="_categoryFilter" Items="_categoryOptions"
+                        DisplayText="Danh mục" ShowLabel="true" ShowSearch="true"
+                        OnSelectedItemChanged="OnCategoryChangedAsync" />
+            </div>
+        </div>
+        <Table @ref="_table" TItem="LookupItemDto" OnQueryAsync="OnQueryAsync"
+               IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+               ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+               ShowEditButton="false" ShowDeleteButton="false" ExtendButtonColumnWidth="160"
+               ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+            <TableToolbarTemplate>
+                <TableToolbarButton TItem="LookupItemDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                    Text="Thêm mục" OnClickCallback="ShowCreateAsync" />
+            </TableToolbarTemplate>
+            <RowButtonTemplate>
+                <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                 OnClick="@(() => ShowEditAsync(context))" />
+                <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                 OnClick="@(() => DeleteAsync(context.Id))" />
+            </RowButtonTemplate>
+            <TableColumns>
+                <TableColumn @bind-Field="@context.Category" Text="Danh mục" Sortable="true">
+                    <Template Context="v">@FormatCategory(v.Row.Category)</Template>
+                </TableColumn>
+                <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.SortOrder" Text="Thứ tự" Sortable="true" />
+                <TableColumn @bind-Field="@context.IsActive" Text="Kích hoạt">
+                    <Template Context="v">@(v.Row.IsActive ? "Có" : "Không")</Template>
+                </TableColumn>
+            </TableColumns>
+        </Table>
+    </BodyTemplate>
+</Card>
+
+@code {
+    private Table<LookupItemDto>? _table;
+    private string _categoryFilter = "";
+    private static readonly int[] _pageItems = [10, 20, 50];
+
+    private static readonly List<SelectedItem> _categoryOptions =
+    [
+        new("", "Tất cả danh mục"),
+        new("Industry", "Ngành"),
+        new("City", "Thành phố"),
+        new("Source", "Nguồn")
+    ];
+
+    private async Task<QueryData<LookupItemDto>> OnQueryAsync(QueryPageOptions options)
+    {
+        var all = await LoadAsync();
+        return TableQuery.Apply(all, options);
+    }
+
+    private async Task<List<LookupItemDto>> LoadAsync()
+    {
+        try
+        {
+            var category = string.IsNullOrWhiteSpace(_categoryFilter) ? null : _categoryFilter;
+            return (await Api.GetMasterDataItemsAsync(category))?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            return [];
+        }
+    }
+
+    private async Task OnCategoryChangedAsync(SelectedItem _)
+    {
+        if (_table is not null)
+        {
+            await _table.QueryAsync();
+        }
+    }
+
+    private Task ShowCreateAsync(IEnumerable<LookupItemDto> _)
+    {
+        var model = new LookupItemFormModel
+        {
+            Category = string.IsNullOrWhiteSpace(_categoryFilter) ? "Industry" : _categoryFilter,
+            IsActive = true
+        };
+
+        return ShowEditDialogAsync("Thêm mục danh mục", model, null);
+    }
+
+    private Task ShowEditAsync(LookupItemDto item)
+    {
+        var model = new LookupItemFormModel
+        {
+            Category = item.Category,
+            CategoryDisabled = true,
+            Code = item.Code,
+            Name = item.Name,
+            SortOrder = item.SortOrder,
+            IsActive = item.IsActive
+        };
+
+        return ShowEditDialogAsync("Sửa mục danh mục", model, item.Id);
+    }
+
+    private Task ShowEditDialogAsync(string title, LookupItemFormModel model, Guid? id)
+    {
+        var option = new EditDialogOption<LookupItemFormModel>
+        {
+            Title = title,
+            Model = model,
+            Size = Size.Medium,
+            ItemsPerRow = 1,
+            ShowLoading = true,
+            SaveButtonText = "Lưu",
+            CloseButtonText = "Đóng",
+            DialogBodyTemplate = FormBody,
+            OnEditAsync = async _ =>
+            {
+                try
+                {
+                    if (id is null)
+                    {
+                        await Api.CreateMasterDataItemAsync(new CreateLookupItemRequest(
+                            model.Category, model.Code, model.Name, model.SortOrder, model.IsActive));
+                        await ToastService.Success("Thành công", "Đã thêm mục danh mục.");
+                    }
+                    else
+                    {
+                        await Api.UpdateMasterDataItemAsync(id.Value, new UpdateLookupItemRequest(
+                            model.Code, model.Name, model.SortOrder, model.IsActive));
+                        await ToastService.Success("Thành công", "Đã cập nhật mục danh mục.");
+                    }
+
+                    if (_table is not null)
+                    {
+                        await _table.QueryAsync();
+                    }
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await ShowErrorAsync(ex);
+                    return false;
+                }
+            }
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<LookupItemFormModel> FormBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <Select TValue="string" @bind-Value="model.Category" Items="_categoryOptions.Skip(1).ToList()"
+                    DisplayText="Danh mục" ShowLabel="true" IsDisabled="@(model.CategoryDisabled)" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.Code" DisplayText="Mã" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.Name" DisplayText="Tên hiển thị" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInputNumber @bind-Value="model.SortOrder" DisplayText="Thứ tự" ShowLabel="true" />
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+            <Checkbox @bind-Value="model.IsActive" DisplayText="Đang kích hoạt" ShowLabel="true" />
+        </div>
+    </div>;
+
+    private async Task DeleteAsync(Guid id)
+    {
+        var ok = await SwalService.ShowModal(new SwalOption
+        {
+            Category = SwalCategory.Question,
+            Title = "Xác nhận xoá",
+            Content = "Bạn có chắc muốn xoá mục danh mục này?",
+            ConfirmButtonText = "Xoá",
+            CancelButtonText = "Huỷ",
+            CloseButtonText = "Đóng"
+        });
+
+        if (!ok)
+        {
+            return;
+        }
+
+        try
+        {
+            await Api.DeleteMasterDataItemAsync(id);
+            await ToastService.Success("Đã xoá", "Mục danh mục đã được xoá.");
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private static string FormatCategory(string category) => category switch
+    {
+        "Industry" => "Ngành",
+        "City" => "Thành phố",
+        "Source" => "Nguồn",
+        _ => category
+    };
+
+    private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
+    {
+        Category = SwalCategory.Error,
+        Title = "Đã xảy ra lỗi",
+        Content = ex.Message,
+        CloseButtonText = "Đóng"
+    });
+
+    private sealed class LookupItemFormModel
+    {
+        public string Category { get; set; } = "Industry";
+        public bool CategoryDisabled { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int SortOrder { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

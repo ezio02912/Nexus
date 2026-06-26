@@ -1,0 +1,94 @@
+@inject MasterDataApiClient MasterDataApi
+
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+    <Select TValue="string"
+            @bind-Value="SelectedValue"
+            Items="@_options"
+            ShowLabel="false"
+            ShowSearch="true"
+            IsPopover="true"
+            PlaceHolder="@PlaceHolder"
+            OnSelectedItemChanged="OnSelectedItemChangedAsync" />
+</AppFormField>
+
+@code {
+    private readonly string _selectId = $"masterdata-{Guid.NewGuid():N}";
+    private List<SelectedItem> _options = [];
+    private readonly Dictionary<string, string> _nameByCode = new(StringComparer.Ordinal);
+
+    [Parameter] public string Category { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string PlaceHolder { get; set; } = "Chọn...";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private string? SelectedValue
+    {
+        get => ResolveSelectedCode(Value);
+        set => _ = ValueChanged.InvokeAsync(ResolveStoredValue(value));
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Category))
+        {
+            return;
+        }
+
+        await LoadOptionsAsync();
+    }
+
+    private async Task LoadOptionsAsync()
+    {
+        try
+        {
+            var result = await MasterDataApi.GetItemsAsync(new LookupListQuery
+            {
+                Category = Category,
+                MaxResultCount = 500
+            });
+
+            _nameByCode.Clear();
+            var items = new List<SelectedItem> { new("", PlaceHolder) };
+            foreach (var item in result?.Items ?? [])
+            {
+                _nameByCode[item.Code] = item.Name;
+                items.Add(new SelectedItem(item.Code, item.Name));
+            }
+
+            _options = items;
+        }
+        catch
+        {
+            _options = [new SelectedItem("", PlaceHolder)];
+        }
+    }
+
+    private Task OnSelectedItemChangedAsync(SelectedItem item)
+    {
+        var stored = ResolveStoredValue(item.Value);
+        return ValueChanged.InvokeAsync(stored);
+    }
+
+    private string? ResolveSelectedCode(string? storedValue)
+    {
+        if (string.IsNullOrWhiteSpace(storedValue))
+        {
+            return "";
+        }
+
+        var match = _nameByCode.FirstOrDefault(x => x.Value == storedValue);
+        return string.IsNullOrEmpty(match.Key) ? storedValue : match.Key;
+    }
+
+    private string? ResolveStoredValue(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        return _nameByCode.TryGetValue(code, out var name) ? name : code;
+    }
+}

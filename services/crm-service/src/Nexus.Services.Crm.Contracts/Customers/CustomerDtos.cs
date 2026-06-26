@@ -17,6 +17,9 @@ public sealed class CreateCustomerDto
     public CustomerType CustomerType { get; init; }
     public string? Email { get; init; }
     public string? Phone { get; init; }
+    public string? Industry { get; init; }
+    public string? City { get; init; }
+    public string? Source { get; init; }
 }
 
 public sealed class UpdateCustomerDto

@@ -1,7 +1,20 @@
 using Microsoft.EntityFrameworkCore;
-using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
+using Nexus.ApiContracts.Permissions;
+using Nexus.BuildingBlocks.Web.Auth;
 using Nexus.BuildingBlocks.Web.DependencyInjection;
-using Nexus.Services.Crm.Api.Persistence;
+using Nexus.Services.Crm.Application.DependencyInjection;
+using Nexus.Services.Crm.Contracts.Activities;
+using Nexus.Services.Crm.Contracts.Contacts;
+using Nexus.Services.Crm.Contracts.Contracts;
+using Nexus.Services.Crm.Contracts.Customers;
+using Nexus.Services.Crm.Contracts.Dashboard;
+using Nexus.Services.Crm.Contracts.Leads;
+using Nexus.Services.Crm.Contracts.Opportunities;
+using Nexus.Services.Crm.Contracts.Quotations;
+using Nexus.Services.Crm.Infrastructure.DependencyInjection;
+using Nexus.Services.Crm.Infrastructure.Persistence;
+using Nexus.Services.Crm.Domain.Enums;
+using Nexus.SharedKernel.Exceptions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,9 +22,19 @@ var connectionString = builder.Configuration.GetConnectionString("CrmDb")
     ?? "Host=localhost;Port=5432;Database=crm_db;Username=nexus;Password=nexus_dev_password";
 
 builder.Services.AddNexusWeb();
-builder.Services.AddNexusEfCore<CrmDbContext>(connectionString);
+builder.Services.AddNexusJwtAuth(builder.Configuration);
+builder.Services.AddCrmInfrastructure(connectionString);
+builder.Services.AddCrmApplication();
 
 var app = builder.Build();
+
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<CrmDbContext>().Database.MigrateAsync();
+}
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/", () => Results.Ok(new { Service = "Nexus CRM Service", Status = "Running" }));
 app.MapGet("/health", async (CrmDbContext db) =>
@@ -20,152 +43,208 @@ app.MapGet("/health", async (CrmDbContext db) =>
     return ok ? Results.Ok(new { Status = "Healthy" }) : Results.StatusCode(503);
 });
 
-app.MapGet("/api/crm/customers", async (CrmDbContext db, Guid tenantId, string? search, int skipCount = 0, int maxResultCount = 50, CancellationToken ct = default) =>
-{
-    var query = db.Customers.Where(x => x.TenantId == tenantId);
-    if (!string.IsNullOrWhiteSpace(search))
-    {
-        query = query.Where(x => x.Code.Contains(search) || x.Name.Contains(search));
-    }
+var crm = app.MapGroup("/api/crm").RequireAuthorization();
 
-    var total = await query.LongCountAsync(ct);
-    var items = await query
-        .OrderBy(x => x.Name)
-        .Skip(skipCount)
-        .Take(maxResultCount)
-        .ToArrayAsync(ct);
+// Customers
+crm.MapGet("/customers", async (string? search, int skipCount, int maxResultCount, string? sorting, CustomerStatus? status, Guid? ownerId, ICustomerAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetListAsync(new GetCustomersInput { Search = search, Status = status, OwnerId = ownerId, SkipCount = skipCount, MaxResultCount = maxResultCount, Sorting = sorting }, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Customers.View));
+crm.MapGet("/customers/{id:guid}", async (Guid id, ICustomerAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Customers.View));
+crm.MapPost("/customers", async (CreateCustomerDto input, ICustomerAppService service, CancellationToken ct) =>
+    await ExecuteCreatedAsync($"/api/crm/customers/{{0}}", () => service.CreateAsync(input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Customers.Create));
+crm.MapPut("/customers/{id:guid}", async (Guid id, UpdateCustomerDto input, ICustomerAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.UpdateAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Customers.Edit));
+crm.MapDelete("/customers/{id:guid}", async (Guid id, ICustomerAppService service, CancellationToken ct) =>
+    await ExecuteDeleteAsync(() => service.DeleteAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Customers.Delete));
 
-    return Results.Ok(new { TotalCount = total, Items = items });
-});
+// Contacts
+crm.MapGet("/contacts", async (Guid? customerId, string? search, int skipCount, int maxResultCount, string? sorting, IContactAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetListAsync(new GetContactsInput { CustomerId = customerId, Search = search, SkipCount = skipCount, MaxResultCount = maxResultCount, Sorting = sorting }, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contacts.View));
+crm.MapGet("/contacts/{id:guid}", async (Guid id, IContactAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contacts.View));
+crm.MapPost("/contacts", async (CreateContactDto input, IContactAppService service, CancellationToken ct) =>
+    await ExecuteCreatedAsync("/api/crm/contacts/{0}", () => service.CreateAsync(input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contacts.Create));
+crm.MapPut("/contacts/{id:guid}", async (Guid id, UpdateContactDto input, IContactAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.UpdateAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contacts.Edit));
+crm.MapDelete("/contacts/{id:guid}", async (Guid id, IContactAppService service, CancellationToken ct) =>
+    await ExecuteDeleteAsync(() => service.DeleteAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contacts.Delete));
 
-app.MapPost("/api/crm/customers", async (CreateCustomerDto input, CrmDbContext db, CancellationToken ct) =>
-{
-    var code = input.Code.Trim().ToUpperInvariant();
-    if (await db.Customers.AnyAsync(x => x.TenantId == input.TenantId && x.Code == code, ct))
-    {
-        return Results.Conflict(new { Code = "Crm:CustomerAlreadyExists", Message = "Customer code already exists." });
-    }
+// Leads
+crm.MapGet("/leads", async (string? search, LeadStatus? status, Guid? ownerId, int skipCount, int maxResultCount, string? sorting, ILeadAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetListAsync(new GetLeadsInput { Search = search, Status = status, OwnerId = ownerId, SkipCount = skipCount, MaxResultCount = maxResultCount, Sorting = sorting }, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Leads.View));
+crm.MapGet("/leads/{id:guid}", async (Guid id, ILeadAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Leads.View));
+crm.MapPost("/leads", async (CreateLeadDto input, ILeadAppService service, CancellationToken ct) =>
+    await ExecuteCreatedAsync("/api/crm/leads/{0}", () => service.CreateAsync(input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Leads.Create));
+crm.MapPut("/leads/{id:guid}", async (Guid id, UpdateLeadDto input, ILeadAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.UpdateAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Leads.Edit));
+crm.MapDelete("/leads/{id:guid}", async (Guid id, ILeadAppService service, CancellationToken ct) =>
+    await ExecuteDeleteAsync(() => service.DeleteAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Leads.Delete));
+crm.MapPost("/leads/{id:guid}/convert", async (Guid id, ConvertLeadDto input, ILeadAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.ConvertAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Leads.Edit));
 
-    var customer = new Customer(Guid.NewGuid(), input.TenantId, code, input.Name, input.Email, input.Phone, DateTimeOffset.UtcNow);
-    await db.Customers.AddAsync(customer, ct);
-    await db.SaveChangesAsync(ct);
-    return Results.Created($"/api/crm/customers/{customer.Id}", customer);
-});
+// Opportunities
+crm.MapGet("/opportunities", async (string? search, OpportunityStage? stage, Guid? customerId, Guid? ownerId, int skipCount, int maxResultCount, string? sorting, IOpportunityAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetListAsync(new GetOpportunitiesInput { Search = search, Stage = stage, CustomerId = customerId, OwnerId = ownerId, SkipCount = skipCount, MaxResultCount = maxResultCount, Sorting = sorting }, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Opportunities.View));
+crm.MapGet("/opportunities/{id:guid}", async (Guid id, IOpportunityAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Opportunities.View));
+crm.MapPost("/opportunities", async (CreateOpportunityDto input, IOpportunityAppService service, CancellationToken ct) =>
+    await ExecuteCreatedAsync("/api/crm/opportunities/{0}", () => service.CreateAsync(input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Opportunities.Create));
+crm.MapPut("/opportunities/{id:guid}", async (Guid id, UpdateOpportunityDto input, IOpportunityAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.UpdateAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Opportunities.Edit));
+crm.MapDelete("/opportunities/{id:guid}", async (Guid id, IOpportunityAppService service, CancellationToken ct) =>
+    await ExecuteDeleteAsync(() => service.DeleteAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Opportunities.Delete));
+crm.MapPatch("/opportunities/{id:guid}/stage", async (Guid id, ChangeOpportunityStageDto input, IOpportunityAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.ChangeStageAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.OpportunityBoard.Edit));
 
-app.MapPost("/api/crm/leads", async (CreateLeadDto input, CrmDbContext db, CancellationToken ct) =>
-{
-    var lead = new Lead(Guid.NewGuid(), input.TenantId, input.FullName, input.CompanyName, input.Email, input.Phone, input.Source, DateTimeOffset.UtcNow);
-    await db.Leads.AddAsync(lead, ct);
-    await db.SaveChangesAsync(ct);
-    return Results.Created($"/api/crm/leads/{lead.Id}", lead);
-});
+// Quotations
+crm.MapGet("/quotations", async (string? search, QuotationStatus? status, Guid? customerId, int skipCount, int maxResultCount, string? sorting, IQuotationAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetListAsync(new GetQuotationsInput { Search = search, Status = status, CustomerId = customerId, SkipCount = skipCount, MaxResultCount = maxResultCount, Sorting = sorting }, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Quotations.View));
+crm.MapGet("/quotations/{id:guid}", async (Guid id, IQuotationAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Quotations.View));
+crm.MapPost("/quotations", async (CreateQuotationDto input, IQuotationAppService service, CancellationToken ct) =>
+    await ExecuteCreatedAsync("/api/crm/quotations/{0}", () => service.CreateAsync(input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Quotations.Create));
+crm.MapPut("/quotations/{id:guid}", async (Guid id, UpdateQuotationDto input, IQuotationAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.UpdateAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Quotations.Edit));
+crm.MapDelete("/quotations/{id:guid}", async (Guid id, IQuotationAppService service, CancellationToken ct) =>
+    await ExecuteDeleteAsync(() => service.DeleteAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Quotations.Delete));
+crm.MapPost("/quotations/{id:guid}/approve", async (Guid id, IQuotationAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.ApproveAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Quotations.Approve));
+crm.MapPost("/quotations/{id:guid}/reject", async (Guid id, RejectQuotationDto input, IQuotationAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.RejectAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Quotations.Approve));
+crm.MapPost("/quotations/{id:guid}/send", async (Guid id, IQuotationAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.SendAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Quotations.Edit));
 
-app.MapGet("/api/crm/leads", async (CrmDbContext db, Guid tenantId, CancellationToken ct) =>
-{
-    var items = await db.Leads
-        .Where(x => x.TenantId == tenantId)
-        .OrderByDescending(x => x.CreatedAt)
-        .ToArrayAsync(ct);
+// Contracts
+crm.MapGet("/contracts", async (string? search, ContractStatus? status, Guid? customerId, int skipCount, int maxResultCount, string? sorting, IContractAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetListAsync(new GetContractsInput { Search = search, Status = status, CustomerId = customerId, SkipCount = skipCount, MaxResultCount = maxResultCount, Sorting = sorting }, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.View));
+crm.MapGet("/contracts/{id:guid}", async (Guid id, IContractAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.View));
+crm.MapPost("/contracts", async (CreateContractDto input, IContractAppService service, CancellationToken ct) =>
+    await ExecuteCreatedAsync("/api/crm/contracts/{0}", () => service.CreateAsync(input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Create));
+crm.MapPut("/contracts/{id:guid}", async (Guid id, UpdateContractDto input, IContractAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.UpdateAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Edit));
+crm.MapDelete("/contracts/{id:guid}", async (Guid id, IContractAppService service, CancellationToken ct) =>
+    await ExecuteDeleteAsync(() => service.DeleteAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Delete));
+crm.MapPost("/contracts/{id:guid}/sign", async (Guid id, IContractAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.SignAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Sign));
+crm.MapPost("/contracts/{id:guid}/activate", async (Guid id, IContractAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.ActivateAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Edit));
+crm.MapPost("/contracts/{id:guid}/terminate", async (Guid id, TerminateContractDto input, IContractAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.TerminateAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Edit));
 
-    return Results.Ok(items);
-});
+// Activities
+crm.MapGet("/activities", async (CrmRelatedEntityType? relatedEntityType, Guid? relatedEntityId, CrmActivityStatus? status, int skipCount, int maxResultCount, string? sorting, IActivityAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetListAsync(new GetActivitiesInput { RelatedEntityType = relatedEntityType, RelatedEntityId = relatedEntityId, Status = status, SkipCount = skipCount, MaxResultCount = maxResultCount, Sorting = sorting }, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Activities.View));
+crm.MapGet("/activities/{id:guid}", async (Guid id, IActivityAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Activities.View));
+crm.MapPost("/activities", async (CreateActivityDto input, IActivityAppService service, CancellationToken ct) =>
+    await ExecuteCreatedAsync("/api/crm/activities/{0}", () => service.CreateAsync(input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Activities.Create));
+crm.MapPut("/activities/{id:guid}", async (Guid id, UpdateActivityDto input, IActivityAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.UpdateAsync(id, input, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Activities.Edit));
+crm.MapDelete("/activities/{id:guid}", async (Guid id, IActivityAppService service, CancellationToken ct) =>
+    await ExecuteDeleteAsync(() => service.DeleteAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Activities.Delete));
+crm.MapPost("/activities/{id:guid}/complete", async (Guid id, IActivityAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.CompleteAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Activities.Complete));
 
-app.MapPost("/api/crm/opportunities", async (CreateOpportunityDto input, CrmDbContext db, CancellationToken ct) =>
-{
-    var opportunity = new Opportunity(Guid.NewGuid(), input.TenantId, input.CustomerId, input.Name, input.Amount, input.ExpectedCloseDate, DateTimeOffset.UtcNow);
-    await db.Opportunities.AddAsync(opportunity, ct);
-    await db.SaveChangesAsync(ct);
-    return Results.Created($"/api/crm/opportunities/{opportunity.Id}", opportunity);
-});
-
-app.MapGet("/api/crm/opportunities", async (CrmDbContext db, Guid tenantId, CancellationToken ct) =>
-{
-    var items = await db.Opportunities
-        .Where(x => x.TenantId == tenantId)
-        .OrderByDescending(x => x.CreatedAt)
-        .ToArrayAsync(ct);
-
-    return Results.Ok(items);
-});
-
-app.MapPost("/api/crm/quotations", async (CreateQuotationDto input, CrmDbContext db, CancellationToken ct) =>
-{
-    var quotationNo = input.QuotationNo.Trim().ToUpperInvariant();
-    if (await db.Quotations.AnyAsync(x => x.TenantId == input.TenantId && x.QuotationNo == quotationNo, ct))
-    {
-        return Results.Conflict(new { Code = "Crm:QuotationAlreadyExists", Message = "Quotation number already exists." });
-    }
-
-    var quotation = new Quotation(Guid.NewGuid(), input.TenantId, input.CustomerId, quotationNo, input.TotalAmount, DateTimeOffset.UtcNow);
-    await db.Quotations.AddAsync(quotation, ct);
-    await db.SaveChangesAsync(ct);
-    return Results.Created($"/api/crm/quotations/{quotation.Id}", quotation);
-});
-
-app.MapPost("/api/crm/quotations/{id:guid}/approve", async (Guid id, CrmDbContext db, CancellationToken ct) =>
-{
-    var quotation = await db.Quotations.FindAsync([id], ct);
-    if (quotation is null)
-    {
-        return Results.NotFound();
-    }
-
-    quotation.Approve(DateTimeOffset.UtcNow);
-    await db.SaveChangesAsync(ct);
-    return Results.Ok(quotation);
-});
-
-app.MapGet("/api/crm/quotations", async (CrmDbContext db, Guid tenantId, CancellationToken ct) =>
-{
-    var items = await db.Quotations
-        .Where(x => x.TenantId == tenantId)
-        .OrderByDescending(x => x.CreatedAt)
-        .ToArrayAsync(ct);
-
-    return Results.Ok(items);
-});
-
-app.MapPost("/api/crm/contracts", async (CreateContractDto input, CrmDbContext db, CancellationToken ct) =>
-{
-    var contractNo = input.ContractNo.Trim().ToUpperInvariant();
-    if (await db.Contracts.AnyAsync(x => x.TenantId == input.TenantId && x.ContractNo == contractNo, ct))
-    {
-        return Results.Conflict(new { Code = "Crm:ContractAlreadyExists", Message = "Contract number already exists." });
-    }
-
-    var contract = new Contract(Guid.NewGuid(), input.TenantId, input.CustomerId, contractNo, input.Title, DateTimeOffset.UtcNow);
-    await db.Contracts.AddAsync(contract, ct);
-    await db.SaveChangesAsync(ct);
-    return Results.Created($"/api/crm/contracts/{contract.Id}", contract);
-});
-
-app.MapPost("/api/crm/contracts/{id:guid}/sign", async (Guid id, CrmDbContext db, CancellationToken ct) =>
-{
-    var contract = await db.Contracts.FindAsync([id], ct);
-    if (contract is null)
-    {
-        return Results.NotFound();
-    }
-
-    contract.Sign(DateTimeOffset.UtcNow);
-    await db.SaveChangesAsync(ct);
-    return Results.Ok(contract);
-});
-
-app.MapGet("/api/crm/contracts", async (CrmDbContext db, Guid tenantId, CancellationToken ct) =>
-{
-    var items = await db.Contracts
-        .Where(x => x.TenantId == tenantId)
-        .OrderByDescending(x => x.CreatedAt)
-        .ToArrayAsync(ct);
-
-    return Results.Ok(items);
-});
+// Dashboard
+crm.MapGet("/dashboard", async (ICrmDashboardAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.GetAsync(ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Dashboard.View));
 
 app.Run();
 
-public sealed record CreateCustomerDto(Guid TenantId, string Code, string Name, string? Email, string? Phone);
-public sealed record CreateLeadDto(Guid TenantId, string FullName, string? CompanyName, string? Email, string? Phone, string? Source);
-public sealed record CreateOpportunityDto(Guid TenantId, Guid? CustomerId, string Name, decimal Amount, DateOnly? ExpectedCloseDate);
-public sealed record CreateQuotationDto(Guid TenantId, Guid CustomerId, string QuotationNo, decimal TotalAmount);
-public sealed record CreateContractDto(Guid TenantId, Guid CustomerId, string ContractNo, string Title);
+static async Task<IResult> ExecuteAsync<T>(Func<Task<T>> action)
+{
+    try
+    {
+        return Results.Ok(await action());
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { Message = ex.Message });
+    }
+    catch (NexusBusinessException ex)
+    {
+        return Results.Conflict(new { ex.Code, ex.Message });
+    }
+}
+
+static async Task<IResult> ExecuteCreatedAsync<T>(string urlTemplate, Func<Task<T>> action) where T : notnull
+{
+    try
+    {
+        var result = await action();
+        var id = result.GetType().GetProperty("Id")?.GetValue(result);
+        return Results.Created(string.Format(urlTemplate, id), result);
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { Message = ex.Message });
+    }
+    catch (NexusBusinessException ex)
+    {
+        return Results.Conflict(new { ex.Code, ex.Message });
+    }
+}
+
+static async Task<IResult> ExecuteDeleteAsync(Func<Task> action)
+{
+    try
+    {
+        await action();
+        return Results.NoContent();
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { Message = ex.Message });
+    }
+    catch (NexusBusinessException ex)
+    {
+        return Results.Conflict(new { ex.Code, ex.Message });
+    }
+}

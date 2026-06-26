@@ -17,3 +17,4 @@ CREATE DATABASE invoice_db;
 CREATE DATABASE inventory_db;
 CREATE DATABASE purchase_db;
 CREATE DATABASE sales_db;
+CREATE DATABASE masterdata_db;

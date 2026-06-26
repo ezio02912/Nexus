@@ -19,7 +19,9 @@
         <Table @ref="_table" TItem="FileRecord" OnQueryAsync="OnQueryAsync"
                IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
                ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
-               ShowEditButton="false" ShowDeleteButton="false" ExtendButtonColumnWidth="130"
+               ShowEditButton="false" ShowDeleteButton="false"
+               ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+               ExtendButtonColumnWidth="130"
                ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
             <TableToolbarTemplate>
                 <TableToolbarButton TItem="FileRecord" Color="Color.Primary" Icon="fa-solid fa-plus"

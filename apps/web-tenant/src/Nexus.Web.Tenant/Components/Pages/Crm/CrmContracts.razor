@@ -1,7 +1,6 @@
 @page "/crm/contracts"
 @attribute [TabItemOption(Text = "Hợp đồng", Icon = "fa-solid fa-file-signature")]
-@inject TenantPortalApiClient Api
-@inject TenantSessionService Session
+@inherits CrmPageBase
 
 <PageTitle>Hợp đồng - CRM</PageTitle>
 
@@ -12,139 +11,96 @@
             <h1>Hợp đồng</h1>
             <p>Quản lý hợp đồng khách hàng trong tenant hiện tại.</p>
         </div>
-        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
     </header>
 
-    @if (!Session.HasModule("CRM"))
+    @if (!Can(NexusPermissions.Crm.Contracts.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
     {
         <div class="app-alert">Tenant này chưa được bật module CRM.</div>
     }
     else
     {
-        @if (!string.IsNullOrWhiteSpace(message))
-        {
-            <div class="@messageCss">@message</div>
-        }
-
-        <div class="tenant-work-grid">
-            <section class="app-card">
-                <h2>Tạo hợp đồng</h2>
-                <div class="app-form-grid">
-                    <div>
-                        <label>Khách hàng *</label>
-                        <select class="form-select" @bind="contractCustomerId">
-                            <option value="">Chọn khách hàng</option>
-                            @foreach (var customer in customers)
-                            {
-                                <option value="@customer.Id">@CustomerOption(customer)</option>
-                            }
-                        </select>
-                    </div>
-                    <div>
-                        <label>Số hợp đồng *</label>
-                        <input class="form-control" @bind="contractNo" />
-                    </div>
-                    <div>
-                        <label>Tiêu đề *</label>
-                        <input class="form-control" @bind="contractTitle" />
-                    </div>
-                </div>
-                <Button Text="Tạo hợp đồng" Color="Color.Primary" OnClick="CreateContractAsync" />
-            </section>
-
-            <section class="app-card app-card-wide">
-                <h2>Danh sách hợp đồng</h2>
-                @if (isLoading)
-                {
-                    <div class="app-loading">Đang tải hợp đồng...</div>
-                }
-                else if (contracts.Count == 0)
-                {
-                    <div class="app-empty-state">Chưa có hợp đồng.</div>
-                }
-                else
-                {
-                    <table class="app-table">
-                        <thead><tr><th>Số</th><th>Tiêu đề</th><th>Trạng thái</th><th>Ngày ký</th><th></th></tr></thead>
-                        <tbody>
-                            @foreach (var item in contracts)
-                            {
-                                <tr>
-                                    <td>@item.ContractNo</td>
-                                    <td>@item.Title</td>
-                                    <td><span class="app-status-badge">@item.Status</span></td>
-                                    <td>@item.SignedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                    <td>
-                                        <Button Text="Ký" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(item.Status == "Signed")" OnClick="@(() => SignContractAsync(item.Id))" />
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </section>
-        </div>
+        <Card HeaderText="Danh sách hợp đồng" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="ContractDto" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="220"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                    <TableToolbarTemplate>
+                        @if (Can(NexusPermissions.Crm.Contracts.Create))
+                        {
+                            <TableToolbarButton TItem="ContractDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                            Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewDetailAsync(context.Id))" />
+                        @if (Can(NexusPermissions.Crm.Contracts.Sign))
+                        {
+                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-signature" Text="Ký"
+                                         IsDisabled="@(context.Status >= ContractStatus.Signed)"
+                                         OnClick="@(() => SignAsync(context.Id))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Contracts.Delete))
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                         OnClick="@(() => DeleteAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.ContractNo" Text="Số HĐ" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Title" Text="Tiêu đề" Searchable="true" />
+                        <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
+                            <Template Context="v">@CustomerName(v.Row.CustomerId)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.ContractValue" Text="Giá trị" Sortable="true">
+                            <Template Context="v">@v.Row.ContractValue.ToString("N0") @v.Row.Currency</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v">
+                                <span class="@CrmLabels.StatusBadgeClass(v.Row.Status)">@CrmLabels.FormatContractStatus(v.Row.Status)</span>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.StartDate" Text="Bắt đầu">
+                            <Template Context="v">@(v.Row.StartDate?.ToString("dd/MM/yyyy") ?? "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.EndDate" Text="Kết thúc">
+                            <Template Context="v">@(v.Row.EndDate?.ToString("dd/MM/yyyy") ?? "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.SignedAt" Text="Ngày ký">
+                            <Template Context="v">@(v.Row.SignedAt?.ToLocalTime().ToString("dd/MM/yyyy") ?? "—")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
     }
 </section>
 
-@code {
-    private List<CustomerRecord> customers = [];
-    private List<ContractRecord> contracts = [];
-    private bool isLoading;
-    private string message = "";
-    private string messageCss = "app-alert";
-
-    private string contractCustomerId = "";
-    private string contractNo = "CT-0001";
-    private string contractTitle = "";
-
-    private static string CustomerOption(CustomerRecord customer) => $"{customer.Code} - {customer.Name}";
-
-    protected override async Task OnInitializedAsync() => await LoadAsync();
-
-    private async Task LoadAsync()
-    {
-        if (Session.TenantId is not Guid tenantId)
-        {
-            return;
-        }
-
-        isLoading = true;
-        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
-        contracts = (await Api.GetContractsAsync(tenantId))?.ToList() ?? [];
-        isLoading = false;
-    }
-
-    private async Task CreateContractAsync()
-    {
-        if (Session.TenantId is not Guid tenantId || !Guid.TryParse(contractCustomerId, out var customerId) || string.IsNullOrWhiteSpace(contractNo) || string.IsNullOrWhiteSpace(contractTitle))
-        {
-            ShowError("Vui lòng chọn khách hàng, nhập số hợp đồng và tiêu đề.");
-            return;
-        }
-
-        await Api.CreateContractAsync(new CreateContractRequest(tenantId, customerId, contractNo, contractTitle));
-        contractTitle = "";
-        ShowSuccess("Đã tạo hợp đồng.");
-        await LoadAsync();
-    }
-
-    private async Task SignContractAsync(Guid id)
-    {
-        await Api.SignContractAsync(id);
-        ShowSuccess("Đã ký hợp đồng.");
-        await LoadAsync();
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "app-alert";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "app-alert app-alert-danger";
-    }
-}
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="Thêm hợp đồng" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="_customerIdText" />
+                <AppFormField Label="Số hợp đồng" Required="true">
+                    <BootstrapInput @bind-Value="_model.ContractNo" ShowLabel="false" PlaceHolder="AUTO để tự sinh số" />
+                </AppFormField>
+                <AppFormField Label="Tiêu đề" Required="true">
+                    <BootstrapInput @bind-Value="_model.Title" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá trị" @bind-Value="_model.ContractValue" DecimalPlaces="0" />
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

@@ -1,7 +1,6 @@
 @page "/crm/quotations"
 @attribute [TabItemOption(Text = "Báo giá", Icon = "fa-solid fa-file-invoice")]
-@inject TenantPortalApiClient Api
-@inject TenantSessionService Session
+@inherits CrmPageBase
 
 <PageTitle>Báo giá - CRM</PageTitle>
 
@@ -12,144 +11,107 @@
             <h1>Báo giá</h1>
             <p>Quản lý báo giá khách hàng trong tenant hiện tại.</p>
         </div>
-        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
     </header>
 
-    @if (!Session.HasModule("CRM"))
+    @if (!Can(NexusPermissions.Crm.Quotations.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
     {
         <div class="app-alert">Tenant này chưa được bật module CRM.</div>
     }
     else
     {
-        @if (!string.IsNullOrWhiteSpace(message))
-        {
-            <div class="@messageCss">@message</div>
-        }
-
-        <div class="tenant-work-grid">
-            <section class="app-card">
-                <h2>Tạo báo giá</h2>
-                <div class="app-form-grid">
-                    <div>
-                        <label>Khách hàng *</label>
-                        <select class="form-select" @bind="quotationCustomerId">
-                            <option value="">Chọn khách hàng</option>
-                            @foreach (var customer in customers)
-                            {
-                                <option value="@customer.Id">@CustomerOption(customer)</option>
-                            }
-                        </select>
-                    </div>
-                    <div>
-                        <label>Số báo giá *</label>
-                        <input class="form-control" @bind="quotationNo" />
-                    </div>
-                    <div>
-                        <label>Tổng tiền</label>
-                        <input class="form-control" type="number" @bind="quotationTotal" />
-                    </div>
-                </div>
-                <Button Text="Tạo báo giá" Color="Color.Primary" OnClick="CreateQuotationAsync" />
-            </section>
-
-            <section class="app-card app-card-wide">
-                <h2>Danh sách báo giá</h2>
-                @if (isLoading)
-                {
-                    <div class="app-loading">Đang tải báo giá...</div>
-                }
-                else if (quotations.Count == 0)
-                {
-                    <div class="app-empty-state">Chưa có báo giá.</div>
-                }
-                else
-                {
-                    <table class="app-table">
-                        <thead><tr><th>Số</th><th>Khách hàng</th><th>Trạng thái</th><th>Tổng tiền</th><th></th></tr></thead>
-                        <tbody>
-                            @foreach (var item in quotations)
-                            {
-                                <tr>
-                                    <td>@item.QuotationNo</td>
-                                    <td>@CustomerText(item.CustomerId)</td>
-                                    <td><span class="app-status-badge">@item.Status</span></td>
-                                    <td>@item.TotalAmount.ToString("N2")</td>
-                                    <td>
-                                        <Button Text="Duyệt" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(item.Status == "Approved")" OnClick="@(() => ApproveQuotationAsync(item.Id))" />
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </section>
-        </div>
+        <Card HeaderText="Danh sách báo giá" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="QuotationDto" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="220"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                    <TableToolbarTemplate>
+                        @if (Can(NexusPermissions.Crm.Quotations.Create))
+                        {
+                            <TableToolbarButton TItem="QuotationDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                            Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewDetailAsync(context.Id))" />
+                        @if (Can(NexusPermissions.Crm.Quotations.Edit))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                         OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Quotations.Approve))
+                        {
+                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-check" Text="Duyệt"
+                                         IsDisabled="@(context.Status == QuotationStatus.Approved)"
+                                         OnClick="@(() => ApproveAsync(context.Id))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Quotations.Delete))
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                         OnClick="@(() => DeleteAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.QuotationNo" Text="Số BG" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
+                            <Template Context="v">@CustomerName(v.Row.CustomerId)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Subject" Text="Tiêu đề" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v">
+                                <span class="@CrmLabels.StatusBadgeClass(v.Row.Status)">@CrmLabels.FormatQuotationStatus(v.Row.Status)</span>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.TotalAmount" Text="Tổng tiền" Sortable="true">
+                            <Template Context="v">@VnMoney.Format(v.Row.TotalAmount) @v.Row.Currency</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.ValidUntil" Text="Hiệu lực đến">
+                            <Template Context="v">@(v.Row.ValidUntil?.ToString("dd/MM/yyyy") ?? "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
     }
 </section>
 
-@code {
-    private List<CustomerRecord> customers = [];
-    private List<QuotationRecord> quotations = [];
-    private bool isLoading;
-    private string message = "";
-    private string messageCss = "app-alert";
-
-    private string quotationCustomerId = "";
-    private string quotationNo = "QT-0001";
-    private decimal quotationTotal = 1000;
-
-    private static string CustomerOption(CustomerRecord customer) => $"{customer.Code} - {customer.Name}";
-
-    private string CustomerText(Guid customerId)
-    {
-        var customer = customers.FirstOrDefault(x => x.Id == customerId);
-        return customer is null ? "Không xác định" : CustomerOption(customer);
-    }
-
-    protected override async Task OnInitializedAsync() => await LoadAsync();
-
-    private async Task LoadAsync()
-    {
-        if (Session.TenantId is not Guid tenantId)
-        {
-            return;
-        }
-
-        isLoading = true;
-        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
-        quotations = (await Api.GetQuotationsAsync(tenantId))?.ToList() ?? [];
-        isLoading = false;
-    }
-
-    private async Task CreateQuotationAsync()
-    {
-        if (Session.TenantId is not Guid tenantId || !Guid.TryParse(quotationCustomerId, out var customerId) || string.IsNullOrWhiteSpace(quotationNo))
-        {
-            ShowError("Vui lòng chọn khách hàng và nhập số báo giá.");
-            return;
-        }
-
-        await Api.CreateQuotationAsync(new CreateQuotationRequest(tenantId, customerId, quotationNo, quotationTotal));
-        ShowSuccess("Đã tạo báo giá.");
-        await LoadAsync();
-    }
-
-    private async Task ApproveQuotationAsync(Guid id)
-    {
-        await Api.ApproveQuotationAsync(id);
-        ShowSuccess("Đã duyệt báo giá.");
-        await LoadAsync();
-    }
-
-    private void ShowSuccess(string text)
-    {
-        message = text;
-        messageCss = "app-alert";
-    }
-
-    private void ShowError(string text)
-    {
-        message = text;
-        messageCss = "app-alert app-alert-danger";
-    }
-}
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_modalTitle" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="_customerIdText" />
+                <AppFormField Label="Số báo giá" Required="true">
+                    <BootstrapInput @bind-Value="_model.QuotationNo" ShowLabel="false" IsDisabled="@(!_isCreate)" PlaceHolder="AUTO để tự sinh số" />
+                </AppFormField>
+                <AppFormField Label="Tiêu đề">
+                    <BootstrapInput @bind-Value="_model.Subject" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Mã hàng dòng 1">
+                    <BootstrapInput @bind-Value="_model.ProductCode" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Tên hàng dòng 1">
+                    <BootstrapInput @bind-Value="_model.ProductName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Số lượng">
+                    <BootstrapInputNumber @bind-Value="_model.Quantity" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Đơn giá" @bind-Value="_model.UnitPrice" DecimalPlaces="0" />
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

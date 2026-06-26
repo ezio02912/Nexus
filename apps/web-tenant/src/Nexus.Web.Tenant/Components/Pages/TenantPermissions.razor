@@ -1,6 +1,8 @@
 @page "/tenant-permissions"
 @inject TenantPortalApiClient Api
 @inject TenantSessionService Session
+@inject SwalService SwalService
+@inject ToastService ToastService
 
 <PageTitle>Phân quyền tenant</PageTitle>
 
@@ -11,90 +13,225 @@
             <h1>Phân quyền</h1>
             <p>Quản lý quyền theo vai trò trong phạm vi tenant hiện tại.</p>
         </div>
-        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadCatalogAsync" />
     </header>
 
     @if (!Session.IsAuthenticated)
     {
         <div class="app-alert">Đăng nhập để quản lý phân quyền tenant.</div>
     }
+    else if (!Session.IsGranted(NexusPermissions.TenantAdmin.Permissions.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem trang phân quyền.</div>
+    }
     else
     {
         <div class="tenant-work-grid">
-            <section class="app-card">
-                <h2>Gán quyền vai trò</h2>
-                <label>Tên vai trò</label>
-                <input class="form-control" @bind="roleName" />
-                <div class="form-text">Khóa theo tenant: @ScopedRoleName</div>
-                <div class="app-actions app-actions-left">
-                    <Button Text="Tải quyền" Color="Color.Secondary" OnClick="LoadRoleAsync" />
-                    <Button Text="Lưu quyền" Color="Color.Primary" OnClick="SaveAsync" />
-                </div>
-                @if (!string.IsNullOrWhiteSpace(message))
-                {
-                    <div class="app-alert">@message</div>
-                }
-            </section>
+            <Card HeaderText="Gán quyền vai trò" IsShadow="true">
+                <BodyTemplate>
+                    <BootstrapInput @bind-Value="_roleName" DisplayText="Tên vai trò" ShowLabel="true" />
+                    <div class="form-text mb-3">Khóa theo tenant: <code>@ScopedRoleName</code></div>
+                    <div class="app-actions app-actions-left">
+                        <Button Text="Tải quyền" Color="Color.Secondary" IsAsync="true" OnClick="LoadRoleAsync" IsDisabled="_loadingRole" />
+                        @if (Session.IsGranted(NexusPermissions.TenantAdmin.Permissions.Manage))
+                        {
+                            <Button Text="Lưu quyền" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" IsDisabled="_loadingRole" />
+                        }
+                    </div>
+                </BodyTemplate>
+            </Card>
 
-            <section class="app-card app-card-wide">
-                <div class="app-toolbar">
-                    <h2>Danh mục quyền</h2>
-                    <input class="form-control app-search" placeholder="Lọc quyền" @bind="filter" @bind:event="oninput" />
-                </div>
-                <div class="tenant-permission-catalog">
-                    @foreach (var permission in FilteredCatalog)
+            <Card HeaderText="Danh mục quyền theo menu" IsShadow="true" class="app-card-wide">
+                <BodyTemplate>
+                    <div class="tenant-permission-toolbar">
+                        <BootstrapInput @bind-Value="_filter" DisplayText="Lọc quyền" ShowLabel="false"
+                                        PlaceHolder="Lọc theo menu hoặc hành động..." />
+                    </div>
+
+                    @if (_loading || _loadingRole)
                     {
-                        <label class="tenant-permission-item">
-                            <input type="checkbox" checked="@selectedPermissions.Contains(permission)" @onchange="@((args) => TogglePermission(permission, args))" />
-                            <code>@permission</code>
-                        </label>
+                        <div class="app-loading py-4">
+                            <Spinner Color="Color.Primary" />
+                            <span class="app-loading-text">@(_loading ? "Đang tải danh mục quyền..." : "Đang tải quyền vai trò...")</span>
+                        </div>
                     }
-                </div>
-            </section>
+                    else if (!PermissionAreas.Any())
+                    {
+                        <div class="text-muted py-3">Không có quyền phù hợp với bộ lọc.</div>
+                    }
+                    else
+                    {
+                        @foreach (var area in PermissionAreas)
+                        {
+                            <section class="tenant-permission-area">
+                                <h2>@area.AreaLabel</h2>
+                                @foreach (var menu in area.Menus)
+                                {
+                                    <div class="tenant-permission-group">
+                                        <div class="tenant-permission-group-header">
+                                            <h3>@menu.MenuLabel</h3>
+                                            @if (Session.IsGranted(NexusPermissions.TenantAdmin.Permissions.Manage))
+                                            {
+                                                <Checkbox TValue="bool"
+                                                          DisplayText="Chọn tất cả"
+                                                          Value="@IsMenuFullySelected(menu)"
+                                                          OnStateChanged="@((state, _) => ToggleMenuAsync(menu, state))" />
+                                            }
+                                        </div>
+                                        <div class="tenant-permission-catalog">
+                                            @foreach (var action in menu.Actions)
+                                            {
+                                                <label class="tenant-permission-item">
+                                                    @if (Session.IsGranted(NexusPermissions.TenantAdmin.Permissions.Manage))
+                                                    {
+                                                        <Checkbox TValue="bool"
+                                                                  Value="@_selectedPermissions.Contains(action.Key)"
+                                                                  OnStateChanged="@((state, _) => TogglePermissionAsync(action.Key, state))" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <input type="checkbox" checked="@_selectedPermissions.Contains(action.Key)" disabled />
+                                                    }
+                                                    <span>
+                                                        <strong>@action.Label</strong>
+                                                        <code>@action.Key</code>
+                                                    </span>
+                                                </label>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </section>
+                        }
+                    }
+                </BodyTemplate>
+            </Card>
         </div>
     }
 </section>
 
 @code {
-    private List<string> catalog = [];
-    private HashSet<string> selectedPermissions = new(StringComparer.OrdinalIgnoreCase);
-    private string roleName = "TenantAdmin";
-    private string filter = "";
-    private string? message;
-    private string ScopedRoleName => $"{(Session.TenantId?.ToString("N") ?? "NO-TENANT")}:{roleName}".ToUpperInvariant();
+    private List<string> _catalog = [];
+    private HashSet<string> _selectedPermissions = new(StringComparer.OrdinalIgnoreCase);
+    private string _roleName = "TenantAdmin";
+    private string _filter = "";
+    private bool _loading = true;
+    private bool _loadingRole;
 
-    private IEnumerable<string> FilteredCatalog => string.IsNullOrWhiteSpace(filter)
-        ? catalog
-        : catalog.Where(x => x.Contains(filter, StringComparison.OrdinalIgnoreCase));
+    private string ScopedRoleName => $"{(Session.TenantId?.ToString("N") ?? "NO-TENANT")}:{_roleName}".ToUpperInvariant();
 
-    protected override async Task OnInitializedAsync() => await LoadCatalogAsync();
+    private IEnumerable<TenantPermissionCatalog.AreaPermissionGroup> PermissionAreas =>
+        TenantPermissionCatalog.GetVisibleGroups(_catalog, _filter);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCatalogAsync();
+        await LoadRoleAsync();
+    }
 
     private async Task LoadCatalogAsync()
     {
-        catalog = (await Api.GetPermissionCatalogAsync())?.OrderBy(x => x).ToList() ?? [];
+        _loading = true;
+        try
+        {
+            var remote = (await Api.GetPermissionCatalogAsync())?.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                         ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _catalog = NexusPermissions.TenantAssignable
+                .Where(remote.Contains)
+                .OrderBy(x => x)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            _catalog = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     private async Task LoadRoleAsync()
     {
-        var role = await Api.GetRolePermissionsAsync(ScopedRoleName);
-        selectedPermissions = new HashSet<string>(role?.Permissions ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
-        message = $"Đã tải {selectedPermissions.Count} quyền.";
+        _loadingRole = true;
+        try
+        {
+            var result = await Api.GetRolePermissionsAsync(ScopedRoleName);
+            _selectedPermissions = NexusPermissionLegacy.Expand(result?.Permissions ?? []);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+        finally
+        {
+            _loadingRole = false;
+        }
     }
 
     private async Task SaveAsync()
     {
-        var role = await Api.UpdateRolePermissionsAsync(ScopedRoleName, new UpdateRolePermissionsRequest(selectedPermissions.OrderBy(x => x).ToArray()));
-        message = $"Đã lưu {role?.Permissions.Count ?? 0} quyền.";
-    }
-
-    private void TogglePermission(string permission, ChangeEventArgs args)
-    {
-        if (args.Value is bool isChecked && isChecked)
+        if (!Session.IsGranted(NexusPermissions.TenantAdmin.Permissions.Manage))
         {
-            selectedPermissions.Add(permission);
             return;
         }
 
-        selectedPermissions.Remove(permission);
+        try
+        {
+            var permissions = _selectedPermissions
+                .Where(x => NexusPermissions.TenantAssignable.Contains(x, StringComparer.OrdinalIgnoreCase))
+                .OrderBy(x => x)
+                .ToArray();
+            var result = await Api.UpdateRolePermissionsAsync(ScopedRoleName, new UpdateRolePermissionsRequest(permissions));
+            _selectedPermissions = NexusPermissionLegacy.Expand(result?.Permissions ?? []);
+            await ToastService.Success("Đã lưu", $"Đã lưu {_selectedPermissions.Count} quyền cho {_roleName}.");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
     }
+
+    private bool IsMenuFullySelected(TenantPermissionCatalog.MenuPermissionGroup menu) =>
+        menu.Actions.All(x => _selectedPermissions.Contains(x.Key));
+
+    private Task TogglePermissionAsync(string permission, CheckboxState state)
+    {
+        if (state == CheckboxState.Checked)
+        {
+            _selectedPermissions.Add(permission);
+        }
+        else
+        {
+            _selectedPermissions.Remove(permission);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleMenuAsync(TenantPermissionCatalog.MenuPermissionGroup menu, CheckboxState state)
+    {
+        var selectAll = state == CheckboxState.Checked;
+        foreach (var action in menu.Actions)
+        {
+            if (selectAll)
+            {
+                _selectedPermissions.Add(action.Key);
+            }
+            else
+            {
+                _selectedPermissions.Remove(action.Key);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
+    {
+        Category = SwalCategory.Error,
+        Title = "Đã xảy ra lỗi",
+        Content = ex.Message,
+        CloseButtonText = "Đóng"
+    });
 }

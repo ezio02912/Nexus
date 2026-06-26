@@ -1891,6 +1891,101 @@ body {
     margin-top: 1rem;
 }
 
+.customer-profile-panel {
+    width: 100%;
+    margin-bottom: 1rem;
+    padding: 1.1rem;
+}
+
+.customer-profile-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: .95rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.customer-profile-header h2 {
+    margin-bottom: .2rem;
+    font-size: 1.15rem;
+}
+
+.customer-profile-header p {
+    margin: 0;
+    color: var(--app-text-muted);
+    font-size: .86rem;
+    font-weight: 600;
+}
+
+.customer-info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .85rem;
+}
+
+.customer-info-item,
+.customer-description {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    min-width: 0;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-bg);
+    padding: .82rem .9rem;
+}
+
+.customer-info-highlight {
+    background: var(--app-primary-soft);
+    border-color: rgba(0, 150, 255, .22);
+}
+
+.customer-info-wide {
+    grid-column: span 2;
+}
+
+.customer-info-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: var(--app-radius-sm);
+    color: var(--app-primary);
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    box-shadow: 0 4px 10px rgba(16, 24, 40, .05);
+}
+
+.customer-info-label {
+    display: block;
+    color: var(--app-text-muted);
+    font-size: .78rem;
+    font-weight: 700;
+    margin-bottom: .18rem;
+}
+
+.customer-info-value {
+    display: block;
+    min-width: 0;
+    color: var(--app-text);
+    font-size: .92rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.customer-description {
+    margin-top: .85rem;
+    background: var(--app-surface);
+}
+
+.customer-description p {
+    margin: 0;
+    color: var(--app-text);
+}
+
 .crm-related-row {
     display: flex;
     align-items: center;
@@ -1950,8 +2045,23 @@ body {
 }
 
 @media (max-width: 900px) {
-    .crm-related-grid {
+    .crm-related-grid,
+    .customer-info-grid {
         grid-template-columns: 1fr;
+    }
+
+    .customer-info-wide {
+        grid-column: auto;
+    }
+
+    .customer-profile-header {
+        flex-direction: column;
+    }
+}
+
+@media (min-width: 901px) and (max-width: 1280px) {
+    .customer-info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 

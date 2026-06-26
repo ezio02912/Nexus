@@ -47,15 +47,35 @@
         return false;
     }
 
+    private string SelectedText(SelectedItem? item)
+    {
+        if (!string.IsNullOrWhiteSpace(Value) && TryGetMeta(Value, out var meta))
+        {
+            return meta.Text;
+        }
+
+        return item?.Text ?? "—";
+    }
+
+    private string SelectedBadgeClass(SelectedItem? item)
+    {
+        if (!string.IsNullOrWhiteSpace(Value) && TryGetMeta(Value, out var meta))
+        {
+            return meta.BadgeClass;
+        }
+
+        return item is not null && TryGetMeta(item.Value, out var itemMeta) ? itemMeta.BadgeClass : "";
+    }
+
     private RenderFragment<SelectedItem> RenderSelected => item =>
     @<span>
-        @if (item is not null && TryGetMeta(item.Value, out var meta))
+        @if (!string.IsNullOrWhiteSpace(SelectedBadgeClass(item)))
         {
-            <span class="@meta.BadgeClass">@meta.Text</span>
+            <span class="@SelectedBadgeClass(item)">@SelectedText(item)</span>
         }
         else
         {
-            @(item?.Text ?? "—")
+            @SelectedText(item)
         }
     </span>;
 }

@@ -366,6 +366,7 @@ static async Task SeedDemoTenantAsync(TenantDbContext db, IConfiguration configu
     var tenant = await db.Tenants
         .Include(x => x.Modules)
         .Include(x => x.Settings)
+        .Include(x => x.Subscription)
         .IgnoreQueryFilters()
         .SingleOrDefaultAsync(x => x.Id == tenantId);
 
@@ -397,7 +398,47 @@ static async Task SeedDemoTenantAsync(TenantDbContext db, IConfiguration configu
     tenant.SetSetting("Timezone", configuration["DemoTenant:Timezone"] ?? "Asia/Bangkok", null, now);
     tenant.SetSetting("Locale", configuration["DemoTenant:Locale"] ?? "vi-VN", null, now);
 
+    // Client-generated GUID keys make EF mark brand-new children of an already-tracked
+    // tenant as Modified (UPDATE) instead of Added (INSERT). Flip them back to Added,
+    // mirroring EfCoreTenantRepository.UpdateAsync, so seeding an existing tenant works.
+    await EnsureNewChildrenAreInsertedAsync(db, tenant);
+
     await db.SaveChangesAsync();
+}
+
+static async Task EnsureNewChildrenAreInsertedAsync(TenantDbContext db, TenantAggregate tenant)
+{
+    db.ChangeTracker.DetectChanges();
+
+    foreach (var module in tenant.Modules)
+    {
+        var entry = db.Entry(module);
+        if (entry.State == EntityState.Modified
+            && !await db.Set<TenantModule>().AnyAsync(x => x.Id == module.Id))
+        {
+            entry.State = EntityState.Added;
+        }
+    }
+
+    foreach (var setting in tenant.Settings)
+    {
+        var entry = db.Entry(setting);
+        if (entry.State == EntityState.Modified
+            && !await db.Set<TenantSetting>().AnyAsync(x => x.Id == setting.Id))
+        {
+            entry.State = EntityState.Added;
+        }
+    }
+
+    if (tenant.Subscription is not null)
+    {
+        var entry = db.Entry(tenant.Subscription);
+        if (entry.State == EntityState.Modified
+            && !await db.Set<TenantSubscription>().AnyAsync(x => x.Id == tenant.Subscription.Id))
+        {
+            entry.State = EntityState.Added;
+        }
+    }
 }
 
 static TenantDto MapPublicTenantDto(TenantAggregate tenant, ISubscriptionPlanCatalog planCatalog)

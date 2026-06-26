@@ -68,6 +68,29 @@
         set => _ = ValueChanged.InvokeAsync(value);
     }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        await EnsureSelectedLabelAsync();
+    }
+
+    private async Task EnsureSelectedLabelAsync()
+    {
+        if (!Guid.TryParse(Value, out var customerId) || _labels.ContainsKey(Value!))
+        {
+            return;
+        }
+
+        try
+        {
+            var customer = await CrmApi.GetCustomerAsync(customerId);
+            _labels[Value!] = customer is null ? Value! : FormatCustomerLabel(customer);
+        }
+        catch
+        {
+            _labels[Value!] = Value!;
+        }
+    }
+
     private void ToggleQuickCreate()
     {
         _showQuickCreate = !_showQuickCreate;
@@ -104,7 +127,7 @@
         }
 
         var id = customer.Id.ToString();
-        var label = $"{customer.Code} — {customer.Name}";
+        var label = FormatCustomerLabel(customer);
         _labels[id] = label;
         await ValueChanged.InvokeAsync(id);
         _showQuickCreate = false;
@@ -125,7 +148,7 @@
 
             var items = (result?.Items ?? []).Select(c =>
             {
-                var label = $"{c.Code} — {c.Name}";
+                var label = FormatCustomerLabel(c);
                 _labels[c.Id.ToString()] = label;
                 return new SelectedItem(c.Id.ToString(), label);
             }).ToList();
@@ -142,8 +165,20 @@
         }
     }
 
+    private string SelectedCustomerLabel(SelectedItem? item)
+    {
+        if (!string.IsNullOrWhiteSpace(Value) && _labels.TryGetValue(Value, out var label))
+        {
+            return label;
+        }
+
+        return string.IsNullOrWhiteSpace(item?.Text) ? PlaceHolder : item.Text;
+    }
+
+    private static string FormatCustomerLabel(CustomerDto customer) => $"{customer.Code} — {customer.Name}";
+
     private RenderFragment<SelectedItem> RenderSelectedCustomer => item =>
-    @<span class="lookup-selected">@(item?.Text ?? PlaceHolder)</span>;
+    @<span class="lookup-selected">@SelectedCustomerLabel(item)</span>;
 
     private sealed class QuickCustomerModel
     {

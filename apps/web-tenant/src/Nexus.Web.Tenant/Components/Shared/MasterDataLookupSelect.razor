@@ -51,6 +51,7 @@
         }
 
         _selectedValue = ResolveForSelect(Value);
+        EnsureSelectedOption(_selectedValue);
     }
 
     private async Task LoadOptionsAsync()
@@ -132,6 +133,17 @@
         }
 
         return storedValue;
+    }
+
+    private void EnsureSelectedOption(string selectedValue)
+    {
+        if (string.IsNullOrWhiteSpace(selectedValue)
+            || _options.Any(x => string.Equals(x.Value, selectedValue, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        _options = [.. _options, new SelectedItem(selectedValue, selectedValue)];
     }
 
     private sealed record CachedOptions(List<SelectedItem> Options, Dictionary<string, string> NameByCode);

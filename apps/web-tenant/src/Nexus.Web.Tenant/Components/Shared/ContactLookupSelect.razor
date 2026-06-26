@@ -78,6 +78,29 @@
         set => _ = ValueChanged.InvokeAsync(value);
     }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        await EnsureSelectedLabelAsync();
+    }
+
+    private async Task EnsureSelectedLabelAsync()
+    {
+        if (!Guid.TryParse(Value, out var contactId) || _labels.ContainsKey(Value!))
+        {
+            return;
+        }
+
+        try
+        {
+            var contact = await CrmApi.GetContactAsync(contactId);
+            _labels[Value!] = contact is null ? Value! : FormatContactLabel(contact);
+        }
+        catch
+        {
+            _labels[Value!] = Value!;
+        }
+    }
+
     private async Task<QueryData<SelectedItem>> QueryContactsAsync(VirtualizeQueryOption option)
     {
         if (!Guid.TryParse(CustomerId, out var customerId))
@@ -97,7 +120,7 @@
 
             var items = (result?.Items ?? []).Select(c =>
             {
-                var label = $"{c.FullName} — {c.Email ?? c.Phone ?? c.Position ?? "liên hệ"}";
+                var label = FormatContactLabel(c);
                 _labels[c.Id.ToString()] = label;
                 return new SelectedItem(c.Id.ToString(), label);
             }).ToList();
@@ -148,7 +171,7 @@
         }
 
         var id = contact.Id.ToString();
-        var label = $"{contact.FullName} — {contact.Email ?? contact.Phone ?? contact.Position ?? "liên hệ"}";
+        var label = FormatContactLabel(contact);
         _labels[id] = label;
         await ValueChanged.InvokeAsync(id);
         _showQuickCreate = false;
@@ -156,8 +179,21 @@
         await ToastService.Success("Thành công", "Đã tạo và chọn liên hệ.");
     }
 
+    private string SelectedContactLabel(SelectedItem? item)
+    {
+        if (!string.IsNullOrWhiteSpace(Value) && _labels.TryGetValue(Value, out var label))
+        {
+            return label;
+        }
+
+        return string.IsNullOrWhiteSpace(item?.Text) ? PlaceHolder : item.Text;
+    }
+
+    private static string FormatContactLabel(ContactDto contact) =>
+        $"{contact.FullName} — {contact.Email ?? contact.Phone ?? contact.Position ?? "liên hệ"}";
+
     private RenderFragment<SelectedItem> RenderSelectedContact => item =>
-    @<span class="lookup-selected">@(item?.Text ?? PlaceHolder)</span>;
+    @<span class="lookup-selected">@SelectedContactLabel(item)</span>;
 
     private sealed class QuickContactModel
     {

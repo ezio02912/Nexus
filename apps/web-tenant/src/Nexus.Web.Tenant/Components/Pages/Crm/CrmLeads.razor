@@ -1,0 +1,126 @@
+@page "/crm/leads"
+@attribute [TabItemOption(Text = "Leads", Icon = "fa-solid fa-user-plus")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>Leads - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Leads</h1>
+            <p>Quản lý lead tiềm năng trong tenant hiện tại.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.HasModule("CRM"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module CRM.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="@messageCss">@message</div>
+        }
+
+        <div class="tenant-work-grid">
+            <section class="app-card">
+                <h2>Tạo lead</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Họ tên *</label>
+                        <input class="form-control" @bind="leadName" />
+                    </div>
+                    <div>
+                        <label>Công ty</label>
+                        <input class="form-control" @bind="leadCompany" />
+                    </div>
+                    <div>
+                        <label>Nguồn</label>
+                        <input class="form-control" @bind="leadSource" />
+                    </div>
+                </div>
+                <Button Text="Tạo lead" Color="Color.Primary" OnClick="CreateLeadAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Danh sách leads</h2>
+                @if (isLoading)
+                {
+                    <div class="app-loading">Đang tải leads...</div>
+                }
+                else if (leads.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có lead.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Tên</th><th>Công ty</th><th>Nguồn</th><th>Trạng thái</th></tr></thead>
+                        <tbody>
+                            @foreach (var item in leads)
+                            {
+                                <tr><td>@item.FullName</td><td>@item.CompanyName</td><td>@item.Source</td><td>@item.Status</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private List<LeadRecord> leads = [];
+    private bool isLoading;
+    private string message = "";
+    private string messageCss = "app-alert";
+
+    private string leadName = "";
+    private string leadCompany = "";
+    private string leadSource = "Website";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        isLoading = true;
+        leads = (await Api.GetLeadsAsync(tenantId))?.ToList() ?? [];
+        isLoading = false;
+    }
+
+    private async Task CreateLeadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(leadName))
+        {
+            ShowError("Vui lòng nhập tên lead.");
+            return;
+        }
+
+        await Api.CreateLeadAsync(new CreateLeadRequest(tenantId, leadName, leadCompany, null, null, leadSource));
+        leadName = "";
+        leadCompany = "";
+        ShowSuccess("Đã tạo lead.");
+        await LoadAsync();
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "app-alert";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "app-alert app-alert-danger";
+    }
+}

@@ -1,0 +1,155 @@
+@page "/crm/quotations"
+@attribute [TabItemOption(Text = "Báo giá", Icon = "fa-solid fa-file-invoice")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>Báo giá - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Báo giá</h1>
+            <p>Quản lý báo giá khách hàng trong tenant hiện tại.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.HasModule("CRM"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module CRM.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="@messageCss">@message</div>
+        }
+
+        <div class="tenant-work-grid">
+            <section class="app-card">
+                <h2>Tạo báo giá</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Khách hàng *</label>
+                        <select class="form-select" @bind="quotationCustomerId">
+                            <option value="">Chọn khách hàng</option>
+                            @foreach (var customer in customers)
+                            {
+                                <option value="@customer.Id">@CustomerOption(customer)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label>Số báo giá *</label>
+                        <input class="form-control" @bind="quotationNo" />
+                    </div>
+                    <div>
+                        <label>Tổng tiền</label>
+                        <input class="form-control" type="number" @bind="quotationTotal" />
+                    </div>
+                </div>
+                <Button Text="Tạo báo giá" Color="Color.Primary" OnClick="CreateQuotationAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Danh sách báo giá</h2>
+                @if (isLoading)
+                {
+                    <div class="app-loading">Đang tải báo giá...</div>
+                }
+                else if (quotations.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có báo giá.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Số</th><th>Khách hàng</th><th>Trạng thái</th><th>Tổng tiền</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var item in quotations)
+                            {
+                                <tr>
+                                    <td>@item.QuotationNo</td>
+                                    <td>@CustomerText(item.CustomerId)</td>
+                                    <td><span class="app-status-badge">@item.Status</span></td>
+                                    <td>@item.TotalAmount.ToString("N2")</td>
+                                    <td>
+                                        <Button Text="Duyệt" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(item.Status == "Approved")" OnClick="@(() => ApproveQuotationAsync(item.Id))" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private List<CustomerRecord> customers = [];
+    private List<QuotationRecord> quotations = [];
+    private bool isLoading;
+    private string message = "";
+    private string messageCss = "app-alert";
+
+    private string quotationCustomerId = "";
+    private string quotationNo = "QT-0001";
+    private decimal quotationTotal = 1000;
+
+    private static string CustomerOption(CustomerRecord customer) => $"{customer.Code} - {customer.Name}";
+
+    private string CustomerText(Guid customerId)
+    {
+        var customer = customers.FirstOrDefault(x => x.Id == customerId);
+        return customer is null ? "Không xác định" : CustomerOption(customer);
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        isLoading = true;
+        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
+        quotations = (await Api.GetQuotationsAsync(tenantId))?.ToList() ?? [];
+        isLoading = false;
+    }
+
+    private async Task CreateQuotationAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || !Guid.TryParse(quotationCustomerId, out var customerId) || string.IsNullOrWhiteSpace(quotationNo))
+        {
+            ShowError("Vui lòng chọn khách hàng và nhập số báo giá.");
+            return;
+        }
+
+        await Api.CreateQuotationAsync(new CreateQuotationRequest(tenantId, customerId, quotationNo, quotationTotal));
+        ShowSuccess("Đã tạo báo giá.");
+        await LoadAsync();
+    }
+
+    private async Task ApproveQuotationAsync(Guid id)
+    {
+        await Api.ApproveQuotationAsync(id);
+        ShowSuccess("Đã duyệt báo giá.");
+        await LoadAsync();
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "app-alert";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "app-alert app-alert-danger";
+    }
+}

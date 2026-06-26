@@ -56,11 +56,10 @@ public static class IdentitySeeder
             .Include(x => x.Roles)
             .SingleOrDefaultAsync(x => x.TenantId == tenantId && x.UserName == normalizedUserName);
 
+        // Skip when the user already exists. Re-seeding roles/password on every startup
+        // can trigger EF concurrency conflicts on the user_roles join table.
         if (existing is not null)
         {
-            existing.ChangePassword(passwordHasher.HashPassword(password), null, DateTimeOffset.UtcNow);
-            existing.SetRoles(roles, null, DateTimeOffset.UtcNow);
-            await dbContext.SaveChangesAsync();
             return;
         }
 

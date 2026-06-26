@@ -66,6 +66,13 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: nexus-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   postgres-data:
   redis-data:

@@ -1,6 +1,9 @@
 @page "/files"
 @inject CoreApiClient Api
 @inject TenantLookupService TenantLookup
+@inject DialogService DialogService
+@inject SwalService SwalService
+@inject ToastService ToastService
 
 <PageTitle>Tệp tin</PageTitle>
 
@@ -11,51 +14,36 @@
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
-}
-
-<div class="work-surface">
-    <Card HeaderText="Tạo tệp" IsShadow="true">
-        <BodyTemplate>
-            <Select TValue="string" @bind-Value="_tenantId" Items="_tenantOptions"
-                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true"
-                    PlaceHolder="Chọn khách thuê" class="mb-2" />
-            <BootstrapInput @bind-Value="_fileName" DisplayText="Tên tệp" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_contentType" DisplayText="Loại nội dung" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_storagePath" DisplayText="Đường dẫn lưu trữ" ShowLabel="true" class="mb-2" />
-            <BootstrapInputNumber @bind-Value="_size" DisplayText="Kích thước" ShowLabel="true" class="mb-3" />
-            <Button Text="Tạo mới" Icon="fa-solid fa-plus" Color="Color.Success" IsAsync="true" OnClick="CreateAsync" />
-        </BodyTemplate>
-    </Card>
-
-    <Card HeaderText="Danh sách tệp" IsShadow="true">
-        <BodyTemplate>
-            <Table @ref="_table" TItem="FileRecord" OnQueryAsync="OnQueryAsync"
-                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
-                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
-                <TableColumns>
-                    <TableColumn @bind-Field="@context.FileName" Text="Tên" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.ContentType" Text="Loại" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.Size" Text="Kích thước" Sortable="true" />
-                    <TableColumn @bind-Field="@context.StoragePath" Text="Đường dẫn" Searchable="true" />
-                </TableColumns>
-            </Table>
-        </BodyTemplate>
-    </Card>
-</div>
+<Card HeaderText="Danh sách tệp" IsShadow="true">
+    <BodyTemplate>
+        <Table @ref="_table" TItem="FileRecord" OnQueryAsync="OnQueryAsync"
+               IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+               ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+               ShowEditButton="false" ShowDeleteButton="false" ExtendButtonColumnWidth="130"
+               ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+            <TableToolbarTemplate>
+                <TableToolbarButton TItem="FileRecord" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                    Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+            </TableToolbarTemplate>
+            <RowButtonTemplate>
+                <TableCellButton Color="Color.Info" Icon="fa-solid fa-pen-to-square" Text="Sửa"
+                                 OnClick="@(() => ShowEditAsync([context]))" />
+                <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                 OnClick="@(() => DeleteSelectedAsync([context]))" />
+            </RowButtonTemplate>
+            <TableColumns>
+                <TableColumn @bind-Field="@context.FileName" Text="Tên" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.ContentType" Text="Loại" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.Size" Text="Kích thước" Sortable="true" />
+                <TableColumn @bind-Field="@context.StoragePath" Text="Đường dẫn" Searchable="true" />
+            </TableColumns>
+        </Table>
+    </BodyTemplate>
+</Card>
 
 @code {
     private Table<FileRecord>? _table;
-    private string _tenantId = "";
-    private string _fileName = "";
-    private string _contentType = "application/pdf";
-    private string _storagePath = "tenant/sample.pdf";
-    private long _size = 1024;
     private List<SelectedItem> _tenantOptions = [];
-    private string? _message;
-    private Color _messageColor = Color.Primary;
     private static readonly int[] _pageItems = [10, 20, 50];
 
     protected override async Task OnInitializedAsync()
@@ -67,7 +55,7 @@
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
     }
 
@@ -85,38 +73,189 @@
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
             return [];
         }
     }
 
-    private async Task CreateAsync()
+    private async Task ReloadTableAsync()
     {
+        if (_table is not null)
+        {
+            await _table.QueryAsync();
+        }
+    }
+
+    // --- Create modal -----------------------------------------------------
+    private Task ShowCreateAsync(IEnumerable<FileRecord> _)
+    {
+        var model = new FileCreateModel();
+        var option = new EditDialogOption<FileCreateModel>
+        {
+            Title = "Thêm tệp",
+            Model = model,
+            Size = Size.Medium,
+            ItemsPerRow = 1,
+            ShowLoading = true,
+            SaveButtonText = "Lưu",
+            CloseButtonText = "Đóng",
+            DialogBodyTemplate = CreateBody,
+            OnEditAsync = async _ =>
+            {
+                try
+                {
+                    Guid? tenantId = Guid.TryParse(model.TenantId, out var parsed) ? parsed : null;
+                    await Api.CreateFileAsync(new CreateFileRequest(tenantId, model.FileName, model.ContentType, model.Size, model.StoragePath));
+                    await ToastService.Success("Thành công", "Đã tạo tệp.");
+                    await ReloadTableAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await ShowErrorAsync(ex);
+                    return false;
+                }
+            }
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<FileCreateModel> CreateBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <Select TValue="string" @bind-Value="model.TenantId" Items="_tenantOptions"
+                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true" PlaceHolder="Chọn khách thuê" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.FileName" DisplayText="Tên tệp" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.ContentType" DisplayText="Loại nội dung" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.StoragePath" DisplayText="Đường dẫn lưu trữ" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInputNumber @bind-Value="model.Size" DisplayText="Kích thước" ShowLabel="true" />
+        </div>
+    </div>;
+
+    private Task ShowEditAsync(IEnumerable<FileRecord> rows)
+    {
+        var file = rows.FirstOrDefault();
+        if (file is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var model = new FileViewModel
+        {
+            FileName = file.FileName,
+            ContentType = file.ContentType,
+            Size = file.Size,
+            StoragePath = file.StoragePath
+        };
+
+        var option = new EditDialogOption<FileViewModel>
+        {
+            Title = $"Tệp: {file.FileName}",
+            Model = model,
+            Size = Size.Small,
+            ItemsPerRow = 1,
+            ShowLoading = false,
+            SaveButtonText = "Đóng",
+            CloseButtonText = "Huỷ",
+            DialogBodyTemplate = ViewFileBody,
+            OnEditAsync = _ => Task.FromResult(true)
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<FileViewModel> ViewFileBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <BootstrapInput Value="@model.FileName" DisplayText="Tên tệp" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput Value="@model.ContentType" DisplayText="Loại nội dung" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInputNumber Value="@model.Size" DisplayText="Kích thước" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput Value="@model.StoragePath" DisplayText="Đường dẫn lưu trữ" ShowLabel="true" IsDisabled="true" />
+        </div>
+    </div>;
+
+    // --- Delete -----------------------------------------------------------
+    private async Task DeleteSelectedAsync(IEnumerable<FileRecord> rows)
+    {
+        var list = rows?.ToList() ?? [];
+        if (list.Count == 0)
+        {
+            await ToastService.Information("Chưa chọn", "Vui lòng chọn ít nhất một dòng để xoá.");
+            return;
+        }
+
+        var confirmed = await SwalService.ShowModal(new SwalOption
+        {
+            Category = SwalCategory.Question,
+            Title = "Xác nhận xoá",
+            Content = list.Count == 1
+                ? $"Bạn có chắc muốn xoá tệp \"{list[0].FileName}\"?"
+                : $"Bạn có chắc muốn xoá {list.Count} tệp đã chọn?"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
         try
         {
-            Guid? tenantId = Guid.TryParse(_tenantId, out var parsed) ? parsed : null;
-            await Api.CreateFileAsync(new CreateFileRequest(tenantId, _fileName, _contentType, _size, _storagePath));
-            SetInfo("Đã tạo tệp.");
-            if (_table is not null)
+            foreach (var file in list)
             {
-                await _table.QueryAsync();
+                await Api.DeleteFileAsync(file.Id);
             }
+
+            await ToastService.Success("Đã xoá", "Đã xoá tệp đã chọn.");
+            await ReloadTableAsync();
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
     }
 
-    private void SetInfo(string text)
+    private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
     {
-        _message = text;
-        _messageColor = Color.Success;
+        Category = SwalCategory.Error,
+        Title = "Đã xảy ra lỗi",
+        Content = ex.Message
+    });
+
+    private sealed class FileCreateModel
+    {
+        public string TenantId { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập tên tệp")]
+        public string FileName { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập loại nội dung")]
+        public string ContentType { get; set; } = "application/pdf";
+
+        [Required(ErrorMessage = "Vui lòng nhập đường dẫn")]
+        public string StoragePath { get; set; } = "tenant/sample.pdf";
+
+        public long Size { get; set; } = 1024;
     }
 
-    private void SetError(string text)
+    private sealed class FileViewModel
     {
-        _message = text;
-        _messageColor = Color.Danger;
+        public string FileName { get; set; } = "";
+        public string ContentType { get; set; } = "";
+        public long Size { get; set; }
+        public string StoragePath { get; set; } = "";
     }
 }

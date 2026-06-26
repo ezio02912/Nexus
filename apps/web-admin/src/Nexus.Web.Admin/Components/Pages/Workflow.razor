@@ -1,6 +1,9 @@
 @page "/workflow"
 @inject CoreApiClient Api
 @inject TenantLookupService TenantLookup
+@inject DialogService DialogService
+@inject SwalService SwalService
+@inject ToastService ToastService
 
 <PageTitle>Quy trình</PageTitle>
 
@@ -11,62 +14,39 @@
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
-}
-
-<div class="work-surface">
-    <Card HeaderText="Tạo định nghĩa" IsShadow="true">
-        <BodyTemplate>
-            <Select TValue="string" @bind-Value="_tenantId" Items="_tenantOptions"
-                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true"
-                    PlaceHolder="Chọn khách thuê" class="mb-2" />
-            <BootstrapInput @bind-Value="_code" DisplayText="Mã" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_name" DisplayText="Tên" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_stepsText" DisplayText="Các bước" PlaceHolder="Manager, Finance" ShowLabel="true" class="mb-3" />
-            <Button Text="Tạo mới" Icon="fa-solid fa-plus" Color="Color.Success" IsAsync="true" OnClick="CreateDefinitionAsync" />
-        </BodyTemplate>
-    </Card>
-
-    <Card HeaderText="Danh sách định nghĩa" IsShadow="true">
-        <BodyTemplate>
-            <Table @ref="_table" TItem="WorkflowDefinitionRecord" OnQueryAsync="OnQueryAsync"
-                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
-                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowDefaultButtons="false"
-                   ShowExtendButtons="true" ExtendButtonColumnWidth="160" ShowRefresh="true">
-                <TableColumns>
-                    <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.IsActive" Text="Các bước" Sortable="false">
-                        <Template Context="v">@string.Join(" -> ", v.Row.Steps)</Template>
-                    </TableColumn>
-                </TableColumns>
-                <RowButtonTemplate>
-                    <TableCellButton Color="Color.Primary" Icon="fa-solid fa-play" Text="Khởi tạo thử"
-                                     OnClick="() => StartInstanceAsync(context.Id)" />
-                </RowButtonTemplate>
-            </Table>
-            @if (_lastInstance is not null)
-            {
-                <Alert Color="Color.Info" class="mt-3">
-                    Đã khởi tạo phiên @_lastInstance.Id với trạng thái @_lastInstance.Status.
-                </Alert>
-            }
-        </BodyTemplate>
-    </Card>
-</div>
+<Card HeaderText="Danh sách định nghĩa" IsShadow="true">
+    <BodyTemplate>
+        <Table @ref="_table" TItem="WorkflowDefinitionRecord" OnQueryAsync="OnQueryAsync"
+               IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+               ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+               ShowEditButton="false" ShowDeleteButton="false" ExtendButtonColumnWidth="130"
+               ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+            <TableToolbarTemplate>
+                <TableToolbarButton TItem="WorkflowDefinitionRecord" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                    Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                <TableToolbarButton TItem="WorkflowDefinitionRecord" Color="Color.Success" Icon="fa-solid fa-play"
+                                    Text="Khởi tạo phiên" IsEnableWhenSelectedOneRow="true" OnClickCallback="StartInstanceAsync" />
+            </TableToolbarTemplate>
+            <RowButtonTemplate>
+                <TableCellButton Color="Color.Info" Icon="fa-solid fa-pen-to-square" Text="Sửa"
+                                 OnClick="@(() => ShowEditAsync([context]))" />
+                <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                 OnClick="@(() => DeleteSelectedAsync([context]))" />
+            </RowButtonTemplate>
+            <TableColumns>
+                <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.IsActive" Text="Các bước" Sortable="false">
+                    <Template Context="v">@string.Join(" -> ", v.Row.Steps)</Template>
+                </TableColumn>
+            </TableColumns>
+        </Table>
+    </BodyTemplate>
+</Card>
 
 @code {
     private Table<WorkflowDefinitionRecord>? _table;
-    private WorkflowInstanceRecord? _lastInstance;
-    private string _tenantId = "";
-    private string _code = "PAYMENT_APPROVAL";
-    private string _name = "Payment Approval";
-    private string _stepsText = "Manager, Finance";
     private List<SelectedItem> _tenantOptions = [];
-    private string? _message;
-    private Color _messageColor = Color.Primary;
     private static readonly int[] _pageItems = [10, 20, 50];
 
     protected override async Task OnInitializedAsync()
@@ -78,7 +58,7 @@
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
     }
 
@@ -96,53 +76,202 @@
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
             return [];
         }
     }
 
-    private async Task CreateDefinitionAsync()
+    private async Task ReloadTableAsync()
     {
-        try
+        if (_table is not null)
         {
-            Guid? tenantId = Guid.TryParse(_tenantId, out var parsed) ? parsed : null;
-            var steps = _stepsText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            await Api.CreateWorkflowDefinitionAsync(new CreateWorkflowDefinitionRequest(tenantId, _code, _name, steps));
-            SetInfo("Đã tạo định nghĩa quy trình.");
-            if (_table is not null)
+            await _table.QueryAsync();
+        }
+    }
+
+    // --- Create modal -----------------------------------------------------
+    private Task ShowCreateAsync(IEnumerable<WorkflowDefinitionRecord> _)
+    {
+        var model = new WorkflowCreateModel();
+        var option = new EditDialogOption<WorkflowCreateModel>
+        {
+            Title = "Thêm định nghĩa quy trình",
+            Model = model,
+            Size = Size.Medium,
+            ItemsPerRow = 1,
+            ShowLoading = true,
+            SaveButtonText = "Lưu",
+            CloseButtonText = "Đóng",
+            DialogBodyTemplate = CreateBody,
+            OnEditAsync = async _ =>
             {
-                await _table.QueryAsync();
+                try
+                {
+                    Guid? tenantId = Guid.TryParse(model.TenantId, out var parsed) ? parsed : null;
+                    var steps = model.Steps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    await Api.CreateWorkflowDefinitionAsync(new CreateWorkflowDefinitionRequest(tenantId, model.Code, model.Name, steps));
+                    await ToastService.Success("Thành công", "Đã tạo định nghĩa quy trình.");
+                    await ReloadTableAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await ShowErrorAsync(ex);
+                    return false;
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            SetError(ex.Message);
-        }
+        };
+
+        return DialogService.ShowEditDialog(option);
     }
 
-    private async Task StartInstanceAsync(Guid definitionId)
+    private RenderFragment<WorkflowCreateModel> CreateBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <Select TValue="string" @bind-Value="model.TenantId" Items="_tenantOptions"
+                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true" PlaceHolder="Chọn khách thuê" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.Code" DisplayText="Mã" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.Name" DisplayText="Tên" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.Steps" DisplayText="Các bước" ShowLabel="true" PlaceHolder="Manager, Finance" />
+        </div>
+    </div>;
+
+    private Task ShowEditAsync(IEnumerable<WorkflowDefinitionRecord> rows)
     {
+        var definition = rows.FirstOrDefault();
+        if (definition is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var model = new WorkflowViewModel
+        {
+            Code = definition.Code,
+            Name = definition.Name,
+            Steps = string.Join(" -> ", definition.Steps)
+        };
+
+        var option = new EditDialogOption<WorkflowViewModel>
+        {
+            Title = $"Quy trình: {definition.Code}",
+            Model = model,
+            Size = Size.Small,
+            ItemsPerRow = 1,
+            ShowLoading = false,
+            SaveButtonText = "Đóng",
+            CloseButtonText = "Huỷ",
+            DialogBodyTemplate = ViewWorkflowBody,
+            OnEditAsync = _ => Task.FromResult(true)
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<WorkflowViewModel> ViewWorkflowBody => model =>
+    @<div class="row g-3">
+        <div class="col-md-6">
+            <BootstrapInput Value="@model.Code" DisplayText="Mã" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput Value="@model.Name" DisplayText="Tên" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput Value="@model.Steps" DisplayText="Các bước" ShowLabel="true" IsDisabled="true" />
+        </div>
+    </div>;
+
+    // --- Start an approval instance for the selected definition ----------
+    private async Task StartInstanceAsync(IEnumerable<WorkflowDefinitionRecord> rows)
+    {
+        var definition = rows.FirstOrDefault();
+        if (definition is null)
+        {
+            return;
+        }
+
         try
         {
-            Guid? tenantId = Guid.TryParse(_tenantId, out var parsed) ? parsed : null;
-            _lastInstance = await Api.CreateWorkflowInstanceAsync(new CreateWorkflowInstanceRequest(tenantId, definitionId, "Accounting", "PaymentRequest", Guid.NewGuid().ToString()));
-            SetInfo("Đã khởi tạo phiên quy trình.");
+            Guid? tenantId = definition.TenantId;
+            var instance = await Api.CreateWorkflowInstanceAsync(
+                new CreateWorkflowInstanceRequest(tenantId, definition.Id, "Accounting", "PaymentRequest", Guid.NewGuid().ToString()));
+            await ToastService.Success("Đã khởi tạo phiên", $"Phiên {instance?.Id} – trạng thái {instance?.Status}.");
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
     }
 
-    private void SetInfo(string text)
+    // --- Delete -----------------------------------------------------------
+    private async Task DeleteSelectedAsync(IEnumerable<WorkflowDefinitionRecord> rows)
     {
-        _message = text;
-        _messageColor = Color.Success;
+        var list = rows?.ToList() ?? [];
+        if (list.Count == 0)
+        {
+            await ToastService.Information("Chưa chọn", "Vui lòng chọn ít nhất một dòng để xoá.");
+            return;
+        }
+
+        var confirmed = await SwalService.ShowModal(new SwalOption
+        {
+            Category = SwalCategory.Question,
+            Title = "Xác nhận xoá",
+            Content = list.Count == 1
+                ? $"Bạn có chắc muốn xoá định nghĩa \"{list[0].Code}\"?"
+                : $"Bạn có chắc muốn xoá {list.Count} định nghĩa đã chọn?"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var definition in list)
+            {
+                await Api.DeleteWorkflowDefinitionAsync(definition.Id);
+            }
+
+            await ToastService.Success("Đã xoá", "Đã xoá định nghĩa đã chọn.");
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
     }
 
-    private void SetError(string text)
+    private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
     {
-        _message = text;
-        _messageColor = Color.Danger;
+        Category = SwalCategory.Error,
+        Title = "Đã xảy ra lỗi",
+        Content = ex.Message
+    });
+
+    private sealed class WorkflowCreateModel
+    {
+        public string TenantId { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập mã")]
+        public string Code { get; set; } = "PAYMENT_APPROVAL";
+
+        [Required(ErrorMessage = "Vui lòng nhập tên")]
+        public string Name { get; set; } = "Payment Approval";
+
+        [Required(ErrorMessage = "Vui lòng nhập các bước")]
+        public string Steps { get; set; } = "Manager, Finance";
+    }
+
+    private sealed class WorkflowViewModel
+    {
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Steps { get; set; } = "";
     }
 }

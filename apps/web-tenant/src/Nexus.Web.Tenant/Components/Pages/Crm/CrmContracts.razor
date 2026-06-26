@@ -1,0 +1,150 @@
+@page "/crm/contracts"
+@attribute [TabItemOption(Text = "Hợp đồng", Icon = "fa-solid fa-file-signature")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>Hợp đồng - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Hợp đồng</h1>
+            <p>Quản lý hợp đồng khách hàng trong tenant hiện tại.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.HasModule("CRM"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module CRM.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="@messageCss">@message</div>
+        }
+
+        <div class="tenant-work-grid">
+            <section class="app-card">
+                <h2>Tạo hợp đồng</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Khách hàng *</label>
+                        <select class="form-select" @bind="contractCustomerId">
+                            <option value="">Chọn khách hàng</option>
+                            @foreach (var customer in customers)
+                            {
+                                <option value="@customer.Id">@CustomerOption(customer)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label>Số hợp đồng *</label>
+                        <input class="form-control" @bind="contractNo" />
+                    </div>
+                    <div>
+                        <label>Tiêu đề *</label>
+                        <input class="form-control" @bind="contractTitle" />
+                    </div>
+                </div>
+                <Button Text="Tạo hợp đồng" Color="Color.Primary" OnClick="CreateContractAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Danh sách hợp đồng</h2>
+                @if (isLoading)
+                {
+                    <div class="app-loading">Đang tải hợp đồng...</div>
+                }
+                else if (contracts.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có hợp đồng.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Số</th><th>Tiêu đề</th><th>Trạng thái</th><th>Ngày ký</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var item in contracts)
+                            {
+                                <tr>
+                                    <td>@item.ContractNo</td>
+                                    <td>@item.Title</td>
+                                    <td><span class="app-status-badge">@item.Status</span></td>
+                                    <td>@item.SignedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>
+                                        <Button Text="Ký" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(item.Status == "Signed")" OnClick="@(() => SignContractAsync(item.Id))" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private List<CustomerRecord> customers = [];
+    private List<ContractRecord> contracts = [];
+    private bool isLoading;
+    private string message = "";
+    private string messageCss = "app-alert";
+
+    private string contractCustomerId = "";
+    private string contractNo = "CT-0001";
+    private string contractTitle = "";
+
+    private static string CustomerOption(CustomerRecord customer) => $"{customer.Code} - {customer.Name}";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        isLoading = true;
+        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
+        contracts = (await Api.GetContractsAsync(tenantId))?.ToList() ?? [];
+        isLoading = false;
+    }
+
+    private async Task CreateContractAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || !Guid.TryParse(contractCustomerId, out var customerId) || string.IsNullOrWhiteSpace(contractNo) || string.IsNullOrWhiteSpace(contractTitle))
+        {
+            ShowError("Vui lòng chọn khách hàng, nhập số hợp đồng và tiêu đề.");
+            return;
+        }
+
+        await Api.CreateContractAsync(new CreateContractRequest(tenantId, customerId, contractNo, contractTitle));
+        contractTitle = "";
+        ShowSuccess("Đã tạo hợp đồng.");
+        await LoadAsync();
+    }
+
+    private async Task SignContractAsync(Guid id)
+    {
+        await Api.SignContractAsync(id);
+        ShowSuccess("Đã ký hợp đồng.");
+        await LoadAsync();
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "app-alert";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "app-alert app-alert-danger";
+    }
+}

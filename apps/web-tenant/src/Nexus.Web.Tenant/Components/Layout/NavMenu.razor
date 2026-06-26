@@ -18,22 +18,31 @@
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Bảng điều khiển</NavLink>
         </div>
 
-        @if (Session.HasModule("CRM") || Session.HasModule("SALES"))
-        {
-            <div class="nav-section">Phân hệ</div>
-        }
-
         @if (Session.HasModule("CRM"))
         {
+            <div class="nav-section">CRM</div>
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="crm">CRM</NavLink>
+                <NavLink class="nav-link" href="crm/customers">Khách hàng</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="crm/leads">Leads</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="crm/opportunities">Cơ hội</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="crm/quotations">Báo giá</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="crm/contracts">Hợp đồng</NavLink>
             </div>
         }
 
         @if (Session.HasModule("SALES"))
         {
+            <div class="nav-section">Bán hàng</div>
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="sales">Bán hàng</NavLink>
+                <NavLink class="nav-link" href="sales/orders">Đơn hàng</NavLink>
             </div>
         }
 

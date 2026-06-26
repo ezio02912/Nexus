@@ -1,5 +1,8 @@
 @page "/audit"
 @inject CoreApiClient Api
+@inject DialogService DialogService
+@inject SwalService SwalService
+@inject ToastService ToastService
 
 <PageTitle>Nhật ký</PageTitle>
 
@@ -10,47 +13,31 @@
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
-}
-
-<div class="work-surface">
-    <Card HeaderText="Tạo bản ghi thử" IsShadow="true">
-        <BodyTemplate>
-            <BootstrapInput @bind-Value="_serviceName" DisplayText="Dịch vụ" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_entityName" DisplayText="Thực thể" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_summary" DisplayText="Tóm tắt" ShowLabel="true" class="mb-3" />
-            <Button Text="Tạo mới" Icon="fa-solid fa-plus" Color="Color.Success" IsAsync="true" OnClick="CreateAsync" />
-        </BodyTemplate>
-    </Card>
-
-    <Card HeaderText="Bản ghi nhật ký" IsShadow="true">
-        <BodyTemplate>
-            <Table @ref="_table" TItem="AuditLogEntry" OnQueryAsync="OnQueryAsync"
-                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
-                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
-                <TableColumns>
-                    <TableColumn @bind-Field="@context.OccurredAt" Text="Thời gian" Sortable="true">
-                        <Template Context="v">@v.Row.OccurredAt.ToLocalTime().ToString("g")</Template>
-                    </TableColumn>
-                    <TableColumn @bind-Field="@context.ServiceName" Text="Dịch vụ" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.EntityName" Text="Thực thể" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.Action" Text="Hành động" Sortable="true" />
-                    <TableColumn @bind-Field="@context.Summary" Text="Tóm tắt" Searchable="true" />
-                </TableColumns>
-            </Table>
-        </BodyTemplate>
-    </Card>
-</div>
+<Card HeaderText="Bản ghi nhật ký" IsShadow="true">
+    <BodyTemplate>
+        <Table @ref="_table" TItem="AuditLogEntry" OnQueryAsync="OnQueryAsync"
+               IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+               ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="false"
+               ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+            <TableToolbarTemplate>
+                <TableToolbarButton TItem="AuditLogEntry" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                    Text="Tạo bản ghi thử" OnClickCallback="ShowCreateAsync" />
+            </TableToolbarTemplate>
+            <TableColumns>
+                <TableColumn @bind-Field="@context.OccurredAt" Text="Thời gian" Sortable="true">
+                    <Template Context="v">@v.Row.OccurredAt.ToLocalTime().ToString("g")</Template>
+                </TableColumn>
+                <TableColumn @bind-Field="@context.ServiceName" Text="Dịch vụ" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.EntityName" Text="Thực thể" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.Action" Text="Hành động" Sortable="true" />
+                <TableColumn @bind-Field="@context.Summary" Text="Tóm tắt" Searchable="true" />
+            </TableColumns>
+        </Table>
+    </BodyTemplate>
+</Card>
 
 @code {
     private Table<AuditLogEntry>? _table;
-    private string _serviceName = "web-admin";
-    private string _entityName = "SmokeTest";
-    private string _summary = "Manual audit check";
-    private string? _message;
-    private Color _messageColor = Color.Primary;
     private static readonly int[] _pageItems = [10, 20, 50];
 
     private async Task<QueryData<AuditLogEntry>> OnQueryAsync(QueryPageOptions options)
@@ -67,37 +54,81 @@
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
             return [];
         }
     }
 
-    private async Task CreateAsync()
+    private async Task ReloadTableAsync()
     {
-        try
+        if (_table is not null)
         {
-            await Api.CreateAuditLogAsync(new CreateAuditLogRequest(null, null, _serviceName, _entityName, null, 4, _summary, Guid.NewGuid().ToString("N")));
-            SetInfo("Đã tạo bản ghi nhật ký.");
-            if (_table is not null)
+            await _table.QueryAsync();
+        }
+    }
+
+    // --- Create test audit entry modal -----------------------------------
+    private Task ShowCreateAsync(IEnumerable<AuditLogEntry> _)
+    {
+        var model = new AuditCreateModel();
+        var option = new EditDialogOption<AuditCreateModel>
+        {
+            Title = "Tạo bản ghi nhật ký thử",
+            Model = model,
+            Size = Size.Small,
+            ItemsPerRow = 1,
+            ShowLoading = true,
+            SaveButtonText = "Lưu",
+            CloseButtonText = "Đóng",
+            DialogBodyTemplate = CreateBody,
+            OnEditAsync = async _ =>
             {
-                await _table.QueryAsync();
+                try
+                {
+                    await Api.CreateAuditLogAsync(new CreateAuditLogRequest(null, null, model.ServiceName, model.EntityName, null, 4, model.Summary, Guid.NewGuid().ToString("N")));
+                    await ToastService.Success("Thành công", "Đã tạo bản ghi nhật ký.");
+                    await ReloadTableAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await ShowErrorAsync(ex);
+                    return false;
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            SetError(ex.Message);
-        }
+        };
+
+        return DialogService.ShowEditDialog(option);
     }
 
-    private void SetInfo(string text)
-    {
-        _message = text;
-        _messageColor = Color.Success;
-    }
+    private RenderFragment<AuditCreateModel> CreateBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.ServiceName" DisplayText="Dịch vụ" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.EntityName" DisplayText="Thực thể" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.Summary" DisplayText="Tóm tắt" ShowLabel="true" />
+        </div>
+    </div>;
 
-    private void SetError(string text)
+    private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
     {
-        _message = text;
-        _messageColor = Color.Danger;
+        Category = SwalCategory.Error,
+        Title = "Đã xảy ra lỗi",
+        Content = ex.Message
+    });
+
+    private sealed class AuditCreateModel
+    {
+        [Required(ErrorMessage = "Vui lòng nhập tên dịch vụ")]
+        public string ServiceName { get; set; } = "web-admin";
+
+        [Required(ErrorMessage = "Vui lòng nhập tên thực thể")]
+        public string EntityName { get; set; } = "SmokeTest";
+
+        public string Summary { get; set; } = "Manual audit check";
     }
 }

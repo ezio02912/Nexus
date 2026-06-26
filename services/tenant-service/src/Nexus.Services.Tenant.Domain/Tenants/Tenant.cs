@@ -12,19 +12,43 @@ public sealed class Tenant : FullAuditedAggregateRoot<Guid>
     {
         Code = string.Empty;
         Name = string.Empty;
+        RepresentativeName = string.Empty;
+        ContactEmail = string.Empty;
     }
 
     public Tenant(Guid id, string code, string name, Guid? creatorId, DateTimeOffset now)
+        : this(id, code, name, null, null, string.Empty, string.Empty, creatorId, now)
+    {
+    }
+
+    public Tenant(
+        Guid id,
+        string code,
+        string name,
+        string? address,
+        string? phone,
+        string representativeName,
+        string contactEmail,
+        Guid? creatorId,
+        DateTimeOffset now)
     {
         Id = id;
         Code = NormalizeCode(code);
         Name = Check.Length(Check.NotNullOrWhiteSpace(name, nameof(name)), nameof(name), TenantConsts.NameMaxLength);
+        Address = NormalizeOptional(address, TenantConsts.AddressMaxLength);
+        Phone = NormalizeOptional(phone, TenantConsts.PhoneMaxLength);
+        RepresentativeName = Check.Length(representativeName?.Trim() ?? string.Empty, nameof(representativeName), TenantConsts.RepresentativeNameMaxLength);
+        ContactEmail = NormalizeContactEmail(contactEmail);
         Status = TenantStatus.Active;
         SetCreationAudit(id, creatorId, now);
     }
 
     public string Code { get; private set; }
     public string Name { get; private set; }
+    public string? Address { get; private set; }
+    public string? Phone { get; private set; }
+    public string RepresentativeName { get; private set; }
+    public string ContactEmail { get; private set; }
     public TenantStatus Status { get; private set; }
     public TenantSubscription? Subscription { get; private set; }
     public IReadOnlyCollection<TenantModule> Modules => _modules.AsReadOnly();
@@ -33,6 +57,23 @@ public sealed class Tenant : FullAuditedAggregateRoot<Guid>
     public void Rename(string name, Guid? modifierId, DateTimeOffset now)
     {
         Name = Check.Length(Check.NotNullOrWhiteSpace(name, nameof(name)), nameof(name), TenantConsts.NameMaxLength);
+        SetModificationAudit(modifierId, now);
+    }
+
+    public void UpdateProfile(
+        string name,
+        string? address,
+        string? phone,
+        string representativeName,
+        string contactEmail,
+        Guid? modifierId,
+        DateTimeOffset now)
+    {
+        Name = Check.Length(Check.NotNullOrWhiteSpace(name, nameof(name)), nameof(name), TenantConsts.NameMaxLength);
+        Address = NormalizeOptional(address, TenantConsts.AddressMaxLength);
+        Phone = NormalizeOptional(phone, TenantConsts.PhoneMaxLength);
+        RepresentativeName = Check.Length(Check.NotNullOrWhiteSpace(representativeName, nameof(representativeName)), nameof(representativeName), TenantConsts.RepresentativeNameMaxLength);
+        ContactEmail = NormalizeContactEmail(contactEmail);
         SetModificationAudit(modifierId, now);
     }
 
@@ -100,5 +141,25 @@ public sealed class Tenant : FullAuditedAggregateRoot<Guid>
     public static string NormalizeCode(string code)
     {
         return Check.Length(Check.NotNullOrWhiteSpace(code, nameof(code)).Trim().ToUpperInvariant(), nameof(code), TenantConsts.CodeMaxLength, TenantConsts.CodeMinLength);
+    }
+
+    private static string? NormalizeOptional(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return Check.Length(value.Trim(), nameof(value), maxLength);
+    }
+
+    private static string NormalizeContactEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return string.Empty;
+        }
+
+        return Check.Length(email.Trim().ToLowerInvariant(), nameof(email), TenantConsts.ContactEmailMaxLength);
     }
 }

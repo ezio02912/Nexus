@@ -11,6 +11,30 @@ public sealed class CreateTenantDto
 {
     public required string Code { get; init; }
     public required string Name { get; init; }
+    public string? Address { get; init; }
+    public string? Phone { get; init; }
+    public string RepresentativeName { get; init; } = string.Empty;
+    public string ContactEmail { get; init; } = string.Empty;
+}
+
+public sealed class CreateInternalTenantDto
+{
+    public required string Code { get; init; }
+    public required string Name { get; init; }
+    public string? Address { get; init; }
+    public string? Phone { get; init; }
+    public required string RepresentativeName { get; init; }
+    public required string ContactEmail { get; init; }
+    public IReadOnlyList<string> DefaultModules { get; init; } = [];
+}
+
+public sealed class UpdateTenantProfileDto
+{
+    public required string Name { get; init; }
+    public string? Address { get; init; }
+    public string? Phone { get; init; }
+    public required string RepresentativeName { get; init; }
+    public required string ContactEmail { get; init; }
 }
 
 public sealed class UpdateTenantSettingsDto
@@ -28,6 +52,10 @@ public sealed class TenantDto
     public Guid Id { get; init; }
     public string Code { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
+    public string? Address { get; init; }
+    public string? Phone { get; init; }
+    public string RepresentativeName { get; init; } = string.Empty;
+    public string ContactEmail { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public IReadOnlyList<TenantModuleDto> Modules { get; init; } = [];
     public IReadOnlyDictionary<string, string> Settings { get; init; } = new Dictionary<string, string>();

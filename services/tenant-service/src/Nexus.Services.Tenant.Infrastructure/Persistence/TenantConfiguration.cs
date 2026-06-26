@@ -15,6 +15,10 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<TenantAggrega
 
         builder.Property(x => x.Code).HasMaxLength(TenantConsts.CodeMaxLength).IsRequired();
         builder.Property(x => x.Name).HasMaxLength(TenantConsts.NameMaxLength).IsRequired();
+        builder.Property(x => x.Address).HasMaxLength(TenantConsts.AddressMaxLength);
+        builder.Property(x => x.Phone).HasMaxLength(TenantConsts.PhoneMaxLength);
+        builder.Property(x => x.RepresentativeName).HasMaxLength(TenantConsts.RepresentativeNameMaxLength).IsRequired();
+        builder.Property(x => x.ContactEmail).HasMaxLength(TenantConsts.ContactEmailMaxLength).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(x => x.ConcurrencyStamp).HasMaxLength(64).IsConcurrencyToken();
 

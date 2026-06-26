@@ -15,6 +15,7 @@ public sealed record CreateAuditLogRequest(
 public sealed record CreateNotificationRequest(
     Guid? TenantId,
     Guid? RecipientUserId,
+    string? RecipientEmail,
     string Channel,
     string Subject,
     string Body);

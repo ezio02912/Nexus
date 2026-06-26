@@ -9,13 +9,18 @@ public sealed record TenantDto
     public Guid Id { get; set; }
     public string Code { get; set; } = "";
     public string Name { get; set; } = "";
+    public string? Address { get; set; }
+    public string? Phone { get; set; }
+    public string RepresentativeName { get; set; } = "";
+    public string ContactEmail { get; set; } = "";
     public string Status { get; set; } = "";
     public IReadOnlyList<TenantModuleDto>? Modules { get; set; }
     public IReadOnlyDictionary<string, string>? Settings { get; set; }
     public string? ConcurrencyStamp { get; set; }
 }
 public sealed record TenantModuleDto(string ModuleCode, bool IsEnabled);
-public sealed record CreateTenantRequest(string Code, string Name);
+public sealed record CreateTenantRequest(string Code, string Name, string? Address = null, string? Phone = null, string RepresentativeName = "", string ContactEmail = "");
+public sealed record UpdateTenantProfileRequest(string Name, string? Address, string? Phone, string RepresentativeName, string ContactEmail);
 public sealed record ChangeTenantModuleRequest(string ModuleCode);
 public sealed record UpdateTenantSettingsRequest(IReadOnlyDictionary<string, string> Settings);
 

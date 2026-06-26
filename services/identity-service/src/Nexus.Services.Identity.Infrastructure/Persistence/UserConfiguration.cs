@@ -14,7 +14,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(x => x.UserName).HasMaxLength(UserConsts.UserNameMaxLength).IsRequired();
         builder.Property(x => x.Email).HasMaxLength(UserConsts.EmailMaxLength).IsRequired();
-        builder.Property(x => x.PasswordHash).IsRequired();
+        builder.Property(x => x.PasswordHash).HasMaxLength(512);
         builder.Property(x => x.IsActive).IsRequired();
         builder.Property(x => x.ConcurrencyStamp).HasMaxLength(64).IsConcurrencyToken();
 

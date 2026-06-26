@@ -3,6 +3,7 @@ using Nexus.ApiContracts.Permissions;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
 using Nexus.BuildingBlocks.Web.Auth;
 using Nexus.BuildingBlocks.Web.DependencyInjection;
+using Nexus.Services.Notification.Api.Email;
 using Nexus.Services.Notification.Api.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,8 @@ var connectionString = builder.Configuration.GetConnectionString("NotificationDb
 builder.Services.AddNexusWeb();
 builder.Services.AddNexusJwtAuth(builder.Configuration);
 builder.Services.AddNexusEfCore<NotificationDbContext>(connectionString);
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 
 var app = builder.Build();
 
@@ -56,13 +59,32 @@ notifications.MapGet("/", async (NotificationDbContext db, Guid? tenantId, Guid?
     return Results.Ok(new { TotalCount = total, Items = items });
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Notifications.View));
 
-notifications.MapPost("/", async (CreateNotificationDto input, NotificationDbContext db, CancellationToken ct) =>
+notifications.MapPost("/", async (CreateNotificationDto input, NotificationDbContext db, IEmailSender emailSender, CancellationToken ct) =>
 {
+    var channel = string.IsNullOrWhiteSpace(input.Channel) ? "InApp" : input.Channel;
+    if (string.Equals(channel, "Email", StringComparison.OrdinalIgnoreCase))
+    {
+        if (string.IsNullOrWhiteSpace(input.RecipientEmail))
+        {
+            return Results.BadRequest(new { Message = "RecipientEmail is required for Email channel." });
+        }
+
+        try
+        {
+            await emailSender.SendAsync(input.RecipientEmail, input.Subject, input.Body, ct);
+        }
+        catch (Exception exception)
+        {
+            return Results.Problem(detail: exception.Message, title: "Email delivery failed.");
+        }
+    }
+
     var notification = new Notification(
         Guid.NewGuid(),
         input.TenantId,
         input.RecipientUserId,
-        string.IsNullOrWhiteSpace(input.Channel) ? "InApp" : input.Channel,
+        input.RecipientEmail,
+        channel,
         input.Subject,
         input.Body,
         DateTimeOffset.UtcNow);
@@ -87,4 +109,4 @@ notifications.MapPost("/{id:guid}/read", async (Guid id, NotificationDbContext d
 
 app.Run();
 
-public sealed record CreateNotificationDto(Guid? TenantId, Guid? RecipientUserId, string Channel, string Subject, string Body);
+public sealed record CreateNotificationDto(Guid? TenantId, Guid? RecipientUserId, string? RecipientEmail, string Channel, string Subject, string Body);

@@ -16,6 +16,18 @@ public sealed class TenantManager
 
     public async Task<Tenant> CreateAsync(string code, string name, CancellationToken cancellationToken = default)
     {
+        return await CreateAsync(code, name, null, null, string.Empty, string.Empty, cancellationToken);
+    }
+
+    public async Task<Tenant> CreateAsync(
+        string code,
+        string name,
+        string? address,
+        string? phone,
+        string representativeName,
+        string contactEmail,
+        CancellationToken cancellationToken = default)
+    {
         var normalizedCode = Tenant.NormalizeCode(code);
         var existing = await _tenantRepository.FindByCodeAsync(normalizedCode, cancellationToken);
         if (existing is not null)
@@ -23,7 +35,16 @@ public sealed class TenantManager
             throw new NexusBusinessException(TenantErrorCodes.AlreadyExists, $"Tenant code '{normalizedCode}' already exists.");
         }
 
-        var tenant = new Tenant(Guid.NewGuid(), normalizedCode, name, _currentUser.Id, DateTimeOffset.UtcNow);
+        var tenant = new Tenant(
+            Guid.NewGuid(),
+            normalizedCode,
+            name,
+            address,
+            phone,
+            representativeName,
+            contactEmail,
+            _currentUser.Id,
+            DateTimeOffset.UtcNow);
         return await _tenantRepository.InsertAsync(tenant, cancellationToken);
     }
 }

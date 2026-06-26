@@ -66,7 +66,7 @@ public sealed class UserAppService : NexusAppServiceBase, IUserAppService
     public async Task<LoginResultDto> LoginAsync(LoginDto input, CancellationToken cancellationToken = default)
     {
         var user = await _userRepository.FindByUserNameAsync(input.TenantId, User.NormalizeUserName(input.UserName), cancellationToken);
-        if (user is null || !user.IsActive || !_passwordHasher.VerifyPassword(input.Password, user.PasswordHash))
+        if (user is null || !user.IsActive || !user.HasPassword || !_passwordHasher.VerifyPassword(input.Password, user.PasswordHash))
         {
             throw new NexusBusinessException(UserErrorCodes.InvalidCredentials, "Invalid user name or password.");
         }

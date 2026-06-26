@@ -14,12 +14,12 @@ public sealed class User : FullAuditedAggregateRoot<Guid>
         PasswordHash = string.Empty;
     }
 
-    public User(Guid id, Guid tenantId, string userName, string email, string passwordHash, Guid? creatorId, DateTimeOffset now)
+    public User(Guid id, Guid tenantId, string userName, string email, string? passwordHash, Guid? creatorId, DateTimeOffset now)
     {
         Id = id;
         UserName = NormalizeUserName(userName);
         Email = NormalizeEmail(email);
-        PasswordHash = Check.NotNullOrWhiteSpace(passwordHash, nameof(passwordHash));
+        PasswordHash = passwordHash ?? string.Empty;
         IsActive = true;
         SetCreationAudit(tenantId, creatorId, now);
     }
@@ -27,6 +27,7 @@ public sealed class User : FullAuditedAggregateRoot<Guid>
     public string UserName { get; private set; }
     public string Email { get; private set; }
     public string PasswordHash { get; private set; }
+    public bool HasPassword => !string.IsNullOrEmpty(PasswordHash);
     public bool IsActive { get; private set; }
     public IReadOnlyCollection<UserRole> Roles => _roles.AsReadOnly();
 
@@ -45,6 +46,11 @@ public sealed class User : FullAuditedAggregateRoot<Guid>
     {
         PasswordHash = Check.NotNullOrWhiteSpace(passwordHash, nameof(passwordHash));
         SetModificationAudit(modifierId, now);
+    }
+
+    public void SetPassword(string passwordHash, Guid? modifierId, DateTimeOffset now)
+    {
+        ChangePassword(passwordHash, modifierId, now);
     }
 
     public static string NormalizeUserName(string userName)

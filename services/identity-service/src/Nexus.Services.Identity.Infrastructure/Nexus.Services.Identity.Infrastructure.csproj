@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Google.Apis.Auth" Version="1.69.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../tenant-service/src/Nexus.Services.Tenant.Contracts/Nexus.Services.Tenant.Contracts.csproj" />
     <ProjectReference Include="../Nexus.Services.Identity.Application/Nexus.Services.Identity.Application.csproj" />
     <ProjectReference Include="../Nexus.Services.Identity.Domain/Nexus.Services.Identity.Domain.csproj" />
     <ProjectReference Include="../../../../shared/building-blocks/src/Nexus.BuildingBlocks/Nexus.BuildingBlocks.csproj" />

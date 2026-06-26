@@ -1,128 +1,129 @@
 @page "/"
+@attribute [TabItemOption(Text = "Tổng quan", Icon = "fa-solid fa-gauge-high", Closable = false)]
 @inject TenantSessionService Session
 
-<PageTitle>Bảng điều khiển tenant</PageTitle>
+<PageTitle>Nexus Tenant</PageTitle>
 
-<section class="tenant-dashboard">
-    <header class="tenant-dashboard-header">
-        <div>
-            <p class="app-eyebrow">Bảng điều khiển tenant</p>
-            <h1>@(Session.Tenant?.Name ?? "Chào mừng đến Nexus")</h1>
-            <p>@(Session.IsAuthenticated ? "Theo dõi phân hệ, vận hành và quyền truy cập theo tenant." : "Đăng nhập để tải phân hệ và dữ liệu workspace.")</p>
-        </div>
-        <a class="btn btn-primary tenant-primary-action" href="@(Session.IsAuthenticated ? "crm" : "login")">
-            @(Session.IsAuthenticated ? "Mở CRM" : "Đăng nhập")
-        </a>
-    </header>
-
-    <div class="tenant-metric-grid">
-        <section class="tenant-metric-card">
-            <span class="tenant-metric-icon">M</span>
-            <div>
-                <p>Phân hệ đã bật</p>
-                <strong>@Session.EnabledModules.Count</strong>
-            </div>
-            <small>@ModuleSummary</small>
-        </section>
-        <section class="tenant-metric-card">
-            <span class="tenant-metric-icon">T</span>
-            <div>
-                <p>Trạng thái tenant</p>
-                <strong>@(Session.Tenant?.Status ?? "Khách")</strong>
-            </div>
-            <small>@(Session.Tenant?.Code ?? "Chưa đăng nhập")</small>
-        </section>
-        <section class="tenant-metric-card">
-            <span class="tenant-metric-icon">U</span>
-            <div>
-                <p>Người dùng hiện tại</p>
-                <strong>@(Session.UserName ?? "Chưa đăng nhập")</strong>
-            </div>
-            <small>Workspace theo vai trò</small>
-        </section>
-        <section class="tenant-metric-card">
-            <span class="tenant-metric-icon">A</span>
-            <div>
-                <p>Công cụ quản trị</p>
-                <strong>@(Session.IsAuthenticated ? "Sẵn sàng" : "Đang khóa")</strong>
-            </div>
-            <small>Người dùng, phân quyền, thiết lập</small>
-        </section>
+<section class="page-header">
+    <div>
+        <h1>@(Session.Tenant?.Name ?? "Nexus Tenant")</h1>
+        <p>@(Session.IsAuthenticated ? "Vận hành các module nghiệp vụ đã được cấp cho tenant hiện tại." : "Đăng nhập để tải module và quyền truy cập tenant.")</p>
     </div>
-
-    <div class="tenant-dashboard-grid">
-        <section class="tenant-panel tenant-panel-wide">
-            <div class="app-toolbar">
-                <div>
-                    <p class="app-eyebrow">Workspace</p>
-                    <h2>Phân hệ khả dụng</h2>
-                </div>
-            </div>
-
-            @if (!Session.IsAuthenticated)
-            {
-                <div class="app-empty-state">Đăng nhập để tải quyền truy cập phân hệ.</div>
-            }
-            else if (Session.EnabledModules.Count == 0)
-            {
-                <div class="app-empty-state">Tenant này chưa bật phân hệ nào.</div>
-            }
-            else
-            {
-                <div class="tenant-module-grid">
-                    @foreach (var module in Session.EnabledModules)
-                    {
-                        <a class="tenant-module-card tenant-module-link" href="@ModuleUrl(module)">
-                            <span>@ModuleInitial(module)</span>
-                            <strong>@module</strong>
-                            <small>@ModuleDescription(module)</small>
-                        </a>
-                    }
-                </div>
-            }
-        </section>
-
-        <section class="tenant-panel">
-            <p class="app-eyebrow">Hôm nay</p>
-            <h2>Tổng quan vận hành</h2>
-            <div class="tenant-timeline">
-                <div><span></span><strong>CRM</strong><small>@(Session.HasModule("CRM") ? "Đã mở pipeline khách hàng" : "Chưa bật phân hệ")</small></div>
-                <div><span></span><strong>Bán hàng</strong><small>@(Session.HasModule("SALES") ? "Đã mở đơn hàng" : "Chưa bật phân hệ")</small></div>
-                <div><span></span><strong>Phân quyền</strong><small>@(Session.IsAuthenticated ? "Vai trò tenant đang hoạt động" : "Chờ đăng nhập")</small></div>
-            </div>
-        </section>
-
-        <section class="tenant-panel">
-            <p class="app-eyebrow">Quản trị</p>
-            <h2>Thao tác nhanh</h2>
-            <div class="tenant-quick-actions">
-                <a href="tenant-users">Quản lý người dùng</a>
-                <a href="tenant-permissions">Phân quyền vai trò</a>
-                <a href="settings">Thiết lập tenant</a>
-                <a href="reports">Báo cáo</a>
-            </div>
-        </section>
-    </div>
+    <a class="btn btn-primary" href="@(Session.IsAuthenticated ? "crm/customers" : "login")">
+        @(Session.IsAuthenticated ? "Mở CRM" : "Đăng nhập")
+    </a>
 </section>
 
-@code {
-    private string ModuleSummary => Session.EnabledModules.Count == 0
-        ? "Chưa tải phân hệ"
-        : string.Join(", ", Session.EnabledModules);
+<div class="row g-3 mb-3">
+    @foreach (var tile in Tiles)
+    {
+        <div class="col-12 col-sm-6 col-xl-3">
+            <Card IsShadow="true" class="dashboard-tile h-100">
+                <BodyTemplate>
+                    <div class="d-flex align-items-center">
+                        <span class="dashboard-tile-icon">
+                            <i class="@tile.Icon"></i>
+                        </span>
+                        <div class="ms-3">
+                            <strong class="d-block">@tile.Value</strong>
+                            <span class="text-muted small">@tile.Label</span>
+                        </div>
+                    </div>
+                </BodyTemplate>
+            </Card>
+        </div>
+    }
+</div>
 
-    private static string ModuleInitial(string module) => module.Length == 0 ? "M" : module[0].ToString();
+<div class="row g-3">
+    <div class="col-12 col-xl-8">
+        <Card IsShadow="true" class="h-100">
+            <HeaderTemplate>
+                <strong>Module nghiệp vụ</strong>
+            </HeaderTemplate>
+            <BodyTemplate>
+                @if (!Session.IsAuthenticated)
+                {
+                    <div class="app-empty-state">Đăng nhập để tải quyền truy cập module nghiệp vụ.</div>
+                }
+                else if (Session.EnabledModules.Count == 0)
+                {
+                    <div class="app-empty-state">Tenant này chưa bật module nào.</div>
+                }
+                else
+                {
+                    <div class="row g-3">
+                        @foreach (var module in Session.EnabledModules)
+                        {
+                            <div class="col-12 col-md-6">
+                                <a class="text-decoration-none" href="@ModuleUrl(module)">
+                                    <div class="module-choice">
+                                        <span class="dashboard-tile-icon">
+                                            <i class="@ModuleIcon(module)"></i>
+                                        </span>
+                                        <div>
+                                            <strong>@ModuleTitle(module)</strong>
+                                            <small>@ModuleDescription(module)</small>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        }
+                    </div>
+                }
+            </BodyTemplate>
+        </Card>
+    </div>
+    <div class="col-12 col-xl-4">
+        <Card IsShadow="true" class="h-100">
+            <HeaderTemplate>
+                <strong>Thao tác nhanh</strong>
+            </HeaderTemplate>
+            <BodyTemplate>
+                <div class="quick-link-list">
+                    <a href="tenant-users"><i class="fa-solid fa-users"></i>Quản lý người dùng</a>
+                    <a href="tenant-permissions"><i class="fa-solid fa-user-shield"></i>Phân quyền vai trò</a>
+                    <a href="reports"><i class="fa-solid fa-chart-line"></i>Báo cáo</a>
+                    <a href="settings"><i class="fa-solid fa-gear"></i>Thiết lập tenant</a>
+                </div>
+            </BodyTemplate>
+        </Card>
+    </div>
+</div>
+
+@code {
+    private (string Label, string Value, string Icon)[] Tiles =>
+    [
+        ("Module đã bật", Session.EnabledModules.Count.ToString(), "fa-solid fa-cubes"),
+        ("Mã tenant", Session.Tenant?.Code ?? "-", "fa-solid fa-building"),
+        ("Người dùng", Session.UserName ?? "-", "fa-solid fa-user"),
+        ("Trạng thái", Session.Tenant?.Status ?? "Chưa đăng nhập", "fa-solid fa-circle-check"),
+    ];
 
     private static string ModuleUrl(string module) => module.ToUpperInvariant() switch
     {
-        "CRM" => "crm",
-        "SALES" => "sales",
+        "CRM" => "crm/customers",
+        "SALES" => "sales/orders",
         _ => "settings"
+    };
+
+    private static string ModuleIcon(string module) => module.ToUpperInvariant() switch
+    {
+        "CRM" => "fa-solid fa-address-book",
+        "SALES" => "fa-solid fa-cart-shopping",
+        _ => "fa-solid fa-cube"
+    };
+
+    private static string ModuleTitle(string module) => module.ToUpperInvariant() switch
+    {
+        "SALES" => "Bán hàng",
+        _ => module
     };
 
     private static string ModuleDescription(string module) => module.ToUpperInvariant() switch
     {
         "CRM" => "Khách hàng, lead, báo giá và hợp đồng",
         "SALES" => "Đơn hàng, duyệt đơn và hoàn tất",
-        _ => "Phân hệ nghiệp vụ đã bật"
+        _ => "Module nghiệp vụ đã bật"
     };
 }

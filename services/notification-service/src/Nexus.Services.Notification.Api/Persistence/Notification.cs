@@ -14,11 +14,12 @@ public sealed class Notification : NexusEntity<Guid>
         Status = "Sent";
     }
 
-    public Notification(Guid id, Guid? tenantId, Guid? recipientUserId, string channel, string subject, string body, DateTimeOffset createdAt)
+    public Notification(Guid id, Guid? tenantId, Guid? recipientUserId, string? recipientEmail, string channel, string subject, string body, DateTimeOffset createdAt)
     {
         Id = id;
         TenantId = tenantId;
         RecipientUserId = recipientUserId;
+        RecipientEmail = recipientEmail;
         Channel = channel;
         Subject = subject;
         Body = body;
@@ -28,6 +29,7 @@ public sealed class Notification : NexusEntity<Guid>
 
     public Guid? TenantId { get; private set; }
     public Guid? RecipientUserId { get; private set; }
+    public string? RecipientEmail { get; private set; }
     public string Channel { get; private set; }
     public string Subject { get; private set; }
     public string Body { get; private set; }
@@ -57,6 +59,7 @@ public sealed class NotificationDbContext : NexusDbContext
             builder.ToTable("notifications");
             builder.HasKey(x => x.Id);
             builder.Property(x => x.Channel).HasMaxLength(32).IsRequired();
+            builder.Property(x => x.RecipientEmail).HasMaxLength(256);
             builder.Property(x => x.Subject).HasMaxLength(512).IsRequired();
             builder.Property(x => x.Body).IsRequired();
             builder.Property(x => x.Status).HasMaxLength(32).IsRequired();

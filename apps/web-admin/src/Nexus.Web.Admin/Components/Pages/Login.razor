@@ -32,8 +32,8 @@
             <EditForm Model="_model" OnValidSubmit="LoginAsync" class="login-form">
                 <DataAnnotationsValidator />
 
-                <BootstrapInput @bind-Value="_model.TenantId" DisplayText="Mã khách thuê" ShowLabel="true"
-                                PlaceHolder="Tenant guid" class="mb-3" />
+                <BootstrapInput @bind-Value="_model.TenantCode" DisplayText="Mã khách thuê" ShowLabel="true"
+                                PlaceHolder="Ví dụ: PLATFORM" class="mb-3" />
                 <BootstrapInput @bind-Value="_model.UserName" DisplayText="Tên đăng nhập" ShowLabel="true"
                                 autocomplete="username" class="mb-3" />
                 <BootstrapPassword @bind-Value="_model.Password" DisplayText="Mật khẩu" ShowLabel="true"
@@ -57,16 +57,23 @@
     {
         _error = null;
 
-        if (!Guid.TryParse(_model.TenantId, out var tenantId))
+        if (string.IsNullOrWhiteSpace(_model.TenantCode))
         {
-            _error = "Mã khách thuê không hợp lệ.";
+            _error = "Vui lòng nhập mã khách thuê.";
             return;
         }
 
         _isBusy = true;
         try
         {
-            var result = await Api.LoginAsync(new LoginRequest(tenantId, _model.UserName, _model.Password));
+            var tenant = await Api.GetTenantByCodeAsync(_model.TenantCode);
+            if (tenant is null)
+            {
+                _error = "Không tìm thấy khách thuê với mã này.";
+                return;
+            }
+
+            var result = await Api.LoginAsync(new LoginRequest(tenant.Id, _model.UserName, _model.Password));
             if (result is null)
             {
                 _error = "Đăng nhập thất bại.";
@@ -95,7 +102,7 @@
     private sealed class LoginFormModel
     {
         // Pre-filled with the seeded platform administrator for convenience in development.
-        public string TenantId { get; set; } = "00000000-0000-0000-0000-000000000001";
+        public string TenantCode { get; set; } = "PLATFORM";
         public string UserName { get; set; } = "admin";
         public string Password { get; set; } = "123123";
     }

@@ -8,6 +8,23 @@ Tenant workspace for SaaS customers. The app shows only the business modules ena
 
 - `http://localhost:7101`
 
+## Self-service onboarding (Google)
+
+1. Configure `Google:ClientId` and `Google:ClientSecret` in `apps/web-tenant` and `identity-service` (see `.env.example`).
+2. Open `/login` and choose **Đăng nhập với Google**.
+3. First-time users are redirected to `/onboarding` to enter company profile and confirm tenant code.
+4. After registration, an email with the tenant code is sent via Mailpit (`http://localhost:8025`).
+
+## Login options
+
+| Method | Fields |
+|--------|--------|
+| Google SSO | One click (email auto-resolves tenant) |
+| Email + password | Requires password set during onboarding |
+| Tenant code + username + password | Classic demo/admin-style login |
+
+Constraint: one email can register one tenant.
+
 ## Demo Login
 
 - Tenant code: `DEMO`

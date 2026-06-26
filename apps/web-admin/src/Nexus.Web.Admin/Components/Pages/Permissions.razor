@@ -1,5 +1,7 @@
 @page "/permissions"
 @inject CoreApiClient Api
+@inject SwalService SwalService
+@inject ToastService ToastService
 
 <PageTitle>Phân quyền</PageTitle>
 
@@ -10,67 +12,114 @@
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
-}
-
 <div class="work-surface">
-    <Card HeaderText="Cấp quyền theo vai trò" IsShadow="true">
+    <Card HeaderText="Gán quyền vai trò" IsShadow="true">
         <BodyTemplate>
             <Select TValue="string" @bind-Value="_roleName" Items="UiCatalogs.Roles"
                     DisplayText="Tên vai trò" ShowLabel="true" class="mb-2" />
-            <Textarea @bind-Value="_permissionsText" DisplayText="Danh sách quyền" ShowLabel="true" rows="10" class="mb-3" />
-            <div class="d-flex gap-2">
-                <Button Text="Lưu" Icon="fa-solid fa-floppy-disk" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
-                <Button Text="Tải vai trò" Icon="fa-solid fa-download" Color="Color.Info" IsOutline="true" IsAsync="true" OnClick="LoadRoleAsync" />
+            <div class="form-text mb-3">Khóa vai trò: <code>@_roleName.ToUpperInvariant()</code></div>
+            <div class="d-flex gap-2 flex-wrap">
+                <Button Text="Tải quyền" Icon="fa-solid fa-download" Color="Color.Secondary"
+                        IsAsync="true" OnClick="LoadRoleAsync" />
+                <Button Text="Lưu quyền" Icon="fa-solid fa-floppy-disk" Color="Color.Primary"
+                        IsAsync="true" OnClick="SaveAsync" />
             </div>
         </BodyTemplate>
     </Card>
 
     <Card HeaderText="Danh mục quyền" IsShadow="true">
         <BodyTemplate>
-            <Table @ref="_table" TItem="PermissionRow" OnQueryAsync="OnQueryAsync"
-                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
-                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
-                <TableColumns>
-                    <TableColumn @bind-Field="@context.Name" Text="Mã quyền" Sortable="true" Searchable="true" />
-                </TableColumns>
-            </Table>
+            <div class="admin-permission-toolbar">
+                <BootstrapInput @bind-Value="_filter" DisplayText="Lọc quyền" ShowLabel="false"
+                                PlaceHolder="Lọc quyền" />
+            </div>
+
+            @if (_loading)
+            {
+                <div class="app-loading py-4">
+                    <Spinner Color="Color.Primary" />
+                    <span class="app-loading-text">Đang tải danh mục quyền...</span>
+                </div>
+            }
+            else if (PermissionGroups.Count == 0)
+            {
+                <div class="text-muted py-3">Không có quyền phù hợp với bộ lọc.</div>
+            }
+            else
+            {
+                @foreach (var group in PermissionGroups)
+                {
+                    <section class="admin-permission-group">
+                        <div class="admin-permission-group-header">
+                            <h3>@group.ServiceKey</h3>
+                            <Checkbox TValue="bool"
+                                      DisplayText="Chọn tất cả"
+                                      Value="@IsGroupFullySelected(group.ServiceKey)"
+                                      OnStateChanged="@((state, _) => ToggleGroupAsync(group.ServiceKey, state))" />
+                        </div>
+                        <div class="admin-permission-catalog">
+                            @foreach (var permission in group.Permissions)
+                            {
+                                <label class="admin-permission-item">
+                                    <Checkbox TValue="bool"
+                                              Value="@_selectedPermissions.Contains(permission)"
+                                              OnStateChanged="@((state, _) => TogglePermissionAsync(permission, state))" />
+                                    <code>@permission</code>
+                                </label>
+                            }
+                        </div>
+                    </section>
+                }
+            }
         </BodyTemplate>
     </Card>
 </div>
 
 @code {
-    private Table<PermissionRow>? _table;
+    private List<string> _catalog = [];
+    private HashSet<string> _selectedPermissions = new(StringComparer.OrdinalIgnoreCase);
     private string _roleName = "ADMIN";
-    private string _permissionsText = "";
-    private string? _message;
-    private Color _messageColor = Color.Primary;
-    private static readonly int[] _pageItems = [20, 50, 100];
+    private string _filter = "";
+    private bool _loading = true;
 
-    private sealed class PermissionRow
+    protected override async Task OnInitializedAsync() => await LoadCatalogAsync();
+
+    private IReadOnlyList<PermissionGroupView> PermissionGroups =>
+        _catalog
+            .Where(MatchesFilter)
+            .GroupBy(GetServiceKey)
+            .OrderBy(g => g.Key)
+            .Select(g => new PermissionGroupView(g.Key, g.OrderBy(x => x).ToList()))
+            .ToList();
+
+    private bool MatchesFilter(string permission) =>
+        string.IsNullOrWhiteSpace(_filter)
+        || permission.Contains(_filter, StringComparison.OrdinalIgnoreCase);
+
+    private static string GetServiceKey(string permission)
     {
-        public string Name { get; set; } = "";
+        var parts = permission.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length >= 2 ? $"{parts[0]}.{parts[1]}" : parts[0];
     }
 
-    private async Task<QueryData<PermissionRow>> OnQueryAsync(QueryPageOptions options)
-    {
-        var catalog = await LoadAsync();
-        var rows = catalog.Select(p => new PermissionRow { Name = p });
-        return TableQuery.Apply(rows, options);
-    }
+    private bool IsGroupFullySelected(string serviceKey) =>
+        _catalog.Where(x => GetServiceKey(x) == serviceKey).All(x => _selectedPermissions.Contains(x));
 
-    private async Task<List<string>> LoadAsync()
+    private async Task LoadCatalogAsync()
     {
+        _loading = true;
         try
         {
-            return (await Api.GetPermissionCatalogAsync())?.ToList() ?? [];
+            _catalog = (await Api.GetPermissionCatalogAsync())?.OrderBy(x => x).ToList() ?? [];
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
-            return [];
+            await ShowErrorAsync(ex);
+            _catalog = [];
+        }
+        finally
+        {
+            _loading = false;
         }
     }
 
@@ -79,12 +128,12 @@
         try
         {
             var result = await Api.GetRolePermissionsAsync(_roleName);
-            _permissionsText = string.Join(Environment.NewLine, result?.Permissions ?? []);
-            SetInfo($"Đã tải {result?.Permissions.Count ?? 0} quyền cho {_roleName}.");
+            _selectedPermissions = new HashSet<string>(result?.Permissions ?? [], StringComparer.OrdinalIgnoreCase);
+            await ToastService.Success("Đã tải", $"Đã tải {_selectedPermissions.Count} quyền cho {_roleName}.");
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
     }
 
@@ -92,25 +141,54 @@
     {
         try
         {
-            var permissions = _permissionsText.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var permissions = _selectedPermissions.OrderBy(x => x).ToArray();
             var result = await Api.UpdateRolePermissionsAsync(_roleName, new UpdateRolePermissionsRequest(permissions));
-            SetInfo($"Đã lưu {result?.Permissions.Count ?? 0} quyền cho {_roleName}.");
+            await ToastService.Success("Đã lưu", $"Đã lưu {result?.Permissions.Count ?? 0} quyền cho {_roleName}.");
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
     }
 
-    private void SetInfo(string text)
+    private Task TogglePermissionAsync(string permission, CheckboxState state)
     {
-        _message = text;
-        _messageColor = Color.Success;
+        if (state == CheckboxState.Checked)
+        {
+            _selectedPermissions.Add(permission);
+        }
+        else
+        {
+            _selectedPermissions.Remove(permission);
+        }
+
+        return Task.CompletedTask;
     }
 
-    private void SetError(string text)
+    private Task ToggleGroupAsync(string serviceKey, CheckboxState state)
     {
-        _message = text;
-        _messageColor = Color.Danger;
+        var selectAll = state == CheckboxState.Checked;
+        foreach (var permission in _catalog.Where(x => GetServiceKey(x) == serviceKey))
+        {
+            if (selectAll)
+            {
+                _selectedPermissions.Add(permission);
+            }
+            else
+            {
+                _selectedPermissions.Remove(permission);
+            }
+        }
+
+        return Task.CompletedTask;
     }
+
+    private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
+    {
+        Category = SwalCategory.Error,
+        Title = "Đã xảy ra lỗi",
+        Content = ex.Message
+    });
+
+    private sealed record PermissionGroupView(string ServiceKey, IReadOnlyList<string> Permissions);
 }

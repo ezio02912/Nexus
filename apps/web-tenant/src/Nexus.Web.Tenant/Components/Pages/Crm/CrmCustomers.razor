@@ -1,0 +1,140 @@
+@page "/crm/customers"
+@attribute [TabItemOption(Text = "Khách hàng", Icon = "fa-solid fa-building-user")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>Khách hàng - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Khách hàng</h1>
+            <p>Quản lý danh sách khách hàng trong tenant hiện tại.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.HasModule("CRM"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module CRM.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="@messageCss">@message</div>
+        }
+
+        <div class="tenant-work-grid">
+            <section class="app-card">
+                <h2>Tạo khách hàng</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Mã khách hàng *</label>
+                        <input class="form-control" @bind="customerCode" />
+                    </div>
+                    <div>
+                        <label>Tên khách hàng *</label>
+                        <input class="form-control" @bind="customerName" />
+                    </div>
+                    <div>
+                        <label>Email</label>
+                        <input class="form-control" @bind="customerEmail" />
+                    </div>
+                </div>
+                <Button Text="Tạo khách hàng" Color="Color.Primary" OnClick="CreateCustomerAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <div class="app-toolbar">
+                    <h2>Danh sách khách hàng</h2>
+                    <input class="form-control app-search" placeholder="Tìm khách hàng" @bind="search" @bind:event="oninput" />
+                </div>
+                @if (isLoading)
+                {
+                    <div class="app-loading">Đang tải khách hàng...</div>
+                }
+                else if (!FilteredCustomers.Any())
+                {
+                    <div class="app-empty-state">Chưa có khách hàng.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Mã</th><th>Tên</th><th>Email</th><th>Trạng thái</th></tr></thead>
+                        <tbody>
+                            @foreach (var item in FilteredCustomers)
+                            {
+                                <tr>
+                                    <td>@item.Code</td>
+                                    <td>@item.Name</td>
+                                    <td>@item.Email</td>
+                                    <td><span class="app-status-badge app-status-active">@item.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private List<CustomerRecord> customers = [];
+    private bool isLoading;
+    private string search = "";
+    private string message = "";
+    private string messageCss = "app-alert";
+
+    private string customerCode = "";
+    private string customerName = "";
+    private string customerEmail = "";
+
+    private IEnumerable<CustomerRecord> FilteredCustomers => string.IsNullOrWhiteSpace(search)
+        ? customers
+        : customers.Where(x => x.Code.Contains(search, StringComparison.OrdinalIgnoreCase) || x.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        isLoading = true;
+        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
+        isLoading = false;
+    }
+
+    private async Task CreateCustomerAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(customerCode) || string.IsNullOrWhiteSpace(customerName))
+        {
+            ShowError("Vui lòng nhập mã và tên khách hàng.");
+            return;
+        }
+
+        await Api.CreateCustomerAsync(new CreateCustomerRequest(tenantId, customerCode, customerName, customerEmail, null));
+        customerCode = "";
+        customerName = "";
+        customerEmail = "";
+        ShowSuccess("Đã tạo khách hàng.");
+        await LoadAsync();
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "app-alert";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "app-alert app-alert-danger";
+    }
+}

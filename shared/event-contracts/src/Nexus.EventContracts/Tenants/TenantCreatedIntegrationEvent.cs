@@ -10,7 +10,9 @@ public sealed record TenantCreatedIntegrationEvent(
     string? CorrelationId,
     Guid CreatedTenantId,
     string Code,
-    string Name) : IIntegrationEvent
+    string Name,
+    string ContactEmail,
+    string RepresentativeName) : IIntegrationEvent
 {
     public string EventName => nameof(TenantCreatedIntegrationEvent);
 }

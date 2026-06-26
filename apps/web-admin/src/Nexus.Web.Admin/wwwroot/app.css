@@ -544,3 +544,78 @@ h1:focus {
     height: 56px;
     font-size: 1.5rem;
 }
+
+/* Loading indicator used on permission catalog and other async sections */
+.app-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--app-text-muted);
+}
+
+.app-loading-text {
+    font-size: 0.95rem;
+}
+
+/* Tenant module picker inside edit dialog */
+.admin-module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.5rem 1rem;
+    padding: 0.75rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-surface);
+}
+
+/* Permission assignment layout */
+.admin-permission-toolbar {
+    max-width: 320px;
+    margin-bottom: 1rem;
+}
+
+.admin-permission-group {
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-surface);
+}
+
+.admin-permission-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.admin-permission-group-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ocean-700);
+}
+
+.admin-permission-catalog {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.65rem;
+}
+
+.admin-permission-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.65rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: #fbfdff;
+}
+
+.admin-permission-item code {
+    color: var(--ocean-700);
+    white-space: normal;
+    word-break: break-word;
+}

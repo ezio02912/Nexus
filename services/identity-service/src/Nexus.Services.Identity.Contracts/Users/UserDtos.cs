@@ -31,6 +31,9 @@ public sealed class LoginResultDto
     public required string AccessToken { get; init; }
     public string? RefreshToken { get; init; }
     public DateTimeOffset ExpiresAt { get; init; }
+    public string? TenantCode { get; init; }
+    public string? UserName { get; init; }
+    public string? Email { get; init; }
 }
 
 public sealed class RefreshTokenDto

@@ -7,6 +7,9 @@ public interface ITenantAppService
     Task<PagedResultDto<TenantDto>> GetListAsync(GetTenantsInput input, CancellationToken cancellationToken = default);
     Task<TenantDto> GetAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TenantDto> CreateAsync(CreateTenantDto input, CancellationToken cancellationToken = default);
+    Task<TenantDto> CreateInternalAsync(CreateInternalTenantDto input, CancellationToken cancellationToken = default);
+    Task<TenantDto> UpdateProfileAsync(Guid id, UpdateTenantProfileDto input, CancellationToken cancellationToken = default);
+    Task<bool> IsCodeAvailableAsync(string code, CancellationToken cancellationToken = default);
     Task<TenantDto> UpdateSettingsAsync(Guid id, UpdateTenantSettingsDto input, CancellationToken cancellationToken = default);
     Task<TenantDto> ActivateAsync(Guid id, CancellationToken cancellationToken = default);
     Task<TenantDto> SuspendAsync(Guid id, CancellationToken cancellationToken = default);

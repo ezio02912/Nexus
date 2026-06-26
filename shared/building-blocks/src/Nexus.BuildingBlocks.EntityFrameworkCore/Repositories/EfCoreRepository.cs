@@ -56,7 +56,14 @@ public class EfCoreRepository<TEntity, TKey> : IRepository<TEntity, TKey>
 
     public virtual async Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken = default)
     {
-        Set.Update(entity);
+        // When the aggregate was loaded through this DbContext it is already tracked.
+        // Calling Set.Update() in that case marks newly added children as Modified (because
+        // they already have generated keys), which causes UPDATE statements that affect 0 rows.
+        if (Context.Entry(entity).State == EntityState.Detached)
+        {
+            Set.Update(entity);
+        }
+
         await Context.SaveChangesAsync(cancellationToken);
         return entity;
     }

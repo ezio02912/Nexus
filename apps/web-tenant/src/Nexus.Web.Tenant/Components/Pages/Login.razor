@@ -1,114 +1,195 @@
 @page "/login"
 @layout LoginLayout
-@rendermode InteractiveServer
 @inject TenantPortalApiClient Api
 @inject TenantSessionService Session
 @inject NavigationManager Navigation
+@inject SwalService SwalService
+@inject IConfiguration Configuration
 
 <PageTitle>Đăng nhập</PageTitle>
 
 <div class="tenant-login-page">
-    <section class="tenant-login-form-pane">
+    <div class="tenant-login-form-pane">
         <div class="tenant-login-card">
-            <a class="tenant-login-back" href="/">&larr; Quay lại</a>
             <div class="tenant-login-heading">
                 <span class="brand-mark">N</span>
                 <div>
-                    <p class="app-eyebrow">Cổng tenant</p>
-                    <h1>Đăng nhập</h1>
-                    <p>Dùng tài khoản tenant để mở CRM, Bán hàng và công cụ quản trị.</p>
+                    <h1>Nexus Tenant</h1>
+                    <p>Đăng nhập bằng Google, email hoặc mã tenant.</p>
                 </div>
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(error))
+            @if (!string.IsNullOrWhiteSpace(_error))
             {
-                <div class="app-alert app-alert-danger">@error</div>
+                <Alert Color="Color.Danger" ShowDismiss="true" class="mb-3">@_error</Alert>
             }
 
-            <EditForm Model="model" OnValidSubmit="LoginAsync" class="tenant-form">
-                <DataAnnotationsValidator />
-                <label class="form-label">Mã tenant</label>
-                <InputText class="form-control tenant-input" @bind-Value="model.TenantCode" />
-                <div class="form-text">Nhập mã tenant, ví dụ: DEMO.</div>
+            @if (GoogleEnabled)
+            {
+                <Button Text="Đăng nhập với Google" Icon="fa-brands fa-google" Color="Color.Light"
+                        IsBlock="true" class="mb-3 tenant-google-btn" OnClick="SignInWithGoogle" />
+                <div class="tenant-login-divider">hoặc</div>
+            }
 
-                <label class="form-label">Tên đăng nhập</label>
-                <InputText class="form-control tenant-input" @bind-Value="model.UserName" />
+            <Select TValue="string" @bind-Value="_loginMode" Items="_loginModeOptions"
+                    DisplayText="Cách đăng nhập" ShowLabel="true" class="mb-3" />
 
-                <label class="form-label">Mật khẩu</label>
-                <InputText class="form-control tenant-input" type="password" @bind-Value="model.Password" />
-
-                <Button Text="@(isBusy ? "Đang đăng nhập..." : "Đăng nhập")" ButtonType="ButtonType.Submit" Color="Color.Primary" IsBlock="true" IsDisabled="@isBusy" />
-            </EditForm>
+            @if (_loginMode == "email")
+            {
+                <EditForm Model="_emailModel" OnValidSubmit="LoginEmailAsync" class="tenant-form">
+                    <BootstrapInput @bind-Value="_emailModel.Email" DisplayText="Email" ShowLabel="true" class="mb-3" />
+                    <BootstrapPassword @bind-Value="_emailModel.Password" DisplayText="Mật khẩu" ShowLabel="true" class="mb-3" />
+                    <Button Text="@(_isBusy ? "Đang đăng nhập..." : "Đăng nhập")" ButtonType="ButtonType.Submit"
+                            Color="Color.Primary" IsBlock="true" IsDisabled="@_isBusy" />
+                </EditForm>
+            }
+            else
+            {
+                <EditForm Model="_tenantModel" OnValidSubmit="LoginTenantAsync" class="tenant-form">
+                    <BootstrapInput @bind-Value="_tenantModel.TenantCode" DisplayText="Mã tenant" ShowLabel="true"
+                                    PlaceHolder="Ví dụ: DEMO" class="mb-3" />
+                    <BootstrapInput @bind-Value="_tenantModel.UserName" DisplayText="Tên đăng nhập" ShowLabel="true" class="mb-3" />
+                    <BootstrapPassword @bind-Value="_tenantModel.Password" DisplayText="Mật khẩu" ShowLabel="true" class="mb-3" />
+                    <Button Text="@(_isBusy ? "Đang đăng nhập..." : "Đăng nhập")" ButtonType="ButtonType.Submit"
+                            Color="Color.Primary" IsBlock="true" IsDisabled="@_isBusy" />
+                </EditForm>
+            }
 
             <div class="tenant-login-demo">
-                <span>Demo</span>
+                <span>Demo tenant</span>
                 <code>DEMO / tenantadmin / 123123</code>
             </div>
         </div>
-    </section>
+    </div>
 
-    <section class="tenant-login-visual">
+    <div class="tenant-login-visual">
         <div class="tenant-login-visual-inner">
-            <span class="tenant-brand-badge">Nexus</span>
-            <h2>Vận hành mỗi tenant như một SaaS riêng.</h2>
-            <p>Module, menu và phân quyền được tải theo ngữ cảnh tenant sau khi đăng nhập.</p>
+            <span class="tenant-brand-badge">Nexus SaaS</span>
+            <h2>Không gian làm việc cho doanh nghiệp</h2>
+            <p>Quản lý CRM, bán hàng, quy trình và người dùng tenant trên một nền tảng thống nhất.</p>
             <div class="tenant-login-stats">
-                <div><strong>CRM</strong><span>Khách hàng</span></div>
-                <div><strong>Sales</strong><span>Bán hàng</span></div>
-                <div><strong>RBAC</strong><span>Theo tenant</span></div>
+                <div><strong>1 email</strong><span>1 tenant</span></div>
+                <div><strong>Google</strong><span>Đăng ký nhanh</span></div>
+                <div><strong>Bảo mật</strong><span>JWT + phân quyền</span></div>
             </div>
         </div>
-    </section>
+    </div>
 </div>
 
 @code {
-    private readonly LoginFormModel model = new();
-    private bool isBusy;
-    private string? error;
+    private readonly EmailLoginModel _emailModel = new();
+    private readonly TenantLoginModel _tenantModel = new() { TenantCode = "DEMO", UserName = "tenantadmin", Password = "123123" };
+    private string _loginMode = "email";
+    private bool _isBusy;
+    private string? _error;
 
-    private async Task LoginAsync()
+    private static readonly List<SelectedItem> _loginModeOptions =
+    [
+        new("email", "Đăng nhập bằng email"),
+        new("tenant", "Đăng nhập bằng mã tenant")
+    ];
+
+    private bool GoogleEnabled =>
+        !string.IsNullOrWhiteSpace(Configuration["Google:ClientId"]) &&
+        !string.IsNullOrWhiteSpace(Configuration["Google:ClientSecret"]);
+
+    protected override void OnInitialized()
     {
-        error = null;
-        if (string.IsNullOrWhiteSpace(model.TenantCode))
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("error", out var error))
         {
-            error = "Vui lòng nhập mã tenant.";
-            return;
+            _error = error.ToString() switch
+            {
+                "google" => "Đăng nhập Google thất bại.",
+                "google-token" => "Không nhận được token Google.",
+                "google-auth-outdated" => "Identity service đang chạy phiên bản cũ. Hãy restart identity-service (port 7202) rồi thử lại.",
+                "google-auth" => "Xác thực Google với hệ thống thất bại. Kiểm tra identity-service (:7202) và Google:ClientId.",
+                _ => "Đăng nhập thất bại."
+            };
         }
+    }
 
-        isBusy = true;
+    private void SignInWithGoogle() => Navigation.NavigateTo("/auth/google/login", forceLoad: true);
+
+    private async Task LoginEmailAsync()
+    {
+        _error = null;
+        _isBusy = true;
         try
         {
-            var tenant = await Api.GetTenantByCodeAsync(model.TenantCode);
-            if (tenant is null)
-            {
-                error = "Không tìm thấy tenant theo mã đã nhập.";
-                return;
-            }
-
-            var login = await Api.LoginAsync(new LoginRequest(tenant.Id, model.UserName, model.Password));
+            var login = await Api.LoginEmailAsync(new LoginEmailRequest(_emailModel.Email, _emailModel.Password));
             if (login is null)
             {
-                error = "Đăng nhập thất bại. Vui lòng kiểm tra tài khoản hoặc mật khẩu.";
+                _error = "Email hoặc mật khẩu không đúng.";
                 return;
             }
 
-            Session.SignIn(model.UserName, login, tenant);
+            await Api.SignInFromLoginAsync(login);
             Navigation.NavigateTo("/");
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            await SwalService.Show(new SwalOption
+            {
+                Category = SwalCategory.Error,
+                Title = "Đăng nhập thất bại",
+                Content = ex.Message
+            });
         }
         finally
         {
-            isBusy = false;
+            _isBusy = false;
         }
     }
 
-    private sealed class LoginFormModel
+    private async Task LoginTenantAsync()
     {
-        public string TenantCode { get; set; } = "DEMO";
-        public string UserName { get; set; } = "tenantadmin";
-        public string Password { get; set; } = "123123";
+        _error = null;
+        _isBusy = true;
+        try
+        {
+            var tenant = await Api.GetTenantByCodeAsync(_tenantModel.TenantCode);
+            if (tenant is null)
+            {
+                _error = "Không tìm thấy tenant theo mã đã nhập.";
+                return;
+            }
+
+            var login = await Api.LoginAsync(new LoginRequest(tenant.Id, _tenantModel.UserName, _tenantModel.Password));
+            if (login is null)
+            {
+                _error = "Đăng nhập thất bại.";
+                return;
+            }
+
+            await Session.SignInAsync(_tenantModel.UserName, login, tenant);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            await SwalService.Show(new SwalOption
+            {
+                Category = SwalCategory.Error,
+                Title = "Đăng nhập thất bại",
+                Content = ex.Message
+            });
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private sealed class EmailLoginModel
+    {
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+
+    private sealed class TenantLoginModel
+    {
+        public string TenantCode { get; set; } = "";
+        public string UserName { get; set; } = "";
+        public string Password { get; set; } = "";
     }
 }

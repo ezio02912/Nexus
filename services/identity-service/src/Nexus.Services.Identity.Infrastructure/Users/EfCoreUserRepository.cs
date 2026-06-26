@@ -41,4 +41,9 @@ public sealed class EfCoreUserRepository : EfCoreRepository<User, Guid>, IUserRe
             .Include(x => x.Roles)
             .SingleOrDefaultAsync(x => x.TenantId == tenantId && x.Email == normalized, cancellationToken);
     }
+
+    public async Task<User?> FindByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await Set.Include(x => x.Roles).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
 }

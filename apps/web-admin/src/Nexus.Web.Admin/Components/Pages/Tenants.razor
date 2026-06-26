@@ -1,5 +1,8 @@
 @page "/tenants"
 @inject CoreApiClient Api
+@inject DialogService DialogService
+@inject SwalService SwalService
+@inject ToastService ToastService
 
 <PageTitle>Khách thuê</PageTitle>
 
@@ -10,67 +13,49 @@
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
-}
-
-<div class="work-surface">
-    <Card HeaderText="Tạo khách thuê" IsShadow="true">
-        <BodyTemplate>
-            <BootstrapInput @bind-Value="_tenantCode" DisplayText="Mã" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_tenantName" DisplayText="Tên" ShowLabel="true" class="mb-3" />
-            <Button Text="Tạo mới" Icon="fa-solid fa-plus" Color="Color.Success" IsAsync="true" OnClick="CreateAsync" />
-
-            <hr />
-
-            <h6 class="text-muted">Tham số thao tác</h6>
-            <Select TValue="string" @bind-Value="_moduleCode" Items="UiCatalogs.Modules"
-                    DisplayText="Mã mô-đun" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_settingKey" DisplayText="Khóa cấu hình" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_settingValue" DisplayText="Giá trị cấu hình" ShowLabel="true" />
-        </BodyTemplate>
-    </Card>
-
-    <Card HeaderText="Danh sách khách thuê" IsShadow="true">
-        <BodyTemplate>
-            <Table @ref="_table" TItem="TenantDto" OnQueryAsync="OnQueryAsync"
-                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
-                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowDefaultButtons="false"
-                   ShowExtendButtons="true" ExtendButtonColumnWidth="360" ShowRefresh="true">
-                <TableColumns>
-                    <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.Id" Text="Mô-đun đang bật" Sortable="false">
-                        <Template Context="v">@EnabledModules(v.Row)</Template>
-                    </TableColumn>
-                </TableColumns>
-                <RowButtonTemplate>
-                    <TableCellButton Color="Color.Success" Icon="fa-solid fa-circle-check" Text="Kích hoạt"
-                                     OnClick="() => ActivateAsync(context.Id)" />
-                    <TableCellButton Color="Color.Warning" Icon="fa-solid fa-circle-pause" Text="Tạm ngưng"
-                                     OnClick="() => SuspendAsync(context.Id)" />
-                    <TableCellButton Color="Color.Info" Icon="fa-solid fa-toggle-on" Text="Bật mô-đun"
-                                     OnClick="() => EnableModuleAsync(context.Id)" />
-                    <TableCellButton Color="Color.Secondary" Icon="fa-solid fa-floppy-disk" Text="Lưu cấu hình"
-                                     OnClick="() => SaveSettingAsync(context.Id)" />
-                </RowButtonTemplate>
-            </Table>
-        </BodyTemplate>
-    </Card>
-</div>
+<Card HeaderText="Danh sách khách thuê" IsShadow="true">
+    <BodyTemplate>
+        <Table @ref="_table" TItem="TenantDto" OnQueryAsync="OnQueryAsync"
+               IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+               ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+               ShowEditButton="false" ShowDeleteButton="false" ExtendButtonColumnWidth="130"
+               ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+            <TableToolbarTemplate>
+                <TableToolbarButton TItem="TenantDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                    Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+            </TableToolbarTemplate>
+            <RowButtonTemplate>
+                <TableCellButton Color="Color.Info" Icon="fa-solid fa-pen-to-square" Text="Sửa"
+                                 OnClick="@(() => ShowEditAsync([context]))" />
+                <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                 OnClick="@(() => DeleteSelectedAsync([context]))" />
+            </RowButtonTemplate>
+            <TableColumns>
+                <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.RepresentativeName" Text="Người đại diện" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.Phone" Text="SĐT" Sortable="false" Searchable="true" />
+                <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.Id" Text="Mô-đun đang bật" Sortable="false">
+                    <Template Context="v">@EnabledModules(v.Row)</Template>
+                </TableColumn>
+            </TableColumns>
+        </Table>
+    </BodyTemplate>
+</Card>
 
 @code {
     private Table<TenantDto>? _table;
-    private string _tenantCode = "";
-    private string _tenantName = "";
-    private string _moduleCode = "CRM";
-    private string _settingKey = "Timezone";
-    private string _settingValue = "Asia/Bangkok";
-    private string? _message;
-    private Color _messageColor = Color.Primary;
     private static readonly int[] _pageItems = [10, 20, 50];
+
+    private static readonly List<SelectedItem> _statusOptions =
+    [
+        new("Active", "Đang hoạt động"),
+        new("Suspended", "Tạm ngưng")
+    ];
+
+    private static readonly string[] _allModuleCodes =
+        UiCatalogs.Modules.Select(x => x.Value).ToArray();
 
     private async Task<QueryData<TenantDto>> OnQueryAsync(QueryPageOptions options)
     {
@@ -82,12 +67,11 @@
     {
         try
         {
-            var result = (await Api.GetTenantsAsync())?.Items.ToList() ?? [];
-            return result;
+            return (await Api.GetTenantsAsync())?.Items.ToList() ?? [];
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
             return [];
         }
     }
@@ -100,62 +84,305 @@
         }
     }
 
-    private async Task CreateAsync()
+    private Task ShowCreateAsync(IEnumerable<TenantDto> _)
     {
+        var model = new TenantCreateModel();
+        var option = new EditDialogOption<TenantCreateModel>
+        {
+            Title = "Thêm khách thuê",
+            Model = model,
+            Size = Size.Medium,
+            ItemsPerRow = 1,
+            ShowLoading = true,
+            SaveButtonText = "Lưu",
+            CloseButtonText = "Đóng",
+            DialogBodyTemplate = CreateTenantBody,
+            OnEditAsync = async _ =>
+            {
+                try
+                {
+                    await Api.CreateTenantAsync(new CreateTenantRequest(
+                        model.Code,
+                        model.Name,
+                        model.Address,
+                        model.Phone,
+                        model.RepresentativeName,
+                        model.ContactEmail));
+                    await ToastService.Success("Thành công", "Đã tạo khách thuê.");
+                    await ReloadTableAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await ShowErrorAsync(ex);
+                    return false;
+                }
+            }
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<TenantCreateModel> CreateTenantBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.Code" DisplayText="Mã" ShowLabel="true" PlaceHolder="VD: ACME" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.Name" DisplayText="Tên" ShowLabel="true" PlaceHolder="VD: Acme Corp" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.RepresentativeName" DisplayText="Người đại diện" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.Phone" DisplayText="SĐT" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.ContactEmail" DisplayText="Email liên hệ" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.Address" DisplayText="Địa chỉ" ShowLabel="true" />
+        </div>
+    </div>;
+
+    private Task ShowEditAsync(IEnumerable<TenantDto> rows)
+    {
+        var tenant = rows.FirstOrDefault();
+        if (tenant is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var originalStatus = tenant.Status;
+        var originallyEnabled = tenant.Modules?
+            .Where(x => x.IsEnabled)
+            .Select(x => x.ModuleCode)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+
+        var model = new TenantEditModel
+        {
+            Id = tenant.Id,
+            Code = tenant.Code,
+            Name = tenant.Name,
+            Address = tenant.Address,
+            Phone = tenant.Phone,
+            RepresentativeName = tenant.RepresentativeName,
+            ContactEmail = tenant.ContactEmail,
+            Status = tenant.Status,
+            EnabledModules = new HashSet<string>(originallyEnabled, StringComparer.OrdinalIgnoreCase),
+            ExistingSettings = tenant.Settings
+        };
+
+        var option = new EditDialogOption<TenantEditModel>
+        {
+            Title = $"Quản lý khách thuê: {tenant.Code}",
+            Model = model,
+            Size = Size.Large,
+            ItemsPerRow = 1,
+            ShowLoading = true,
+            SaveButtonText = "Lưu",
+            CloseButtonText = "Đóng",
+            DialogBodyTemplate = EditTenantBody,
+            OnEditAsync = async _ =>
+            {
+                try
+                {
+                    await Api.UpdateTenantProfileAsync(model.Id, new UpdateTenantProfileRequest(
+                        model.Name,
+                        model.Address,
+                        model.Phone,
+                        model.RepresentativeName,
+                        model.ContactEmail));
+
+                    if (!string.Equals(model.Status, originalStatus, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (string.Equals(model.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                        {
+                            await Api.ActivateTenantAsync(model.Id);
+                        }
+                        else if (string.Equals(model.Status, "Suspended", StringComparison.OrdinalIgnoreCase))
+                        {
+                            await Api.SuspendTenantAsync(model.Id);
+                        }
+                    }
+
+                    foreach (var moduleCode in _allModuleCodes)
+                    {
+                        var shouldEnable = model.EnabledModules.Contains(moduleCode);
+                        var wasEnabled = originallyEnabled.Contains(moduleCode);
+
+                        if (shouldEnable && !wasEnabled)
+                        {
+                            await Api.EnableTenantModuleAsync(model.Id, new ChangeTenantModuleRequest(moduleCode));
+                        }
+                        else if (!shouldEnable && wasEnabled)
+                        {
+                            await Api.DisableTenantModuleAsync(model.Id, new ChangeTenantModuleRequest(moduleCode));
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(model.SettingKey))
+                    {
+                        var settings = new Dictionary<string, string>();
+                        if (model.ExistingSettings is not null)
+                        {
+                            foreach (var kv in model.ExistingSettings)
+                            {
+                                settings[kv.Key] = kv.Value;
+                            }
+                        }
+
+                        settings[model.SettingKey] = model.SettingValue;
+                        await Api.UpdateTenantSettingsAsync(model.Id, new UpdateTenantSettingsRequest(settings));
+                    }
+
+                    await ToastService.Success("Thành công", "Đã cập nhật khách thuê.");
+                    await ReloadTableAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await ShowErrorAsync(ex);
+                    return false;
+                }
+            }
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<TenantEditModel> EditTenantBody => model =>
+    @<div class="row g-3">
+        <div class="col-md-6">
+            <BootstrapInput Value="@model.Code" DisplayText="Mã" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.Name" DisplayText="Tên" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.RepresentativeName" DisplayText="Người đại diện" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.Phone" DisplayText="SĐT" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.ContactEmail" DisplayText="Email liên hệ" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput @bind-Value="model.Address" DisplayText="Địa chỉ" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <Select TValue="string" @bind-Value="model.Status" Items="_statusOptions" DisplayText="Trạng thái" ShowLabel="true" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Mô-đun được bật</label>
+            <div class="admin-module-grid">
+                @foreach (var module in UiCatalogs.Modules)
+                {
+                    <Checkbox TValue="bool"
+                              DisplayText="@module.Text"
+                              Value="@model.EnabledModules.Contains(module.Value)"
+                              OnStateChanged="@((state, _) => ToggleModuleAsync(model, module.Value, state))" />
+                }
+            </div>
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.SettingKey" DisplayText="Khóa cấu hình" ShowLabel="true" PlaceHolder="VD: Timezone" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.SettingValue" DisplayText="Giá trị cấu hình" ShowLabel="true" PlaceHolder="VD: Asia/Bangkok" />
+        </div>
+    </div>;
+
+    private Task ToggleModuleAsync(TenantEditModel model, string moduleCode, CheckboxState state)
+    {
+        if (state == CheckboxState.Checked)
+        {
+            model.EnabledModules.Add(moduleCode);
+        }
+        else
+        {
+            model.EnabledModules.Remove(moduleCode);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task DeleteSelectedAsync(IEnumerable<TenantDto> rows)
+    {
+        var list = rows?.ToList() ?? [];
+        if (list.Count == 0)
+        {
+            await ToastService.Information("Chưa chọn", "Vui lòng chọn ít nhất một dòng để xoá.");
+            return;
+        }
+
+        var confirmed = await SwalService.ShowModal(new SwalOption
+        {
+            Category = SwalCategory.Question,
+            Title = "Xác nhận xoá",
+            Content = list.Count == 1
+                ? $"Bạn có chắc muốn xoá khách thuê \"{list[0].Code}\"?"
+                : $"Bạn có chắc muốn xoá {list.Count} khách thuê đã chọn?"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
         try
         {
-            await Api.CreateTenantAsync(new CreateTenantRequest(_tenantCode, _tenantName));
-            _tenantCode = "";
-            _tenantName = "";
-            SetInfo("Đã tạo khách thuê.");
+            foreach (var tenant in list)
+            {
+                await Api.DeleteTenantAsync(tenant.Id);
+            }
+
+            await ToastService.Success("Đã xoá", "Đã xoá khách thuê đã chọn.");
             await ReloadTableAsync();
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
-    }
-
-    private async Task ActivateAsync(Guid id)
-    {
-        await Api.ActivateTenantAsync(id);
-        SetInfo("Đã kích hoạt khách thuê.");
-        await ReloadTableAsync();
-    }
-
-    private async Task SuspendAsync(Guid id)
-    {
-        await Api.SuspendTenantAsync(id);
-        SetInfo("Đã tạm ngưng khách thuê.");
-        await ReloadTableAsync();
-    }
-
-    private async Task EnableModuleAsync(Guid id)
-    {
-        await Api.EnableTenantModuleAsync(id, new ChangeTenantModuleRequest(_moduleCode));
-        SetInfo($"Đã bật mô-đun {_moduleCode}.");
-        await ReloadTableAsync();
-    }
-
-    private async Task SaveSettingAsync(Guid id)
-    {
-        await Api.UpdateTenantSettingsAsync(id, new UpdateTenantSettingsRequest(new Dictionary<string, string> { [_settingKey] = _settingValue }));
-        SetInfo("Đã lưu cấu hình.");
-        await ReloadTableAsync();
     }
 
     private static string EnabledModules(TenantDto tenant)
         => string.Join(", ", tenant.Modules?.Where(x => x.IsEnabled).Select(x => x.ModuleCode) ?? Enumerable.Empty<string>());
 
-    private void SetInfo(string text)
+    private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
     {
-        _message = text;
-        _messageColor = Color.Success;
+        Category = SwalCategory.Error,
+        Title = "Đã xảy ra lỗi",
+        Content = ex.Message
+    });
+
+    private sealed class TenantCreateModel
+    {
+        [Required(ErrorMessage = "Vui lòng nhập mã")]
+        public string Code { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập tên")]
+        public string Name { get; set; } = "";
+
+        public string RepresentativeName { get; set; } = "";
+        public string? Phone { get; set; }
+        public string ContactEmail { get; set; } = "";
+        public string? Address { get; set; }
     }
 
-    private void SetError(string text)
+    private sealed class TenantEditModel
     {
-        _message = text;
-        _messageColor = Color.Danger;
+        public Guid Id { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string? Address { get; set; }
+        public string? Phone { get; set; }
+        public string RepresentativeName { get; set; } = "";
+        public string ContactEmail { get; set; } = "";
+        public string Status { get; set; } = "";
+        public HashSet<string> EnabledModules { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public string SettingKey { get; set; } = "";
+        public string SettingValue { get; set; } = "";
+        public IReadOnlyDictionary<string, string>? ExistingSettings { get; set; }
     }
 }

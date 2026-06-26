@@ -1,6 +1,9 @@
 @page "/users"
 @inject CoreApiClient Api
 @inject TenantLookupService TenantLookup
+@inject DialogService DialogService
+@inject SwalService SwalService
+@inject ToastService ToastService
 
 <PageTitle>Người dùng</PageTitle>
 
@@ -11,59 +14,42 @@
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
-}
-
-<div class="work-surface">
-    <Card HeaderText="Tạo người dùng" IsShadow="true">
-        <BodyTemplate>
-            <Select TValue="string" @bind-Value="_tenantId" Items="_tenantOptions"
-                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true"
-                    PlaceHolder="Chọn khách thuê" class="mb-2" />
-            <BootstrapInput @bind-Value="_userName" DisplayText="Tên đăng nhập" ShowLabel="true" class="mb-2" />
-            <BootstrapInput @bind-Value="_email" DisplayText="Email" ShowLabel="true" class="mb-2" />
-            <BootstrapPassword @bind-Value="_password" DisplayText="Mật khẩu" ShowLabel="true" class="mb-2" />
-            <Select TValue="string" @bind-Value="_selectedRole" Items="UiCatalogs.Roles"
-                    DisplayText="Vai trò" ShowLabel="true" class="mb-3" />
-            <div class="d-flex gap-2">
-                <Button Text="Tạo mới" Icon="fa-solid fa-user-plus" Color="Color.Success" IsAsync="true" OnClick="CreateAsync" />
-                <Button Text="Đăng nhập thử" Icon="fa-solid fa-key" Color="Color.Info" IsOutline="true" IsAsync="true" OnClick="LoginAsync" />
-            </div>
-        </BodyTemplate>
-    </Card>
-
-    <Card HeaderText="Danh sách người dùng" IsShadow="true">
-        <BodyTemplate>
-            <Table @ref="_table" TItem="UserDto" OnQueryAsync="OnQueryAsync"
-                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
-                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
-                <TableColumns>
-                    <TableColumn @bind-Field="@context.UserName" Text="Tên đăng nhập" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.Email" Text="Email" Sortable="true" Searchable="true" />
-                    <TableColumn @bind-Field="@context.TenantId" Text="Khách thuê" Sortable="false">
-                        <Template Context="v">@TenantLookup.Describe(v.Row.TenantId)</Template>
-                    </TableColumn>
-                    <TableColumn @bind-Field="@context.Id" Text="Vai trò" Sortable="false">
-                        <Template Context="v">@RolesText(v.Row)</Template>
-                    </TableColumn>
-                </TableColumns>
-            </Table>
-        </BodyTemplate>
-    </Card>
-</div>
+<Card HeaderText="Danh sách người dùng" IsShadow="true">
+    <BodyTemplate>
+        <Table @ref="_table" TItem="UserDto" OnQueryAsync="OnQueryAsync"
+               IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+               ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+               ShowEditButton="false" ShowDeleteButton="false" ExtendButtonColumnWidth="130"
+               ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+            <TableToolbarTemplate>
+                <TableToolbarButton TItem="UserDto" Color="Color.Primary" Icon="fa-solid fa-user-plus"
+                                    Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                <TableToolbarButton TItem="UserDto" Color="Color.Info" Icon="fa-solid fa-key"
+                                    Text="Đăng nhập thử" OnClickCallback="ShowLoginAsync" />
+            </TableToolbarTemplate>
+            <RowButtonTemplate>
+                <TableCellButton Color="Color.Info" Icon="fa-solid fa-pen-to-square" Text="Sửa"
+                                 OnClick="@(() => ShowEditAsync([context]))" />
+                <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                 OnClick="@(() => DeleteSelectedAsync([context]))" />
+            </RowButtonTemplate>
+            <TableColumns>
+                <TableColumn @bind-Field="@context.UserName" Text="Tên đăng nhập" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.Email" Text="Email" Sortable="true" Searchable="true" />
+                <TableColumn @bind-Field="@context.TenantId" Text="Khách thuê" Sortable="false">
+                    <Template Context="v">@TenantLookup.Describe(v.Row.TenantId)</Template>
+                </TableColumn>
+                <TableColumn @bind-Field="@context.Id" Text="Vai trò" Sortable="false">
+                    <Template Context="v">@RolesText(v.Row)</Template>
+                </TableColumn>
+            </TableColumns>
+        </Table>
+    </BodyTemplate>
+</Card>
 
 @code {
     private Table<UserDto>? _table;
-    private string _tenantId = "";
-    private string _userName = "";
-    private string _email = "";
-    private string _password = "Password@123";
-    private string _selectedRole = "ADMIN";
     private List<SelectedItem> _tenantOptions = [];
-    private string? _message;
-    private Color _messageColor = Color.Primary;
     private static readonly int[] _pageItems = [10, 20, 50];
 
     protected override async Task OnInitializedAsync()
@@ -76,7 +62,7 @@
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
     }
 
@@ -94,72 +80,269 @@
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
             return [];
         }
     }
 
-    private async Task CreateAsync()
+    private async Task ReloadTableAsync()
     {
-        if (!Guid.TryParse(_tenantId, out var tenantId))
+        if (_table is not null)
         {
-            SetError("Vui lòng chọn khách thuê.");
-            return;
-        }
-
-        try
-        {
-            await Api.CreateUserAsync(new CreateUserRequest(tenantId, _userName, _email, _password, [_selectedRole]));
-            SetInfo("Đã tạo người dùng.");
-            if (_table is not null)
-            {
-                await _table.QueryAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            SetError(ex.Message);
+            await _table.QueryAsync();
         }
     }
 
-    private async Task LoginAsync()
+    // --- Create modal -----------------------------------------------------
+    private Task ShowCreateAsync(IEnumerable<UserDto> _)
     {
-        if (!Guid.TryParse(_tenantId, out var tenantId))
+        var model = new UserCreateModel();
+        var option = new EditDialogOption<UserCreateModel>
         {
-            SetError("Vui lòng chọn khách thuê.");
+            Title = "Thêm người dùng",
+            Model = model,
+            Size = Size.Medium,
+            ItemsPerRow = 1,
+            ShowLoading = true,
+            SaveButtonText = "Lưu",
+            CloseButtonText = "Đóng",
+            DialogBodyTemplate = CreateUserBody,
+            OnEditAsync = async _ =>
+            {
+                if (!Guid.TryParse(model.TenantId, out var tenantId))
+                {
+                    await ToastService.Information("Thiếu thông tin", "Vui lòng chọn khách thuê.");
+                    return false;
+                }
+
+                try
+                {
+                    await Api.CreateUserAsync(new CreateUserRequest(tenantId, model.UserName, model.Email, model.Password, [model.Role]));
+                    await ToastService.Success("Thành công", "Đã tạo người dùng.");
+                    await ReloadTableAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await ShowErrorAsync(ex);
+                    return false;
+                }
+            }
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<UserCreateModel> CreateUserBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <Select TValue="string" @bind-Value="model.TenantId" Items="_tenantOptions"
+                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true" PlaceHolder="Chọn khách thuê" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.UserName" DisplayText="Tên đăng nhập" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.Email" DisplayText="Email" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapPassword @bind-Value="model.Password" DisplayText="Mật khẩu" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <Select TValue="string" @bind-Value="model.Role" Items="UiCatalogs.Roles" DisplayText="Vai trò" ShowLabel="true" />
+        </div>
+    </div>;
+
+    // --- Login test modal -------------------------------------------------
+    private Task ShowLoginAsync(IEnumerable<UserDto> _)
+    {
+        var model = new UserLoginModel();
+        var option = new EditDialogOption<UserLoginModel>
+        {
+            Title = "Đăng nhập thử",
+            Model = model,
+            Size = Size.Small,
+            ItemsPerRow = 1,
+            ShowLoading = true,
+            SaveButtonText = "Đăng nhập",
+            CloseButtonText = "Đóng",
+            DialogBodyTemplate = LoginBody,
+            OnEditAsync = async _ =>
+            {
+                if (!Guid.TryParse(model.TenantId, out var tenantId))
+                {
+                    await ToastService.Information("Thiếu thông tin", "Vui lòng chọn khách thuê.");
+                    return false;
+                }
+
+                try
+                {
+                    var result = await Api.LoginAsync(new LoginRequest(tenantId, model.UserName, model.Password));
+                    if (result is null)
+                    {
+                        await ShowErrorAsync(new InvalidOperationException("Đăng nhập thất bại."));
+                        return false;
+                    }
+
+                    await ToastService.Success("Đăng nhập thành công", $"Token hết hạn lúc {result.ExpiresAt:u}");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await ShowErrorAsync(ex);
+                    return false;
+                }
+            }
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<UserLoginModel> LoginBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <Select TValue="string" @bind-Value="model.TenantId" Items="_tenantOptions"
+                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true" PlaceHolder="Chọn khách thuê" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapInput @bind-Value="model.UserName" DisplayText="Tên đăng nhập" ShowLabel="true" />
+        </div>
+        <div class="col-md-6">
+            <BootstrapPassword @bind-Value="model.Password" DisplayText="Mật khẩu" ShowLabel="true" />
+        </div>
+    </div>;
+
+    // --- Edit (view-only until update API is available) -------------------
+    private Task ShowEditAsync(IEnumerable<UserDto> rows)
+    {
+        var user = rows.FirstOrDefault();
+        if (user is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var model = new UserViewModel
+        {
+            UserName = user.UserName,
+            Email = user.Email,
+            TenantName = TenantLookup.Describe(user.TenantId),
+            Roles = RolesText(user)
+        };
+
+        var option = new EditDialogOption<UserViewModel>
+        {
+            Title = $"Người dùng: {user.UserName}",
+            Model = model,
+            Size = Size.Small,
+            ItemsPerRow = 1,
+            ShowLoading = false,
+            SaveButtonText = "Đóng",
+            CloseButtonText = "Huỷ",
+            DialogBodyTemplate = ViewUserBody,
+            OnEditAsync = _ => Task.FromResult(true)
+        };
+
+        return DialogService.ShowEditDialog(option);
+    }
+
+    private RenderFragment<UserViewModel> ViewUserBody => model =>
+    @<div class="row g-3">
+        <div class="col-12">
+            <BootstrapInput Value="@model.UserName" DisplayText="Tên đăng nhập" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput Value="@model.Email" DisplayText="Email" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput Value="@model.TenantName" DisplayText="Khách thuê" ShowLabel="true" IsDisabled="true" />
+        </div>
+        <div class="col-12">
+            <BootstrapInput Value="@model.Roles" DisplayText="Vai trò" ShowLabel="true" IsDisabled="true" />
+        </div>
+    </div>;
+
+    // --- Delete -----------------------------------------------------------
+    private async Task DeleteSelectedAsync(IEnumerable<UserDto> rows)
+    {
+        var list = rows?.ToList() ?? [];
+        if (list.Count == 0)
+        {
+            await ToastService.Information("Chưa chọn", "Vui lòng chọn ít nhất một dòng để xoá.");
+            return;
+        }
+
+        var confirmed = await SwalService.ShowModal(new SwalOption
+        {
+            Category = SwalCategory.Question,
+            Title = "Xác nhận xoá",
+            Content = list.Count == 1
+                ? $"Bạn có chắc muốn xoá người dùng \"{list[0].UserName}\"?"
+                : $"Bạn có chắc muốn xoá {list.Count} người dùng đã chọn?"
+        });
+        if (!confirmed)
+        {
             return;
         }
 
         try
         {
-            var result = await Api.LoginAsync(new LoginRequest(tenantId, _userName, _password));
-            if (result is null)
+            foreach (var user in list)
             {
-                SetError("Đăng nhập thất bại.");
+                await Api.DeleteUserAsync(user.Id);
             }
-            else
-            {
-                SetInfo($"Đăng nhập thành công. Token hết hạn lúc {result.ExpiresAt:u}");
-            }
+
+            await ToastService.Success("Đã xoá", "Đã xoá người dùng đã chọn.");
+            await ReloadTableAsync();
         }
         catch (Exception ex)
         {
-            SetError(ex.Message);
+            await ShowErrorAsync(ex);
         }
     }
 
     private static string RolesText(UserDto user)
         => string.Join(", ", user.Roles ?? Array.Empty<string>());
 
-    private void SetInfo(string text)
+    private Task ShowErrorAsync(Exception ex) => SwalService.Show(new SwalOption
     {
-        _message = text;
-        _messageColor = Color.Success;
+        Category = SwalCategory.Error,
+        Title = "Đã xảy ra lỗi",
+        Content = ex.Message
+    });
+
+    private sealed class UserCreateModel
+    {
+        public string TenantId { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập tên đăng nhập")]
+        public string UserName { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập email")]
+        [EmailAddress(ErrorMessage = "Email không hợp lệ")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập mật khẩu")]
+        public string Password { get; set; } = "Password@123";
+
+        public string Role { get; set; } = "ADMIN";
     }
 
-    private void SetError(string text)
+    private sealed class UserLoginModel
     {
-        _message = text;
-        _messageColor = Color.Danger;
+        public string TenantId { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập tên đăng nhập")]
+        public string UserName { get; set; } = "";
+
+        [Required(ErrorMessage = "Vui lòng nhập mật khẩu")]
+        public string Password { get; set; } = "";
+    }
+
+    private sealed class UserViewModel
+    {
+        public string UserName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string TenantName { get; set; } = "";
+        public string Roles { get; set; } = "";
     }
 }

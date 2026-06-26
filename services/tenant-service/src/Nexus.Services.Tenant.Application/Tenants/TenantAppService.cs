@@ -58,10 +58,62 @@ public sealed class TenantAppService : NexusAppServiceBase, ITenantAppService
 
     public async Task<TenantDto> CreateAsync(CreateTenantDto input, CancellationToken cancellationToken = default)
     {
-        var tenant = await _tenantManager.CreateAsync(input.Code, input.Name, cancellationToken);
+        var tenant = await _tenantManager.CreateAsync(
+            input.Code,
+            input.Name,
+            input.Address,
+            input.Phone,
+            input.RepresentativeName,
+            input.ContactEmail,
+            cancellationToken);
         await WriteAuditAsync(tenant, AuditAction.Create, "Tenant created.", cancellationToken);
-        await _eventBus.PublishAsync(new TenantCreatedIntegrationEvent(Guid.NewGuid(), tenant.Id, DateTimeOffset.UtcNow, ServiceName, CorrelationContext.CorrelationId, tenant.Id, tenant.Code, tenant.Name), cancellationToken);
+        await PublishTenantCreatedAsync(tenant, cancellationToken);
         return MapToDto(tenant);
+    }
+
+    public async Task<TenantDto> CreateInternalAsync(CreateInternalTenantDto input, CancellationToken cancellationToken = default)
+    {
+        var tenant = await _tenantManager.CreateAsync(
+            input.Code,
+            input.Name,
+            input.Address,
+            input.Phone,
+            input.RepresentativeName,
+            input.ContactEmail,
+            cancellationToken);
+
+        foreach (var module in input.DefaultModules)
+        {
+            tenant.EnableModule(module, null, DateTimeOffset.UtcNow);
+        }
+
+        await _tenantRepository.UpdateAsync(tenant, cancellationToken);
+        await WriteAuditAsync(tenant, AuditAction.Create, "Tenant created via internal onboarding.", cancellationToken);
+        await PublishTenantCreatedAsync(tenant, cancellationToken);
+        return MapToDto(tenant);
+    }
+
+    public async Task<TenantDto> UpdateProfileAsync(Guid id, UpdateTenantProfileDto input, CancellationToken cancellationToken = default)
+    {
+        var tenant = await _tenantRepository.GetAsync(id, cancellationToken);
+        tenant.UpdateProfile(
+            input.Name,
+            input.Address,
+            input.Phone,
+            input.RepresentativeName,
+            input.ContactEmail,
+            CurrentUser.Id,
+            DateTimeOffset.UtcNow);
+        await _tenantRepository.UpdateAsync(tenant, cancellationToken);
+        await WriteAuditAsync(tenant, AuditAction.Update, "Tenant profile updated.", cancellationToken);
+        return MapToDto(tenant);
+    }
+
+    public async Task<bool> IsCodeAvailableAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var normalized = TenantAggregate.NormalizeCode(code);
+        var existing = await _tenantRepository.FindByCodeAsync(normalized, cancellationToken);
+        return existing is null;
     }
 
     public async Task<TenantDto> UpdateSettingsAsync(Guid id, UpdateTenantSettingsDto input, CancellationToken cancellationToken = default)
@@ -120,6 +172,21 @@ public sealed class TenantAppService : NexusAppServiceBase, ITenantAppService
         return _auditWriter.WriteAsync(new AuditLogEntry(Guid.NewGuid(), tenant.Id, CurrentUser.Id, ServiceName, nameof(TenantAggregate), tenant.Id.ToString(), action, summary, CorrelationContext.CorrelationId, DateTimeOffset.UtcNow), cancellationToken);
     }
 
+    private Task PublishTenantCreatedAsync(TenantAggregate tenant, CancellationToken cancellationToken)
+    {
+        return _eventBus.PublishAsync(new TenantCreatedIntegrationEvent(
+            Guid.NewGuid(),
+            tenant.Id,
+            DateTimeOffset.UtcNow,
+            ServiceName,
+            CorrelationContext.CorrelationId,
+            tenant.Id,
+            tenant.Code,
+            tenant.Name,
+            tenant.ContactEmail,
+            tenant.RepresentativeName), cancellationToken);
+    }
+
     private static TenantDto MapToDto(TenantAggregate tenant)
     {
         return new TenantDto
@@ -127,6 +194,10 @@ public sealed class TenantAppService : NexusAppServiceBase, ITenantAppService
             Id = tenant.Id,
             Code = tenant.Code,
             Name = tenant.Name,
+            Address = tenant.Address,
+            Phone = tenant.Phone,
+            RepresentativeName = tenant.RepresentativeName,
+            ContactEmail = tenant.ContactEmail,
             Status = tenant.Status.ToString(),
             ConcurrencyStamp = tenant.ConcurrencyStamp,
             Modules = tenant.Modules.Select(x => new TenantModuleDto { ModuleCode = x.ModuleCode, IsEnabled = x.IsEnabled }).ToArray(),

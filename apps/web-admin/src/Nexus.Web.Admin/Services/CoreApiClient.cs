@@ -18,14 +18,31 @@ public sealed class CoreApiClient
     }
 
     public Task<PagedResult<TenantDto>?> GetTenantsAsync() => GetAsync<PagedResult<TenantDto>>(_options.Tenant, "/api/tenants/");
+    // Public (unauthenticated) lookup so the login screen can accept a tenant code instead of a GUID.
+    public async Task<TenantDto?> GetTenantByCodeAsync(string code)
+    {
+        var client = CreateClient();
+        var response = await client.GetAsync(BuildUrl(_options.Tenant, $"/api/public/tenants/by-code/{Uri.EscapeDataString(code.Trim())}"));
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TenantDto>();
+    }
     public Task<TenantDto?> CreateTenantAsync(CreateTenantRequest request) => PostAsync<TenantDto>(_options.Tenant, "/api/tenants/", request);
+    public Task DeleteTenantAsync(Guid id) => DeleteAsync(_options.Tenant, $"/api/tenants/{id}");
     public Task<TenantDto?> ActivateTenantAsync(Guid id) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/activate", new { });
     public Task<TenantDto?> SuspendTenantAsync(Guid id) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/suspend", new { });
     public Task<TenantDto?> EnableTenantModuleAsync(Guid id, ChangeTenantModuleRequest request) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/modules/enable", request);
+    public Task<TenantDto?> DisableTenantModuleAsync(Guid id, ChangeTenantModuleRequest request) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/modules/disable", request);
     public Task<TenantDto?> UpdateTenantSettingsAsync(Guid id, UpdateTenantSettingsRequest request) => PutAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/settings", request);
+    public Task<TenantDto?> UpdateTenantProfileAsync(Guid id, UpdateTenantProfileRequest request) => PutAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/profile", request);
 
     public Task<PagedResult<UserDto>?> GetUsersAsync() => GetAsync<PagedResult<UserDto>>(_options.Identity, "/api/users/");
     public Task<UserDto?> CreateUserAsync(CreateUserRequest request) => PostAsync<UserDto>(_options.Identity, "/api/users/", request);
+    public Task DeleteUserAsync(Guid id) => DeleteAsync(_options.Identity, $"/api/users/{id}");
     public Task<LoginResult?> LoginAsync(LoginRequest request) => PostAsync<LoginResult>(_options.Identity, "/api/auth/login", request);
 
     public Task<IReadOnlyList<string>?> GetPermissionCatalogAsync() => GetAsync<IReadOnlyList<string>>(_options.Permission, "/api/permissions");
@@ -37,6 +54,7 @@ public sealed class CoreApiClient
 
     public Task<PagedResult<FileRecord>?> GetFilesAsync() => GetAsync<PagedResult<FileRecord>>(_options.File, "/api/files");
     public Task<FileRecord?> CreateFileAsync(CreateFileRequest request) => PostAsync<FileRecord>(_options.File, "/api/files", request);
+    public Task DeleteFileAsync(Guid id) => DeleteAsync(_options.File, $"/api/files/{id}");
     public Task<FileLinkRecord?> CreateFileLinkAsync(CreateFileLinkRequest request) => PostAsync<FileLinkRecord>(_options.File, "/api/file-links", request);
 
     public Task<NextNumberResult?> GetNextNumberAsync(NextNumberRequest request) => PostAsync<NextNumberResult>(_options.Numbering, "/api/numbering/next", request);
@@ -44,6 +62,7 @@ public sealed class CoreApiClient
 
     public Task<IReadOnlyList<WorkflowDefinitionRecord>?> GetWorkflowDefinitionsAsync() => GetAsync<IReadOnlyList<WorkflowDefinitionRecord>>(_options.Workflow, "/api/workflow-definitions");
     public Task<WorkflowDefinitionRecord?> CreateWorkflowDefinitionAsync(CreateWorkflowDefinitionRequest request) => PostAsync<WorkflowDefinitionRecord>(_options.Workflow, "/api/workflow-definitions", request);
+    public Task DeleteWorkflowDefinitionAsync(Guid id) => DeleteAsync(_options.Workflow, $"/api/workflow-definitions/{id}");
     public Task<WorkflowInstanceRecord?> CreateWorkflowInstanceAsync(CreateWorkflowInstanceRequest request) => PostAsync<WorkflowInstanceRecord>(_options.Workflow, "/api/workflow-instances", request);
 
     private async Task<T?> GetAsync<T>(string baseUrl, string path)
@@ -66,6 +85,13 @@ public sealed class CoreApiClient
         var response = await client.PutAsJsonAsync(BuildUrl(baseUrl, path), request);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    private async Task DeleteAsync(string baseUrl, string path)
+    {
+        var client = CreateClient();
+        var response = await client.DeleteAsync(BuildUrl(baseUrl, path));
+        response.EnsureSuccessStatusCode();
     }
 
     // Routes go through the API gateway, so the per-service base already includes the gateway

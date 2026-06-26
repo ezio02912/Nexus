@@ -1,0 +1,28 @@
+@page "/onboarding/success"
+@layout LoginLayout
+@inject NavigationManager Navigation
+
+<PageTitle>Đăng ký thành công</PageTitle>
+
+<div class="tenant-login-page">
+    <div class="tenant-login-form-pane">
+        <div class="tenant-login-card">
+            <div class="tenant-login-heading">
+                <span class="brand-mark">N</span>
+                <div>
+                    <h1>Đăng ký thành công</h1>
+                    <p>Mã tenant đã được gửi qua email. Bạn có thể đăng nhập ngay.</p>
+                </div>
+            </div>
+            <Button Text="Đăng nhập" Icon="fa-solid fa-right-to-bracket" Color="Color.Primary"
+                    IsBlock="true" OnClick="@(() => Navigation.NavigateTo("/login"))" />
+        </div>
+    </div>
+    <div class="tenant-login-visual">
+        <div class="tenant-login-visual-inner">
+            <span class="tenant-brand-badge">Hoàn tất</span>
+            <h2>Chào mừng đến Nexus</h2>
+            <p>Kiểm tra hộp thư để lưu mã tenant cho lần đăng nhập sau.</p>
+        </div>
+    </div>
+</div>

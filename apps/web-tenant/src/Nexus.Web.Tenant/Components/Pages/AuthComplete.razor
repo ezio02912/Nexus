@@ -1,0 +1,38 @@
+@page "/auth/complete"
+@layout LoginLayout
+@inject PendingAuthStateService PendingAuth
+@inject TenantPortalApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Hoàn tất đăng nhập</PageTitle>
+
+<div class="tenant-login-page">
+    <div class="tenant-login-form-pane">
+        <div class="tenant-login-card">
+            <div class="app-loading">
+                <Spinner Color="Color.Primary" />
+                <span class="app-loading-text">Đang hoàn tất đăng nhập...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var pending = PendingAuth.TryRead();
+        if (pending?.Mode == "Login" && pending.Login is not null)
+        {
+            await Api.SignInFromLoginAsync(pending.Login);
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        Navigation.NavigateTo("/login", replace: true);
+    }
+}

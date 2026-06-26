@@ -4,9 +4,13 @@ using Nexus.BuildingBlocks.Web.Auth;
 using Nexus.BuildingBlocks.Web.DependencyInjection;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
 using Nexus.BuildingBlocks.Messaging;
+using Nexus.Services.Identity.Application.Onboarding;
 using Nexus.Services.Identity.Application.Users;
+using Nexus.Services.Identity.Contracts.Onboarding;
 using Nexus.Services.Identity.Contracts.Users;
+using Nexus.Services.Identity.Domain.Onboarding;
 using Nexus.Services.Identity.Domain.Users;
+using Nexus.Services.Identity.Infrastructure.Onboarding;
 using Nexus.Services.Identity.Infrastructure.Persistence;
 using Nexus.Services.Identity.Infrastructure.Users;
 using Nexus.SharedKernel.Auditing;
@@ -28,10 +32,15 @@ if (builder.Configuration.GetValue<bool>("RabbitMq:Enabled"))
 
 builder.Services.AddSingleton<IAuditWriter, InMemoryAuditWriter>();
 builder.Services.AddScoped<IUserRepository, EfCoreUserRepository>();
+builder.Services.AddScoped<IOnboardingRepository, EfCoreOnboardingRepository>();
 builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<UserManager>();
 builder.Services.AddScoped<IUserAppService, UserAppService>();
+builder.Services.AddScoped<IOnboardingAppService, OnboardingAppService>();
+builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
+builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<ITenantServiceClient, HttpTenantServiceClient>();
 
 var permissionServiceUrl = builder.Configuration["Services:Permission"] ?? "http://localhost:7203";
 builder.Services.AddHttpClient<IUserPermissionResolver, HttpUserPermissionResolver>(client =>
@@ -130,6 +139,51 @@ app.MapPost("/api/auth/refresh", async (RefreshTokenDto input, IUserAppService a
     catch (NexusBusinessException)
     {
         return Results.Unauthorized();
+    }
+});
+
+app.MapPost("/api/auth/google", async (GoogleAuthDto input, IOnboardingAppService appService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await appService.GoogleAuthAsync(input, cancellationToken));
+    }
+    catch (Exception exception) when (exception is InvalidOperationException or NexusBusinessException)
+    {
+        return Results.BadRequest(new { Message = exception.Message });
+    }
+});
+
+app.MapPost("/api/auth/login-email", async (LoginEmailDto input, IOnboardingAppService appService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await appService.LoginEmailAsync(input, cancellationToken));
+    }
+    catch (NexusBusinessException)
+    {
+        return Results.Unauthorized();
+    }
+});
+
+app.MapGet("/api/auth/me/tenant", async (string email, IOnboardingAppService appService, CancellationToken cancellationToken) =>
+{
+    var result = await appService.GetTenantByEmailAsync(email, cancellationToken);
+    return result is null ? Results.NotFound() : Results.Ok(result);
+});
+
+app.MapPost("/api/onboarding/preview-code", async (PreviewTenantCodeDto input, IOnboardingAppService appService, CancellationToken cancellationToken) =>
+    Results.Ok(await appService.PreviewCodeAsync(input, cancellationToken)));
+
+app.MapPost("/api/onboarding/complete", async (CompleteOnboardingDto input, IOnboardingAppService appService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await appService.CompleteAsync(input, cancellationToken));
+    }
+    catch (NexusBusinessException exception)
+    {
+        return Results.Conflict(new { exception.Code, exception.Message });
     }
 });
 

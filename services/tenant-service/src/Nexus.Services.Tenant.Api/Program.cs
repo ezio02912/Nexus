@@ -69,11 +69,54 @@ app.MapGet("/api/public/tenants/by-code/{code}", async (string code, TenantDbCon
             Id = tenant.Id,
             Code = tenant.Code,
             Name = tenant.Name,
+            Address = tenant.Address,
+            Phone = tenant.Phone,
+            RepresentativeName = tenant.RepresentativeName,
+            ContactEmail = tenant.ContactEmail,
             Status = tenant.Status.ToString(),
             ConcurrencyStamp = tenant.ConcurrencyStamp,
             Modules = tenant.Modules.Select(x => new TenantModuleDto { ModuleCode = x.ModuleCode, IsEnabled = x.IsEnabled }).ToArray(),
             Settings = tenant.Settings.ToDictionary(x => x.Key, x => x.Value)
         });
+});
+
+app.MapGet("/api/public/tenants/by-id/{id:guid}", async (Guid id, TenantDbContext db, CancellationToken cancellationToken) =>
+{
+    var tenant = await db.Tenants
+        .Include(x => x.Modules)
+        .Include(x => x.Settings)
+        .Include(x => x.Subscription)
+        .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    return tenant is null
+        ? Results.NotFound(new { Code = TenantErrorCodes.NotFound, Message = "Tenant was not found." })
+        : Results.Ok(new TenantDto
+        {
+            Id = tenant.Id,
+            Code = tenant.Code,
+            Name = tenant.Name,
+            Address = tenant.Address,
+            Phone = tenant.Phone,
+            RepresentativeName = tenant.RepresentativeName,
+            ContactEmail = tenant.ContactEmail,
+            Status = tenant.Status.ToString(),
+            ConcurrencyStamp = tenant.ConcurrencyStamp,
+            Modules = tenant.Modules.Select(x => new TenantModuleDto { ModuleCode = x.ModuleCode, IsEnabled = x.IsEnabled }).ToArray(),
+            Settings = tenant.Settings.ToDictionary(x => x.Key, x => x.Value)
+        });
+});
+
+app.MapGet("/api/public/tenants/code-available/{code}", async (string code, ITenantAppService appService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var available = await appService.IsCodeAvailableAsync(code, cancellationToken);
+        return Results.Ok(new { Code = TenantAggregate.NormalizeCode(code), Available = available });
+    }
+    catch (Exception exception) when (exception is ArgumentException or NexusBusinessException)
+    {
+        return Results.BadRequest(new { Message = exception.Message });
+    }
 });
 
 var tenants = app.MapGroup("/api/tenants").RequireAuthorization();
@@ -162,6 +205,10 @@ tenants.MapPost("/{id:guid}/modules/enable", async (Guid id, ChangeTenantModuleD
     {
         return Results.NotFound(new { Code = TenantErrorCodes.NotFound, Message = "Tenant was not found." });
     }
+    catch (Exception exception)
+    {
+        return Results.Problem(detail: exception.Message, statusCode: StatusCodes.Status500InternalServerError);
+    }
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Tenants.ManageModules));
 
 tenants.MapPost("/{id:guid}/modules/disable", async (Guid id, ChangeTenantModuleDto input, ITenantAppService appService, CancellationToken cancellationToken) =>
@@ -174,7 +221,43 @@ tenants.MapPost("/{id:guid}/modules/disable", async (Guid id, ChangeTenantModule
     {
         return Results.NotFound(new { Code = TenantErrorCodes.NotFound, Message = "Tenant was not found." });
     }
+    catch (Exception exception)
+    {
+        return Results.Problem(detail: exception.Message, statusCode: StatusCodes.Status500InternalServerError);
+    }
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Tenants.ManageModules));
+
+tenants.MapPut("/{id:guid}/profile", async (Guid id, UpdateTenantProfileDto input, ITenantAppService appService, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        return Results.Ok(await appService.UpdateProfileAsync(id, input, cancellationToken));
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { Code = TenantErrorCodes.NotFound, Message = "Tenant was not found." });
+    }
+}).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Tenants.ManageSettings));
+
+var internalApiKey = builder.Configuration["Internal:ApiKey"] ?? "nexus-internal-dev-key";
+
+app.MapPost("/api/internal/tenants", async (CreateInternalTenantDto input, ITenantAppService appService, HttpContext httpContext, CancellationToken cancellationToken) =>
+{
+    if (!httpContext.Request.Headers.TryGetValue("X-Internal-Api-Key", out var key) || key != internalApiKey)
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var result = await appService.CreateInternalAsync(input, cancellationToken);
+        return Results.Created($"/api/tenants/{result.Id}", result);
+    }
+    catch (NexusBusinessException exception)
+    {
+        return Results.Conflict(new { exception.Code, exception.Message });
+    }
+});
 
 app.Run();
 
@@ -217,8 +300,12 @@ static async Task SeedDemoTenantAsync(TenantDbContext db, IConfiguration configu
 
     if (tenant is null)
     {
-        tenant = new TenantAggregate(tenantId, code, name, null, now);
+        tenant = new TenantAggregate(tenantId, code, name, null, null, "Demo Representative", "demo@nexus.local", null, now);
         await db.Tenants.AddAsync(tenant);
+    }
+    else if (string.IsNullOrWhiteSpace(tenant.RepresentativeName))
+    {
+        tenant.UpdateProfile(name, tenant.Address, tenant.Phone, "Demo Representative", "demo@nexus.local", null, now);
     }
 
     foreach (var module in configuration.GetSection("DemoTenant:Modules").Get<string[]>() ?? ["CRM", "SALES"])

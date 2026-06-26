@@ -60,15 +60,45 @@
                         }
                     </RowButtonTemplate>
                     <TableColumns>
-                        <TableColumn @bind-Field="@context.QuotationNo" Text="Số BG" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.QuotationNo" Text="Số BG" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.QuotationNo
+                                </button>
+                            </Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
-                            <Template Context="v">@CustomerName(v.Row.CustomerId)</Template>
+                            <Template Context="v">
+                                <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewCustomerDetail(v.Row.CustomerId))">
+                                    @CustomerName(v.Row.CustomerId)
+                                </button>
+                            </Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.Subject" Text="Tiêu đề" Searchable="true" />
+                        <TableColumn @bind-Field="@context.OpportunityId" Text="Cơ hội">
+                            <Template Context="v">
+                                @if (v.Row.OpportunityId.HasValue)
+                                {
+                                    <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewOpportunityDetail(v.Row.OpportunityId.Value))">
+                                        Mở cơ hội
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
                             <Template Context="v">
                                 <span class="@CrmLabels.StatusBadgeClass(v.Row.Status)">@CrmLabels.FormatQuotationStatus(v.Row.Status)</span>
                             </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.DiscountAmount" Text="Chiết khấu">
+                            <Template Context="v">@VnMoney.Format(v.Row.DiscountAmount)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.TaxAmount" Text="Thuế">
+                            <Template Context="v">@VnMoney.Format(v.Row.TaxAmount)</Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.TotalAmount" Text="Tổng tiền" Sortable="true">
                             <Template Context="v">@VnMoney.Format(v.Row.TotalAmount) @v.Row.Currency</Template>
@@ -91,6 +121,7 @@
         <BodyTemplate>
             <div class="app-form-grid">
                 <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="_customerIdText" />
+                <ContactLookupSelect Label="Liên hệ" CustomerId="@_customerIdText" @bind-Value="_contactIdText" />
                 <AppFormField Label="Số báo giá" Required="true">
                     <BootstrapInput @bind-Value="_model.QuotationNo" ShowLabel="false" IsDisabled="@(!_isCreate)" PlaceHolder="AUTO để tự sinh số" />
                 </AppFormField>

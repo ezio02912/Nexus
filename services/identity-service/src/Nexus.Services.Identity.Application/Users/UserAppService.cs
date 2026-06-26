@@ -40,7 +40,8 @@ public sealed class UserAppService : NexusAppServiceBase, IUserAppService
 
         if (!string.IsNullOrWhiteSpace(input.FilterText))
         {
-            users = users.Where(x => x.UserName.Contains(input.FilterText, StringComparison.OrdinalIgnoreCase) || x.Email.Contains(input.FilterText, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var term = input.FilterText.Trim().ToLowerInvariant();
+            users = users.Where(x => x.UserName.ToLowerInvariant().Contains(term) || x.Email.ToLowerInvariant().Contains(term)).ToArray();
         }
 
         return new PagedResultDto<UserDto>

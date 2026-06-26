@@ -22,11 +22,23 @@ app.MapGet("/health", async (SalesDbContext db) =>
     return ok ? Results.Ok(new { Status = "Healthy" }) : Results.StatusCode(503);
 });
 
-app.MapGet("/api/sales/orders", async (SalesDbContext db, Guid tenantId, int skipCount = 0, int maxResultCount = 50, CancellationToken ct = default) =>
+app.MapGet("/api/sales/orders", async (SalesDbContext db, Guid tenantId, string? search = null, int skipCount = 0, int maxResultCount = 50, CancellationToken ct = default) =>
 {
     var query = db.SalesOrders
         .Include(x => x.Lines)
         .Where(x => x.TenantId == tenantId);
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var term = search.Trim().ToLowerInvariant();
+        query = query.Where(x =>
+            x.OrderNo.ToLower().Contains(term)
+            || x.Status.ToLower().Contains(term)
+            || (x.SourceNo != null && x.SourceNo.ToLower().Contains(term))
+            || x.Lines.Any(line =>
+                line.ProductCode.ToLower().Contains(term)
+                || line.Description.ToLower().Contains(term)));
+    }
 
     var total = await query.LongCountAsync(ct);
     var items = await query
@@ -47,7 +59,16 @@ app.MapPost("/api/sales/orders", async (CreateSalesOrderDto input, SalesDbContex
     }
 
     var lines = input.Lines.Select(x => new SalesOrderLineDraft(x.ProductCode, x.Description, x.Quantity, x.UnitPrice)).ToArray();
-    var order = new SalesOrder(Guid.NewGuid(), input.TenantId, input.CustomerId, orderNo, lines, DateTimeOffset.UtcNow);
+    var order = new SalesOrder(
+        Guid.NewGuid(),
+        input.TenantId,
+        input.CustomerId,
+        orderNo,
+        input.SourceType,
+        input.SourceId,
+        input.SourceNo,
+        lines,
+        DateTimeOffset.UtcNow);
     await db.SalesOrders.AddAsync(order, ct);
     await db.SaveChangesAsync(ct);
     return Results.Created($"/api/sales/orders/{order.Id}", order);
@@ -82,5 +103,5 @@ app.MapPost("/api/sales/orders/{id:guid}/complete", async (Guid id, SalesDbConte
 app.MapNexusObservability();
 app.Run();
 
-public sealed record CreateSalesOrderDto(Guid TenantId, Guid CustomerId, string OrderNo, IReadOnlyCollection<CreateSalesOrderLineDto> Lines);
+public sealed record CreateSalesOrderDto(Guid TenantId, Guid CustomerId, string OrderNo, string? SourceType, Guid? SourceId, string? SourceNo, IReadOnlyCollection<CreateSalesOrderLineDto> Lines);
 public sealed record CreateSalesOrderLineDto(string ProductCode, string Description, decimal Quantity, decimal UnitPrice);

@@ -11,6 +11,7 @@ public partial class CrmQuotations
     private QuotationDto? _editing;
     private QuotationFormModel _model = new();
     private string _customerIdText = "";
+    private string? _contactIdText;
     private List<SelectedItem> _customerOptions = [];
     private Dictionary<Guid, string> _customerNames = [];
 
@@ -32,6 +33,9 @@ public partial class CrmQuotations
 
     private string CustomerName(Guid customerId) =>
         _customerNames.TryGetValue(customerId, out var name) ? name : customerId.ToString();
+
+    private void ViewCustomerDetail(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
+    private void ViewOpportunityDetail(Guid id) => Navigation.NavigateTo($"crm/opportunities/{id}");
 
     private async Task<QueryData<QuotationDto>> OnQueryAsync(QueryPageOptions options)
     {
@@ -64,6 +68,7 @@ public partial class CrmQuotations
             UnitPrice = 0
         };
         _customerIdText = _customerOptions.FirstOrDefault()?.Value ?? "";
+        _contactIdText = null;
         return _editModal!.Show();
     }
 
@@ -73,6 +78,7 @@ public partial class CrmQuotations
         _modalTitle = "Sửa báo giá";
         _editing = item;
         _customerIdText = item.CustomerId.ToString();
+        _contactIdText = item.ContactId?.ToString();
         var firstLine = item.Lines.FirstOrDefault();
         _model = new QuotationFormModel
         {
@@ -103,16 +109,17 @@ public partial class CrmQuotations
 
         try
         {
+            Guid? contactId = Guid.TryParse(_contactIdText, out var parsedContactId) ? parsedContactId : null;
             if (_isCreate)
             {
                 await CrmApi.CreateQuotationAsync(new CreateQuotationRequest(
-                    customerId, _model.QuotationNo.Trim(), null, null, _model.Subject, null, BuildLines()));
+                    customerId, _model.QuotationNo.Trim(), null, contactId, _model.Subject, null, BuildLines()));
                 await ToastService.Success("Thành công", "Đã tạo báo giá.");
             }
             else if (_editing is not null)
             {
                 await CrmApi.UpdateQuotationAsync(_editing.Id, new UpdateQuotationRequest(
-                    customerId, _editing.OpportunityId, _editing.ContactId, _model.Subject,
+                    customerId, _editing.OpportunityId, contactId, _model.Subject,
                     _editing.Description, _editing.DiscountAmount, _editing.DiscountPercent,
                     _editing.ValidUntil, _editing.Notes, _editing.Terms, null, BuildLines()));
                 await ToastService.Success("Thành công", "Đã cập nhật báo giá.");

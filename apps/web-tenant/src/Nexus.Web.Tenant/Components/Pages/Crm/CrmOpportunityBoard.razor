@@ -39,16 +39,35 @@
             {
                 <div class="crm-kanban-column app-card">
                     <header class="crm-kanban-column-header">
-                        <h3>@CrmLabels.FormatOpportunityStage(stage)</h3>
+                        <div>
+                            <h3>@CrmLabels.FormatOpportunityStage(stage)</h3>
+                            <span>@VnMoney.Format(ColumnAmount(stage))</span>
+                        </div>
                         <span class="app-status-badge app-status-muted">@ColumnCount(stage)</span>
                     </header>
                     <div class="crm-kanban-cards">
+                        @if (!ItemsForStage(stage).Any())
+                        {
+                            <div class="crm-kanban-empty">
+                                <i class="fa-regular fa-folder-open"></i>
+                                <span>Chưa có cơ hội</span>
+                            </div>
+                        }
                         @foreach (var item in ItemsForStage(stage))
                         {
                             <div class="crm-kanban-card">
-                                <strong>@item.Name</strong>
-                                <p class="text-muted small mb-2">@VnMoney.Format(item.Amount) @item.Currency</p>
-                                <div class="d-flex flex-wrap gap-1">
+                                <button class="crm-kanban-title" type="button" @onclick="@(() => ViewDetailAsync(item.Id))">
+                                    @item.Name
+                                </button>
+                                <div class="crm-kanban-card-meta">
+                                    <span>@VnMoney.Format(item.Amount) @item.Currency</span>
+                                    <span>@item.Probability%</span>
+                                </div>
+                                <div class="crm-kanban-card-date">
+                                    <i class="fa-regular fa-calendar"></i>
+                                    <span>@(item.ExpectedCloseDate?.ToString("dd/MM/yyyy") ?? "Chưa có ngày chốt")</span>
+                                </div>
+                                <div class="crm-kanban-actions">
                                     @foreach (var targetStage in _stages.Where(s => s != stage))
                                     {
                                         <Button Size="Size.ExtraSmall" Color="Color.Light"
@@ -57,8 +76,6 @@
                                                 OnClick="@(() => ChangeStageAsync(item, targetStage))" />
                                     }
                                 </div>
-                                <Button Size="Size.ExtraSmall" Color="Color.Link" Text="Chi tiết"
-                                        OnClick="@(() => ViewDetailAsync(item.Id))" />
                             </div>
                         }
                     </div>

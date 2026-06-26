@@ -60,8 +60,8 @@ public sealed class EfCoreOpportunityRepository : EfCoreRepository<Opportunity, 
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(x => x.Name.Contains(term));
+            var term = search.Trim().ToLowerInvariant();
+            query = query.Where(x => x.Name.ToLower().Contains(term));
         }
 
         if (!string.IsNullOrWhiteSpace(stage)

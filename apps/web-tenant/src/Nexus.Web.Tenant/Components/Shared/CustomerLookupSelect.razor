@@ -1,26 +1,60 @@
 @inject CrmApiClient CrmApi
+@inject ToastService ToastService
 
 <AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
-    <Select TValue="string"
-            @bind-Value="SelectedCustomerId"
-            ShowLabel="false"
-            ShowSearch="true"
-            IsVirtualize="true"
-            IsPopover="true"
-            PlaceHolder="@PlaceHolder"
-            OnQueryAsync="QueryCustomersAsync"
-            DisplayTemplate="RenderSelectedCustomer">
-        <ItemTemplate Context="item">
-            <div class="lookup-item">
-                <strong>@item.Text</strong>
+    <div class="customer-lookup">
+        <Select TValue="string"
+                @bind-Value="SelectedCustomerId"
+                ShowLabel="false"
+                ShowSearch="true"
+                IsVirtualize="true"
+                IsPopover="true"
+                PlaceHolder="@PlaceHolder"
+                OnQueryAsync="QueryCustomersAsync"
+                DisplayTemplate="RenderSelectedCustomer">
+            <ItemTemplate Context="item">
+                <div class="lookup-item">
+                    <strong>@item.Text</strong>
+                </div>
+            </ItemTemplate>
+        </Select>
+        <Button Text="@(_showQuickCreate ? "Ẩn" : "Tạo nhanh")"
+                Icon="fa-solid fa-plus"
+                Color="Color.Light"
+                Size="Size.Small"
+                OnClick="ToggleQuickCreate" />
+    </div>
+
+    @if (_showQuickCreate)
+    {
+        <div class="customer-quick-create">
+            <div class="app-form-grid app-form-grid-compact">
+                <AppFormField Label="Mã KH" Required="true">
+                    <BootstrapInput @bind-Value="_quick.Code" ShowLabel="false" PlaceHolder="VD: KH001" />
+                </AppFormField>
+                <AppFormField Label="Tên KH" Required="true">
+                    <BootstrapInput @bind-Value="_quick.Name" ShowLabel="false" PlaceHolder="Tên khách hàng" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_quick.Email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_quick.Phone" ShowLabel="false" />
+                </AppFormField>
             </div>
-        </ItemTemplate>
-    </Select>
+            <div class="customer-quick-create-actions">
+                <Button Text="Huỷ" Color="Color.Secondary" Size="Size.Small" OnClick="CancelQuickCreate" />
+                <Button Text="Tạo và chọn" Color="Color.Primary" Size="Size.Small" IsAsync="true" OnClick="CreateCustomerAsync" />
+            </div>
+        </div>
+    }
 </AppFormField>
 
 @code {
     private readonly string _selectId = $"customer-lookup-{Guid.NewGuid():N}";
     private readonly Dictionary<string, string> _labels = new(StringComparer.Ordinal);
+    private bool _showQuickCreate;
+    private QuickCustomerModel _quick = new();
 
     [Parameter] public string Label { get; set; } = "Khách hàng";
     [Parameter] public bool Required { get; set; }
@@ -32,6 +66,50 @@
     {
         get => Value;
         set => _ = ValueChanged.InvokeAsync(value);
+    }
+
+    private void ToggleQuickCreate()
+    {
+        _showQuickCreate = !_showQuickCreate;
+        if (_showQuickCreate && string.IsNullOrWhiteSpace(_quick.Code))
+        {
+            _quick.Code = $"KH{DateTime.Now:MMddHHmm}";
+        }
+    }
+
+    private void CancelQuickCreate()
+    {
+        _showQuickCreate = false;
+        _quick = new QuickCustomerModel();
+    }
+
+    private async Task CreateCustomerAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_quick.Code) || string.IsNullOrWhiteSpace(_quick.Name))
+        {
+            await ToastService.Warning("Thiếu thông tin", "Vui lòng nhập mã và tên khách hàng.");
+            return;
+        }
+
+        var customer = await CrmApi.CreateCustomerAsync(new CreateCustomerRequest(
+            _quick.Code.Trim(),
+            _quick.Name.Trim(),
+            CustomerType.Company,
+            _quick.Email,
+            _quick.Phone));
+
+        if (customer is null)
+        {
+            return;
+        }
+
+        var id = customer.Id.ToString();
+        var label = $"{customer.Code} — {customer.Name}";
+        _labels[id] = label;
+        await ValueChanged.InvokeAsync(id);
+        _showQuickCreate = false;
+        _quick = new QuickCustomerModel();
+        await ToastService.Success("Thành công", "Đã tạo và chọn khách hàng.");
     }
 
     private async Task<QueryData<SelectedItem>> QueryCustomersAsync(VirtualizeQueryOption option)
@@ -66,4 +144,12 @@
 
     private RenderFragment<SelectedItem> RenderSelectedCustomer => item =>
     @<span class="lookup-selected">@(item?.Text ?? PlaceHolder)</span>;
+
+    private sealed class QuickCustomerModel
+    {
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+    }
 }

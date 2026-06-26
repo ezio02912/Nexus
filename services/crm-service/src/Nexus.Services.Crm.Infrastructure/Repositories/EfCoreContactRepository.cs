@@ -46,11 +46,11 @@ public sealed class EfCoreContactRepository : EfCoreRepository<Contact, Guid>, I
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
+            var term = search.Trim().ToLowerInvariant();
             query = query.Where(x =>
-                x.FullName.Contains(term)
-                || (x.Email != null && x.Email.Contains(term))
-                || (x.Phone != null && x.Phone.Contains(term)));
+                x.FullName.ToLower().Contains(term)
+                || (x.Email != null && x.Email.ToLower().Contains(term))
+                || (x.Phone != null && x.Phone.ToLower().Contains(term)));
         }
 
         return query;

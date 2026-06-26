@@ -59,8 +59,8 @@ masterData.MapGet("/items", async (
 
     if (!string.IsNullOrWhiteSpace(search))
     {
-        var term = search.Trim();
-        query = query.Where(x => x.Name.Contains(term) || x.Code.Contains(term));
+        var term = search.Trim().ToLowerInvariant();
+        query = query.Where(x => x.Name.ToLower().Contains(term) || x.Code.ToLower().Contains(term));
     }
 
     var total = await query.LongCountAsync(ct);

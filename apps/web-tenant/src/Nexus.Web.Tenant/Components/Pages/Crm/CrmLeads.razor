@@ -54,14 +54,36 @@
                         }
                     </RowButtonTemplate>
                     <TableColumns>
-                        <TableColumn @bind-Field="@context.FullName" Text="Họ tên" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.FullName" Text="Họ tên" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.FullName
+                                </button>
+                            </Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.CompanyName" Text="Công ty" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Title" Text="Chức danh" />
                         <TableColumn @bind-Field="@context.Email" Text="Email" />
                         <TableColumn @bind-Field="@context.Phone" Text="Điện thoại" />
                         <TableColumn @bind-Field="@context.Source" Text="Nguồn" />
                         <TableColumn @bind-Field="@context.LeadScore" Text="Điểm" Sortable="true" />
                         <TableColumn @bind-Field="@context.Rating" Text="Xếp hạng">
                             <Template Context="v">@(v.Row.Rating.HasValue ? CrmLabels.FormatLeadRating(v.Row.Rating.Value) : "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.City" Text="Thành phố" />
+                        <TableColumn @bind-Field="@context.ConvertedCustomerId" Text="KH chuyển đổi">
+                            <Template Context="v">
+                                @if (v.Row.ConvertedCustomerId.HasValue)
+                                {
+                                    <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewCustomerDetail(v.Row.ConvertedCustomerId.Value))">
+                                        Mở khách hàng
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
                             <Template Context="v">

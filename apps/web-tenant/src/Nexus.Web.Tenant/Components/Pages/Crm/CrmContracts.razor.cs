@@ -8,6 +8,7 @@ public partial class CrmContracts
     private Modal? _editModal;
     private ContractFormModel _model = new();
     private string _customerIdText = "";
+    private string? _contactIdText;
     private List<SelectedItem> _customerOptions = [];
     private Dictionary<Guid, string> _customerNames = [];
 
@@ -29,6 +30,10 @@ public partial class CrmContracts
 
     private string CustomerName(Guid customerId) =>
         _customerNames.TryGetValue(customerId, out var name) ? name : customerId.ToString();
+
+    private void ViewCustomerDetail(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
+    private void ViewOpportunityDetail(Guid id) => Navigation.NavigateTo($"crm/opportunities/{id}");
+    private void ViewQuotationDetail(Guid id) => Navigation.NavigateTo($"crm/quotations/{id}");
 
     private async Task<QueryData<ContractDto>> OnQueryAsync(QueryPageOptions options)
     {
@@ -58,6 +63,7 @@ public partial class CrmContracts
             ContractValue = 0
         };
         _customerIdText = _customerOptions.FirstOrDefault()?.Value ?? "";
+        _contactIdText = null;
         return _editModal!.Show();
     }
 
@@ -75,9 +81,10 @@ public partial class CrmContracts
 
         try
         {
+            Guid? contactId = Guid.TryParse(_contactIdText, out var parsedContactId) ? parsedContactId : null;
             await CrmApi.CreateContractAsync(new CreateContractRequest(
                 customerId, _model.ContractNo.Trim(), _model.Title.Trim(),
-                null, null, null, _model.ContractValue, null, []));
+                null, null, contactId, _model.ContractValue, null, []));
             await ToastService.Success("Thành công", "Đã tạo hợp đồng.");
             await _editModal!.Close();
             await ReloadTableAsync();

@@ -33,6 +33,8 @@ public partial class CrmContacts
     private string CustomerName(Guid customerId) =>
         _customerNames.TryGetValue(customerId, out var name) ? name : customerId.ToString();
 
+    private void ViewCustomerDetail(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
+
     private async Task<QueryData<ContactDto>> OnQueryAsync(QueryPageOptions options)
     {
         try

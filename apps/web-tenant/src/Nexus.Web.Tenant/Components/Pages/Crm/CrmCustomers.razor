@@ -54,14 +54,32 @@
                         }
                     </RowButtonTemplate>
                     <TableColumns>
-                        <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true" />
-                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.Code
+                                </button>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.Name
+                                </button>
+                            </Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.CustomerType" Text="Loại">
                             <Template Context="v">@CrmLabels.FormatCustomerType(v.Row.CustomerType)</Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.Email" Text="Email" Searchable="true" />
                         <TableColumn @bind-Field="@context.Phone" Text="Điện thoại" />
+                        <TableColumn @bind-Field="@context.TaxCode" Text="MST" />
+                        <TableColumn @bind-Field="@context.Website" Text="Website" />
                         <TableColumn @bind-Field="@context.Industry" Text="Ngành" />
+                        <TableColumn @bind-Field="@context.Source" Text="Nguồn" />
+                        <TableColumn @bind-Field="@context.Rating" Text="Xếp hạng">
+                            <Template Context="v">@(v.Row.Rating.HasValue ? CrmLabels.FormatLeadRating(v.Row.Rating.Value) : "—")</Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.City" Text="Thành phố" />
                         <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
                             <Template Context="v">

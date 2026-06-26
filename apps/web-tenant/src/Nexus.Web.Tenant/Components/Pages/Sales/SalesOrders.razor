@@ -3,6 +3,7 @@
 @inject TenantPortalApiClient Api
 @inject CrmApiClient CrmApi
 @inject TenantSessionService Session
+@inject NavigationManager Navigation
 
 <PageTitle>Đơn hàng - Bán hàng</PageTitle>
 
@@ -30,43 +31,36 @@
         <div class="tenant-work-grid">
             <section class="app-card">
                 <h2>Tạo đơn hàng</h2>
+                @if (!string.IsNullOrWhiteSpace(sourceNo))
+                {
+                    <div class="app-alert app-alert-compact">Đang tạo đơn hàng từ @sourceTypeText: @sourceNo</div>
+                }
                 <div class="app-form-grid">
-                    <div>
-                        <label>Khách hàng *</label>
-                        <select class="form-select" @bind="customerIdText">
-                            <option value="">Chọn khách hàng</option>
-                            @foreach (var customer in customers)
-                            {
-                                <option value="@customer.Id">@CustomerOption(customer)</option>
-                            }
-                        </select>
-                    </div>
-                    <div>
-                        <label>Số đơn *</label>
-                        <input class="form-control" @bind="orderNo" />
-                    </div>
-                    <div>
-                        <label>Mã hàng</label>
-                        <input class="form-control" @bind="productCode" />
-                    </div>
-                    <div>
-                        <label>Mô tả</label>
-                        <input class="form-control" @bind="description" />
-                    </div>
-                    <div>
-                        <label>Số lượng</label>
-                        <input class="form-control" type="number" @bind="quantity" />
-                    </div>
-                    <div>
-                        <label>Đơn giá</label>
-                        <input class="form-control" type="number" @bind="unitPrice" />
-                    </div>
+                    <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="customerIdText" />
+                    <AppFormField Label="Số đơn" Required="true">
+                        <BootstrapInput @bind-Value="orderNo" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Mã hàng">
+                        <BootstrapInput @bind-Value="productCode" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Mô tả">
+                        <BootstrapInput @bind-Value="description" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Số lượng">
+                        <BootstrapInputNumber @bind-Value="quantity" ShowLabel="false" />
+                    </AppFormField>
+                    <AppMoneyInput Label="Đơn giá" @bind-Value="unitPrice" DecimalPlaces="0" />
                 </div>
                 <Button Text="Tạo đơn hàng" Color="Color.Primary" OnClick="CreateAsync" />
             </section>
 
             <section class="app-card app-card-wide">
                 <h2>Danh sách đơn hàng</h2>
+                <div class="app-list-toolbar">
+                    <BootstrapInput @bind-Value="searchText" ShowLabel="false" PlaceHolder="Tìm số đơn, nguồn, trạng thái, mã hàng..." />
+                    <Button Text="Tìm" Color="Color.Primary" IsAsync="true" OnClick="LoadAsync" />
+                    <Button Text="Xoá lọc" Color="Color.Secondary" IsAsync="true" OnClick="ClearSearchAsync" />
+                </div>
                 @if (isLoading)
                 {
                     <div class="app-loading">Đang tải đơn hàng...</div>
@@ -78,12 +72,24 @@
                 else
                 {
                     <table class="app-table">
-                        <thead><tr><th>Số đơn</th><th>Khách hàng</th><th>Trạng thái</th><th>Tổng tiền</th><th>Dòng hàng</th><th></th></tr></thead>
+                        <thead><tr><th>Số đơn</th><th>Nguồn</th><th>Khách hàng</th><th>Trạng thái</th><th>Tổng tiền</th><th>Dòng hàng</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var order in orders)
                             {
                                 <tr>
                                     <td>@order.OrderNo</td>
+                                    <td>
+                                        @if (order.SourceId.HasValue && !string.IsNullOrWhiteSpace(order.SourceType))
+                                        {
+                                            <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => OpenSource(order))">
+                                                @(order.SourceNo ?? SourceTypeText(order.SourceType))
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
                                     <td>@CustomerText(order.CustomerId)</td>
                                     <td><span class="@StatusCss(order.Status)">@order.Status</span></td>
                                     <td>@order.TotalAmount.ToString("N2")</td>
@@ -112,10 +118,21 @@
     private string orderNo = "SO-0001";
     private string productCode = "SKU-001";
     private string description = "Hàng mẫu";
+    private string? searchText;
     private decimal quantity = 1;
     private decimal unitPrice = 100;
     private string message = "";
     private string messageCss = "app-alert";
+    private string sourceType = "";
+    private Guid? sourceId;
+    private string sourceNo = "";
+    private bool prefillApplied;
+    private string sourceTypeText => sourceType switch
+    {
+        "quotation" => "báo giá",
+        "contract" => "hợp đồng",
+        _ => "chứng từ"
+    };
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -127,8 +144,9 @@
         }
 
         isLoading = true;
-        orders = (await Api.GetSalesOrdersAsync(tenantId))?.Items.ToList() ?? [];
+        orders = (await Api.GetSalesOrdersAsync(tenantId, searchText))?.Items.ToList() ?? [];
         customers = (await CrmApi.GetCustomersAsync(new CustomerListQuery { MaxResultCount = 500 }))?.Items.ToList() ?? [];
+        ApplyPrefillFromQuery();
         isLoading = false;
     }
 
@@ -141,9 +159,89 @@
         }
 
         var lines = new[] { new CreateSalesOrderLineRequest(productCode, description, quantity, unitPrice) };
-        await Api.CreateSalesOrderAsync(new CreateSalesOrderRequest(tenantId, customerId, orderNo, lines));
+        await Api.CreateSalesOrderAsync(new CreateSalesOrderRequest(tenantId, customerId, orderNo, sourceType, sourceId, sourceNo, lines));
         ShowSuccess("Đã tạo đơn bán hàng.");
+        sourceType = "";
+        sourceId = null;
+        sourceNo = "";
         await LoadAsync();
+    }
+
+    private void ApplyPrefillFromQuery()
+    {
+        if (prefillApplied)
+        {
+            return;
+        }
+
+        var query = ParseQuery(Navigation.ToAbsoluteUri(Navigation.Uri).Query);
+        if (query.Count == 0)
+        {
+            return;
+        }
+
+        prefillApplied = true;
+
+        if (query.TryGetValue("customerId", out var customerId) && Guid.TryParse(customerId, out _))
+        {
+            customerIdText = customerId;
+        }
+
+        if (query.TryGetValue("sourceType", out var sourceTypeValue))
+        {
+            sourceType = sourceTypeValue;
+        }
+
+        if (query.TryGetValue("sourceId", out var sourceIdValue) && Guid.TryParse(sourceIdValue, out var parsedSourceId))
+        {
+            sourceId = parsedSourceId;
+        }
+
+        if (query.TryGetValue("sourceNo", out var sourceNoValue))
+        {
+            sourceNo = sourceNoValue;
+            orderNo = $"SO-{sourceNoValue}".Replace("/", "-").Replace(" ", "-").ToUpperInvariant();
+        }
+
+        if (query.TryGetValue("productCode", out var productCodeValue))
+        {
+            productCode = productCodeValue;
+        }
+
+        if (query.TryGetValue("description", out var descriptionValue))
+        {
+            description = descriptionValue;
+        }
+
+        if (query.TryGetValue("quantity", out var quantityValue) && decimal.TryParse(quantityValue, out var parsedQuantity))
+        {
+            quantity = parsedQuantity;
+        }
+
+        if (query.TryGetValue("unitPrice", out var unitPriceValue) && decimal.TryParse(unitPriceValue, out var parsedUnitPrice))
+        {
+            unitPrice = parsedUnitPrice;
+        }
+    }
+
+    private static Dictionary<string, string> ParseQuery(string query)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return result;
+        }
+
+        foreach (var part in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pair = part.Split('=', 2);
+            if (pair.Length == 2)
+            {
+                result[Uri.UnescapeDataString(pair[0])] = Uri.UnescapeDataString(pair[1].Replace("+", " "));
+            }
+        }
+
+        return result;
     }
 
     private async Task ApproveAsync(Guid id)
@@ -160,6 +258,12 @@
         await LoadAsync();
     }
 
+    private async Task ClearSearchAsync()
+    {
+        searchText = null;
+        await LoadAsync();
+    }
+
     private static string LinesText(SalesOrderRecord order)
     {
         if (order.Lines is null || order.Lines.Count == 0)
@@ -171,6 +275,32 @@
     }
 
     private static string CustomerOption(CustomerDto customer) => $"{customer.Code} - {customer.Name}";
+
+    private void OpenSource(SalesOrderRecord order)
+    {
+        if (!order.SourceId.HasValue || string.IsNullOrWhiteSpace(order.SourceType))
+        {
+            return;
+        }
+
+        var route = order.SourceType.Equals("contract", StringComparison.OrdinalIgnoreCase)
+            ? $"crm/contracts/{order.SourceId.Value}"
+            : order.SourceType.Equals("quotation", StringComparison.OrdinalIgnoreCase)
+                ? $"crm/quotations/{order.SourceId.Value}"
+                : "";
+
+        if (!string.IsNullOrWhiteSpace(route))
+        {
+            Navigation.NavigateTo(route);
+        }
+    }
+
+    private static string SourceTypeText(string? value) => value switch
+    {
+        "quotation" => "Báo giá",
+        "contract" => "Hợp đồng",
+        _ => "Nguồn"
+    };
 
     private string CustomerText(Guid customerId)
     {

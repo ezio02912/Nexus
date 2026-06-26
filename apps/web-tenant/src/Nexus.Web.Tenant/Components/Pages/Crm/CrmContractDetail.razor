@@ -16,6 +16,10 @@
             {
                 <Button Text="Ký" Color="Color.Success" Icon="fa-solid fa-signature" IsAsync="true" OnClick="SignAsync" />
                 <Button Text="Kích hoạt" Color="Color.Primary" Icon="fa-solid fa-play" IsAsync="true" OnClick="ActivateAsync" />
+                @if (Session.HasModule("SALES"))
+                {
+                    <Button Text="Tạo đơn hàng" Color="Color.Info" Icon="fa-solid fa-cart-shopping" OnClick="GoToSalesOrder" />
+                }
                 <Button Text="Chấm dứt" Color="Color.Danger" Icon="fa-solid fa-ban" IsAsync="true" OnClick="TerminateAsync" />
             }
             <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
@@ -45,8 +49,39 @@
                 <div><span class="app-detail-label">Ngày ký</span><span>@(_item.SignedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</span></div>
                 <div><span class="app-detail-label">Bắt đầu</span><span>@(_item.StartDate?.ToString("dd/MM/yyyy") ?? "—")</span></div>
                 <div><span class="app-detail-label">Kết thúc</span><span>@(_item.EndDate?.ToString("dd/MM/yyyy") ?? "—")</span></div>
+                <div><span class="app-detail-label">Gia hạn</span><span>@(_item.RenewalDate?.ToString("dd/MM/yyyy") ?? "—")</span></div>
+                <div><span class="app-detail-label">Điều khoản TT</span><span>@(_item.PaymentTerms ?? "—")</span></div>
+                <div><span class="app-detail-label">File</span><span>@(_item.FileId.HasValue ? _item.FileId.Value.ToString("N")[..8] : "—")</span></div>
+                <div><span class="app-detail-label">Ngày tạo</span><span>@_item.CreationTime.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span></div>
             </div>
         </section>
+
+        <div class="crm-related-grid mb-3">
+            @if (_customer is not null)
+            {
+                <button class="app-card crm-related-summary" type="button" @onclick="@(() => OpenCustomer(_customer.Id))">
+                    <span class="app-detail-label">Khách hàng</span>
+                    <strong>@_customer.Code - @_customer.Name</strong>
+                    <span>@(_customer.Email ?? _customer.Phone ?? "Mở chi tiết khách hàng")</span>
+                </button>
+            }
+            @if (_opportunity is not null)
+            {
+                <button class="app-card crm-related-summary" type="button" @onclick="@(() => OpenOpportunity(_opportunity.Id))">
+                    <span class="app-detail-label">Cơ hội</span>
+                    <strong>@_opportunity.Name</strong>
+                    <span>@VnMoney.Format(_opportunity.Amount) @_opportunity.Currency / @CrmLabels.FormatOpportunityStage(_opportunity.Stage)</span>
+                </button>
+            }
+            @if (_quotation is not null)
+            {
+                <button class="app-card crm-related-summary" type="button" @onclick="@(() => OpenQuotation(_quotation.Id))">
+                    <span class="app-detail-label">Báo giá</span>
+                    <strong>@_quotation.QuotationNo</strong>
+                    <span>@VnMoney.Format(_quotation.TotalAmount) @_quotation.Currency / @CrmLabels.FormatQuotationStatus(_quotation.Status)</span>
+                </button>
+            }
+        </div>
 
         <Card HeaderText="Chi tiết dòng hàng" IsShadow="true">
             <BodyTemplate>

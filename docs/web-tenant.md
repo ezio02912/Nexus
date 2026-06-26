@@ -51,3 +51,31 @@ Constraint: one email can register one tenant.
 
 - Uses BootstrapBlazor from `external/bootstrap-blazor`.
 - Tenant style follows Ocean Enterprise SaaS rules in `.cursor/rules/ui-bootstrapblazor-saas-rule.mdc`.
+
+## CRM UX Requirements
+
+web-tenant CRM must feel like a complete workspace, not separated demo screens.
+
+- Tables show full important columns for each service DTO and support search/filter/sort/pagination.
+- Search behavior is `lowercase + trim + contains`.
+- Entity code/name cells open detail pages when available.
+- Lead detail links to converted customer and opportunity.
+- Customer detail links to contacts, opportunities, quotations, contracts and activities.
+- Opportunity detail links to customer, source lead, quotations and contracts.
+- Quotation detail links to customer, opportunity and generated contract/sales order when available.
+- Contract detail links to customer, opportunity, quotation and later invoice.
+- Create/edit flows support quick-create for related entities when the current workflow would otherwise block the user.
+- Customer lookup supports quick-create in related forms.
+- Contact lookup supports quick-create after a customer is selected in Quotation and Contract forms.
+- Opportunity detail can create a linked quotation.
+- Quotation detail can create a linked contract and copy quotation lines.
+
+## Kanban Requirements
+
+Opportunity Kanban must include:
+
+- Stage columns with count and value summary.
+- Cards with title, customer, amount, probability, owner/close date where available.
+- Clear action to open detail.
+- Empty state per stage.
+- Responsive horizontal scroll and polished hover/focus styling.

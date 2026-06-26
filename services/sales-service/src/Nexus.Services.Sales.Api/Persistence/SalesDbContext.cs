@@ -15,12 +15,24 @@ public sealed class SalesOrder : NexusEntity<Guid>
         Status = string.Empty;
     }
 
-    public SalesOrder(Guid id, Guid tenantId, Guid customerId, string orderNo, IEnumerable<SalesOrderLineDraft> lines, DateTimeOffset createdAt)
+    public SalesOrder(
+        Guid id,
+        Guid tenantId,
+        Guid customerId,
+        string orderNo,
+        string? sourceType,
+        Guid? sourceId,
+        string? sourceNo,
+        IEnumerable<SalesOrderLineDraft> lines,
+        DateTimeOffset createdAt)
     {
         Id = id;
         TenantId = tenantId;
         CustomerId = customerId;
         OrderNo = orderNo.Trim().ToUpperInvariant();
+        SourceType = NormalizeOptional(sourceType, 32);
+        SourceId = sourceId;
+        SourceNo = NormalizeOptional(sourceNo, 64);
         Status = "Draft";
         CreatedAt = createdAt;
 
@@ -35,6 +47,9 @@ public sealed class SalesOrder : NexusEntity<Guid>
     public Guid TenantId { get; private set; }
     public Guid CustomerId { get; private set; }
     public string OrderNo { get; private set; }
+    public string? SourceType { get; private set; }
+    public Guid? SourceId { get; private set; }
+    public string? SourceNo { get; private set; }
     public string Status { get; private set; }
     public decimal TotalAmount { get; private set; }
     public IReadOnlyCollection<SalesOrderLine> Lines => _lines.AsReadOnly();
@@ -52,6 +67,17 @@ public sealed class SalesOrder : NexusEntity<Guid>
     {
         Status = "Completed";
         CompletedAt = now;
+    }
+
+    private static string? NormalizeOptional(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 }
 
@@ -100,10 +126,13 @@ public sealed class SalesDbContext : NexusDbContext
             builder.ToTable("sales_orders");
             builder.HasKey(x => x.Id);
             builder.Property(x => x.OrderNo).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.SourceType).HasMaxLength(32);
+            builder.Property(x => x.SourceNo).HasMaxLength(64);
             builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
             builder.Property(x => x.TotalAmount).HasPrecision(18, 2);
             builder.HasIndex(x => new { x.TenantId, x.OrderNo }).IsUnique();
             builder.HasIndex(x => new { x.TenantId, x.CustomerId });
+            builder.HasIndex(x => new { x.TenantId, x.SourceType, x.SourceId });
 
             var linesNavigation = builder.Metadata.FindNavigation(nameof(SalesOrder.Lines))!;
             linesNavigation.SetPropertyAccessMode(PropertyAccessMode.Field);

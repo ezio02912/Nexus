@@ -69,3 +69,15 @@ Mọi endpoint yêu cầu `[Authorize]` và permission `Nexus.Crm.*`.
 
 - Menu CRM: Dashboard, Khách hàng, Liên hệ, Leads, Cơ hội, Kanban, Báo giá, Hợp đồng, Hoạt động
 - Client: `apps/web-tenant/.../Services/CrmApiClient.cs`
+
+## UX Completion Checklist
+
+- Leads table/detail phải hiển thị và cho sửa các field chính: full name, company, title, email, phone, source, score, rating, status, owner, converted customer/opportunity, lost reason, address, audit dates.
+- Customers table/detail phải có code, name, type, email, phone, tax code, website, industry, full address, owner, rating, source, status và related contacts/opportunities/quotations/contracts/activities.
+- Opportunities table/detail/Kanban phải có customer/lead/contact link, name, stage, amount, probability, currency, expected/actual close date, next step, source, owner, reason fields.
+- Quotations và Contracts phải có header + lines, status workflow, amount fields, customer/opportunity/contact links và source document trace.
+- Search của tất cả list CRM phải dùng `lowercase + trim + contains`.
+- Kanban phải có stage count, value summary, card metadata, empty state, detail action và chuyển stage rõ ràng.
+- Opportunity detail phải tạo nhanh được Quotation với link `OpportunityId`.
+- Quotation detail phải tạo nhanh được Contract với link `QuotationId` và copy lines từ báo giá.
+- Quotation/Contract create forms phải chọn hoặc tạo nhanh được Contact theo Customer đã chọn.

@@ -9,6 +9,9 @@ public partial class CrmLeadDetail
 
     private bool _loading;
     private LeadDto? _lead;
+    private CustomerDto? _convertedCustomer;
+    private OpportunityDto? _convertedOpportunity;
+    private IReadOnlyList<ActivityDto> _activities = [];
     private Modal? _convertModal;
     private ConvertFormModel _convertModel = new();
     private string _customerTypeText = CustomerType.Company.ToString();
@@ -22,6 +25,28 @@ public partial class CrmLeadDetail
         try
         {
             _lead = await CrmApi.GetLeadAsync(Id);
+            _convertedCustomer = null;
+            _convertedOpportunity = null;
+            _activities = [];
+            if (_lead is not null)
+            {
+                if (_lead.ConvertedCustomerId.HasValue)
+                {
+                    _convertedCustomer = await CrmApi.GetCustomerAsync(_lead.ConvertedCustomerId.Value);
+                }
+
+                if (_lead.ConvertedOpportunityId.HasValue)
+                {
+                    _convertedOpportunity = await CrmApi.GetOpportunityAsync(_lead.ConvertedOpportunityId.Value);
+                }
+
+                _activities = (await CrmApi.GetActivitiesAsync(new ActivityListQuery
+                {
+                    RelatedEntityType = CrmRelatedEntityType.Lead,
+                    RelatedEntityId = Id,
+                    MaxResultCount = 20
+                }))?.Items ?? [];
+            }
         }
         catch (Exception ex)
         {
@@ -87,6 +112,8 @@ public partial class CrmLeadDetail
     }
 
     private void GoBack() => Navigation.NavigateTo("crm/leads");
+    private void OpenCustomer(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
+    private void OpenOpportunity(Guid id) => Navigation.NavigateTo($"crm/opportunities/{id}");
 
     private static string BuildDefaultCustomerCode(string fullName)
     {

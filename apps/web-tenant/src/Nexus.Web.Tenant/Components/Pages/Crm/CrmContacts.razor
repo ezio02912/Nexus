@@ -54,18 +54,29 @@
                     <TableColumns>
                         <TableColumn @bind-Field="@context.FullName" Text="Họ tên" Sortable="true" Searchable="true" />
                         <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
-                            <Template Context="v">@CustomerName(v.Row.CustomerId)</Template>
+                            <Template Context="v">
+                                <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewCustomerDetail(v.Row.CustomerId))">
+                                    @CustomerName(v.Row.CustomerId)
+                                </button>
+                            </Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.Email" Text="Email" Searchable="true" />
                         <TableColumn @bind-Field="@context.Phone" Text="Điện thoại" />
                         <TableColumn @bind-Field="@context.Mobile" Text="Di động" />
                         <TableColumn @bind-Field="@context.Position" Text="Chức vụ" />
                         <TableColumn @bind-Field="@context.Department" Text="Phòng ban" />
+                        <TableColumn @bind-Field="@context.LinkedInUrl" Text="LinkedIn" />
+                        <TableColumn @bind-Field="@context.OwnerId" Text="Owner">
+                            <Template Context="v">@(v.Row.OwnerId.HasValue ? v.Row.OwnerId.Value.ToString("N")[..8] : "—")</Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.IsPrimary" Text="Chính">
                             <Template Context="v">@(v.Row.IsPrimary ? "Có" : "Không")</Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.IsDecisionMaker" Text="Ra quyết định">
                             <Template Context="v">@(v.Row.IsDecisionMaker ? "Có" : "Không")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
                         </TableColumn>
                     </TableColumns>
                 </Table>

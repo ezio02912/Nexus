@@ -98,10 +98,10 @@ public sealed class EfCoreContractRepository : EfCoreRepository<Contract, Guid>,
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
+            var term = search.Trim().ToLowerInvariant();
             query = query.Where(x =>
-                x.ContractNo.Contains(term)
-                || x.Title.Contains(term));
+                x.ContractNo.ToLower().Contains(term)
+                || x.Title.ToLower().Contains(term));
         }
 
         if (!string.IsNullOrWhiteSpace(status)

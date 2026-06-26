@@ -46,9 +46,10 @@ public sealed class TenantAppService : NexusAppServiceBase, ITenantAppService
         var items = await _tenantRepository.GetListAsync(input.SkipCount, input.MaxResultCount, input.Sorting, cancellationToken);
         if (!string.IsNullOrWhiteSpace(input.FilterText))
         {
+            var term = input.FilterText.Trim().ToLowerInvariant();
             items = items
-                .Where(x => x.Code.Contains(input.FilterText, StringComparison.OrdinalIgnoreCase) ||
-                            x.Name.Contains(input.FilterText, StringComparison.OrdinalIgnoreCase))
+                .Where(x => x.Code.ToLowerInvariant().Contains(term) ||
+                            x.Name.ToLowerInvariant().Contains(term))
                 .ToArray();
         }
 

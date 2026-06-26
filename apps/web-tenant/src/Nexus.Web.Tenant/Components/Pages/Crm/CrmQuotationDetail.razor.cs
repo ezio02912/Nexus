@@ -1,3 +1,4 @@
+using BootstrapBlazor.Components;
 using Microsoft.AspNetCore.Components;
 
 namespace Nexus.Web.Tenant.Components.Pages.Crm;
@@ -8,6 +9,11 @@ public partial class CrmQuotationDetail
 
     private bool _loading;
     private QuotationDto? _item;
+    private CustomerDto? _customer;
+    private OpportunityDto? _opportunity;
+    private IReadOnlyList<ContractDto> _contracts = [];
+    private Modal? _contractModal;
+    private QuickContractModel _contractModel = new();
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -17,6 +23,23 @@ public partial class CrmQuotationDetail
         try
         {
             _item = await CrmApi.GetQuotationAsync(Id);
+            _customer = null;
+            _opportunity = null;
+            _contracts = [];
+            if (_item is not null)
+            {
+                _customer = await CrmApi.GetCustomerAsync(_item.CustomerId);
+                if (_item.OpportunityId.HasValue)
+                {
+                    _opportunity = await CrmApi.GetOpportunityAsync(_item.OpportunityId.Value);
+                }
+
+                _contracts = (await CrmApi.GetContractsAsync(new ContractListQuery
+                {
+                    CustomerId = _item.CustomerId,
+                    MaxResultCount = 50
+                }))?.Items.Where(x => x.QuotationId == Id).ToArray() ?? [];
+            }
         }
         catch (Exception ex)
         {
@@ -68,4 +91,104 @@ public partial class CrmQuotationDetail
     }
 
     private void GoBack() => Navigation.NavigateTo("crm/quotations");
+    private void OpenCustomer(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
+    private void OpenOpportunity(Guid id) => Navigation.NavigateTo($"crm/opportunities/{id}");
+    private void OpenContract(Guid id) => Navigation.NavigateTo($"crm/contracts/{id}");
+
+    private void GoToSalesOrder()
+    {
+        if (_item is null)
+        {
+            return;
+        }
+
+        var line = _item.Lines.FirstOrDefault();
+        var productCode = line?.ProductCode ?? "SKU-001";
+        var description = line?.ProductName ?? _item.Subject ?? _item.QuotationNo;
+        var quantity = line?.Quantity ?? 1;
+        var unitPrice = line?.UnitPrice ?? _item.TotalAmount;
+        Navigation.NavigateTo(
+            "sales/orders"
+            + $"?customerId={_item.CustomerId}"
+            + $"&sourceType=quotation"
+            + $"&sourceId={_item.Id}"
+            + $"&sourceNo={Uri.EscapeDataString(_item.QuotationNo)}"
+            + $"&productCode={Uri.EscapeDataString(productCode)}"
+            + $"&description={Uri.EscapeDataString(description)}"
+            + $"&quantity={quantity}"
+            + $"&unitPrice={unitPrice}");
+    }
+
+    private Task ShowCreateContractAsync()
+    {
+        if (_item is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _contractModel = new QuickContractModel
+        {
+            Title = string.IsNullOrWhiteSpace(_item.Subject) ? $"Hợp đồng - {_item.QuotationNo}" : _item.Subject,
+            ContractValue = _item.TotalAmount
+        };
+        return _contractModal!.Show();
+    }
+
+    private Task CloseContractModalAsync() => _contractModal!.Close();
+
+    private async Task CreateContractAsync()
+    {
+        if (_item is null || string.IsNullOrWhiteSpace(_contractModel.Title))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập tiêu đề hợp đồng."));
+            return;
+        }
+
+        try
+        {
+            var lines = _item.Lines.Select(line => new CreateContractLineRequest(
+                line.LineNo,
+                line.ProductCode,
+                line.ProductName,
+                line.Description,
+                line.Quantity,
+                line.Unit,
+                line.UnitPrice,
+                line.DiscountPercent,
+                line.TaxPercent,
+                line.SortOrder)).ToArray();
+
+            var contract = await CrmApi.CreateContractAsync(new CreateContractRequest(
+                _item.CustomerId,
+                "AUTO",
+                _contractModel.Title.Trim(),
+                _item.Id,
+                _item.OpportunityId,
+                _item.ContactId,
+                _contractModel.ContractValue,
+                null,
+                lines));
+
+            await _contractModal!.Close();
+            await ToastService.Success("Thành công", "Đã tạo hợp đồng từ báo giá.");
+            if (contract is not null)
+            {
+                Navigation.NavigateTo($"crm/contracts/{contract.Id}");
+            }
+            else
+            {
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private sealed class QuickContractModel
+    {
+        public string Title { get; set; } = "";
+        public decimal ContractValue { get; set; }
+    }
 }

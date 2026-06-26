@@ -55,9 +55,40 @@
                         }
                     </RowButtonTemplate>
                     <TableColumns>
-                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.Name
+                                </button>
+                            </Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
-                            <Template Context="v">@CustomerName(v.Row.CustomerId)</Template>
+                            <Template Context="v">
+                                @if (v.Row.CustomerId.HasValue)
+                                {
+                                    <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewCustomerDetail(v.Row.CustomerId.Value))">
+                                        @CustomerName(v.Row.CustomerId)
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.LeadId" Text="Lead nguồn">
+                            <Template Context="v">
+                                @if (v.Row.LeadId.HasValue)
+                                {
+                                    <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewLeadDetail(v.Row.LeadId.Value))">
+                                        Mở lead
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.Stage" Text="Giai đoạn" Sortable="true">
                             <Template Context="v">
@@ -72,6 +103,10 @@
                             <Template Context="v">@(v.Row.ExpectedCloseDate?.ToString("dd/MM/yyyy") ?? "—")</Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.NextStep" Text="Bước tiếp theo" />
+                        <TableColumn @bind-Field="@context.NextStepDate" Text="Ngày bước tiếp">
+                            <Template Context="v">@(v.Row.NextStepDate?.ToString("dd/MM/yyyy") ?? "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Source" Text="Nguồn" />
                         <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
                             <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
                         </TableColumn>

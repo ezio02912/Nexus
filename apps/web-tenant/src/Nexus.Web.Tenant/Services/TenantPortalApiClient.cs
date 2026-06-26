@@ -96,7 +96,16 @@ public sealed class TenantPortalApiClient
     public Task<IReadOnlyList<string>?> GetPermissionCatalogAsync() => GetAsync<IReadOnlyList<string>>(_options.Permission, "/api/permissions");
     public Task<RolePermissionDto?> GetRolePermissionsAsync(string roleName) => GetAsync<RolePermissionDto>(_options.Permission, $"/api/roles/{Uri.EscapeDataString(roleName)}/permissions");
     public Task<RolePermissionDto?> UpdateRolePermissionsAsync(string roleName, UpdateRolePermissionsRequest request) => PutAsync<RolePermissionDto>(_options.Permission, $"/api/roles/{Uri.EscapeDataString(roleName)}/permissions", request);
-    public Task<PagedResult<SalesOrderRecord>?> GetSalesOrdersAsync(Guid tenantId) => GetAsync<PagedResult<SalesOrderRecord>>(_options.Sales, $"/api/sales/orders?tenantId={tenantId}");
+    public Task<PagedResult<SalesOrderRecord>?> GetSalesOrdersAsync(Guid tenantId, string? search = null)
+    {
+        var path = $"/api/sales/orders?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            path += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        return GetAsync<PagedResult<SalesOrderRecord>>(_options.Sales, path);
+    }
     public Task<SalesOrderRecord?> CreateSalesOrderAsync(CreateSalesOrderRequest request) => PostAsync<SalesOrderRecord>(_options.Sales, "/api/sales/orders", request);
     public Task<SalesOrderRecord?> ApproveSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/approve", new { });
     public Task<SalesOrderRecord?> CompleteSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/complete", new { });

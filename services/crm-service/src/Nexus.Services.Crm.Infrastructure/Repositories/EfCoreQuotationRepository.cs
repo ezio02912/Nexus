@@ -91,10 +91,10 @@ public sealed class EfCoreQuotationRepository : EfCoreRepository<Quotation, Guid
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
+            var term = search.Trim().ToLowerInvariant();
             query = query.Where(x =>
-                x.QuotationNo.Contains(term)
-                || (x.Subject != null && x.Subject.Contains(term)));
+                x.QuotationNo.ToLower().Contains(term)
+                || (x.Subject != null && x.Subject.ToLower().Contains(term)));
         }
 
         if (!string.IsNullOrWhiteSpace(status)

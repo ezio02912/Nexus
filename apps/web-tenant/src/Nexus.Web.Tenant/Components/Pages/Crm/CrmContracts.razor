@@ -55,10 +55,54 @@
                         }
                     </RowButtonTemplate>
                     <TableColumns>
-                        <TableColumn @bind-Field="@context.ContractNo" Text="Số HĐ" Sortable="true" Searchable="true" />
-                        <TableColumn @bind-Field="@context.Title" Text="Tiêu đề" Searchable="true" />
+                        <TableColumn @bind-Field="@context.ContractNo" Text="Số HĐ" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.ContractNo
+                                </button>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Title" Text="Tiêu đề" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.Title
+                                </button>
+                            </Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
-                            <Template Context="v">@CustomerName(v.Row.CustomerId)</Template>
+                            <Template Context="v">
+                                <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewCustomerDetail(v.Row.CustomerId))">
+                                    @CustomerName(v.Row.CustomerId)
+                                </button>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.OpportunityId" Text="Cơ hội">
+                            <Template Context="v">
+                                @if (v.Row.OpportunityId.HasValue)
+                                {
+                                    <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewOpportunityDetail(v.Row.OpportunityId.Value))">
+                                        Mở cơ hội
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.QuotationId" Text="Báo giá">
+                            <Template Context="v">
+                                @if (v.Row.QuotationId.HasValue)
+                                {
+                                    <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewQuotationDetail(v.Row.QuotationId.Value))">
+                                        Mở báo giá
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.ContractValue" Text="Giá trị" Sortable="true">
                             <Template Context="v">@v.Row.ContractValue.ToString("N0") @v.Row.Currency</Template>
@@ -77,6 +121,9 @@
                         <TableColumn @bind-Field="@context.SignedAt" Text="Ngày ký">
                             <Template Context="v">@(v.Row.SignedAt?.ToLocalTime().ToString("dd/MM/yyyy") ?? "—")</Template>
                         </TableColumn>
+                        <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
+                        </TableColumn>
                     </TableColumns>
                 </Table>
             </BodyTemplate>
@@ -89,6 +136,7 @@
         <BodyTemplate>
             <div class="app-form-grid">
                 <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="_customerIdText" />
+                <ContactLookupSelect Label="Liên hệ" CustomerId="@_customerIdText" @bind-Value="_contactIdText" />
                 <AppFormField Label="Số hợp đồng" Required="true">
                     <BootstrapInput @bind-Value="_model.ContractNo" ShowLabel="false" PlaceHolder="AUTO để tự sinh số" />
                 </AppFormField>

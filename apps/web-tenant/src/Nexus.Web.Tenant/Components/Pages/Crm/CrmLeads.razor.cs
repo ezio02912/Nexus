@@ -106,6 +106,8 @@ public partial class CrmLeads
 
     private void ViewDetailAsync(Guid id) => Navigation.NavigateTo($"crm/leads/{id}");
 
+    private void ViewCustomerDetail(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
+
     private async Task DeleteAsync(Guid id)
     {
         if (!await ConfirmDeleteAsync())

@@ -148,13 +148,20 @@ public static class TenantPermissionCatalog
     public static IReadOnlyList<string> AllPermissionKeys() =>
         Areas.SelectMany(a => a.Menus).SelectMany(m => m.Actions).Select(a => a.Key).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-    private static bool MatchesFilter(string areaLabel, string menuLabel, PermissionAction action, string? filter) =>
-        string.IsNullOrWhiteSpace(filter)
-        || action.Key.Contains(filter, StringComparison.OrdinalIgnoreCase)
-        || action.Label.Contains(filter, StringComparison.OrdinalIgnoreCase)
-        || areaLabel.Contains(filter, StringComparison.OrdinalIgnoreCase)
-        || menuLabel.Contains(filter, StringComparison.OrdinalIgnoreCase)
-        || GetServiceKey(action.Key).Contains(filter, StringComparison.OrdinalIgnoreCase);
+    private static bool MatchesFilter(string areaLabel, string menuLabel, PermissionAction action, string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return true;
+        }
+
+        var term = filter.Trim().ToLowerInvariant();
+        return action.Key.ToLowerInvariant().Contains(term)
+            || action.Label.ToLowerInvariant().Contains(term)
+            || areaLabel.ToLowerInvariant().Contains(term)
+            || menuLabel.ToLowerInvariant().Contains(term)
+            || GetServiceKey(action.Key).ToLowerInvariant().Contains(term);
+    }
 
     private static MenuPermissionGroup Menu(string label, IReadOnlyList<PermissionAction> actions) =>
         new(label, actions);

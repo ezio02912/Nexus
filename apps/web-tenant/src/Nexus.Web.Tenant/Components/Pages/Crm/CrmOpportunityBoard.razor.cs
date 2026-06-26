@@ -36,6 +36,8 @@ public partial class CrmOpportunityBoard
 
     private int ColumnCount(OpportunityStage stage) => ItemsForStage(stage).Count();
 
+    private decimal ColumnAmount(OpportunityStage stage) => ItemsForStage(stage).Sum(x => x.Amount);
+
     private async Task ChangeStageAsync(OpportunityDto item, OpportunityStage targetStage)
     {
         try

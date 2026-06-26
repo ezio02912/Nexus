@@ -53,8 +53,8 @@ public sealed class EfCoreCustomerRepository : EfCoreRepository<Customer, Guid>,
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(x => x.Code.Contains(term) || x.Name.Contains(term));
+            var term = search.Trim().ToLowerInvariant();
+            query = query.Where(x => x.Code.ToLower().Contains(term) || x.Name.ToLower().Contains(term));
         }
 
         if (!string.IsNullOrWhiteSpace(status)

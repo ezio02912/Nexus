@@ -67,6 +67,102 @@ Do not use:
 
 ---
 
+# 2.1 Product Completeness Rules
+
+AI Agent must not build MVP/demo-only screens.
+
+Before implementing any feature, inspect the existing Domain entity, DTO/input/output contracts, API client, service docs, and related page/detail components. The delivered feature must include the real business fields and workflow links that already exist in the model.
+
+Every feature must include:
+
+- Full list table columns for the important service fields, not only name/status/date.
+- Detail page or detail navigation when the entity has related records.
+- Create/update form fields for the primary writable business properties.
+- Permission checks consistent with the module permission catalog.
+- Loading, empty, error, and success feedback.
+- Tenant-safe API calls and no direct database access from UI.
+
+If the table has many fields, use column chooser, responsive priorities, compact cells, detail drawer, or sticky action column. Do not remove business columns just to make the UI look simpler.
+
+---
+
+# 2.2 Backend and ABP-style Rules
+
+Backend code must feel close to ABP Framework style used in `HCS_web`:
+
+- Domain owns business invariants and entity behavior.
+- Application AppService owns use-case orchestration, validation flow, DTO mapping, and event publishing.
+- Contracts define DTOs and input/output models.
+- Infrastructure owns EF Core repositories, DbContext configuration, external clients, broker, and storage.
+- API endpoints stay thin and do not contain business rules.
+- Names must be explicit: `GetListAsync`, `GetAsync`, `CreateAsync`, `UpdateAsync`, action-specific methods like `ConvertAsync` or `ChangeStageAsync`.
+- Do not share domain entities across service boundaries.
+
+Every action that changes an important business state should consider audit, integration event, workflow, and notification impact.
+
+---
+
+# 2.3 Search and Filter Rule
+
+All table search and list API text filters must behave as:
+
+```text
+lowercase + trim + contains
+```
+
+Implementation rule:
+
+- Normalize user input with `Trim().ToLowerInvariant()`.
+- Compare against lowercased text fields.
+- Search across meaningful fields such as code, name, title, email, phone, document number.
+- Keep status, date range, enum, owner, and module filters separate from free-text search.
+- Never implement case-sensitive table search unless a business requirement explicitly says so.
+
+Example behavior:
+
+```text
+"  AN  " matches "Khach hang An Phu", "an@example.com", and "OPP-AN-001".
+```
+
+---
+
+# 2.4 Web-tenant Workflow UX Rules
+
+web-tenant screens must connect related business objects.
+
+Mandatory CRM links:
+
+- Lead detail links to converted Customer and Opportunity.
+- Customer detail links to Contacts, Opportunities, Quotations, Contracts, Activities.
+- Opportunity detail links to Customer, source Lead, Quotations and Contracts.
+- Quotation detail links to Customer, Opportunity and generated Contract/Sales Order when available.
+- Contract detail links to Customer, Opportunity, Quotation and later Invoice.
+
+Mandatory quick-create behavior:
+
+- From Opportunity create/edit, allow quick-create Customer when customer does not exist.
+- From Contact create/edit, allow quick-create Customer or navigate to Customer create.
+- From Quotation create/edit, allow selecting existing Opportunity/Customer and creating missing related records when workflow needs it.
+
+Navigation must use clear click targets: entity code/name in tables should open the detail page when a detail page exists.
+
+---
+
+# 2.5 Kanban UX Rules
+
+Kanban boards must not be bare columns.
+
+Required:
+
+- Horizontal responsive board with stable column width.
+- Stage header with item count and value summary when amount exists.
+- Cards with title, linked customer, amount, probability, owner/due date where available.
+- Empty state per column.
+- Hover/focus state, clear drag/move actions, detail action.
+- Visual hierarchy using CSS variables, not hardcoded inline styles.
+
+---
+
 # 3. Theme Name
 
 The default theme is:

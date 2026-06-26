@@ -132,6 +132,8 @@ public partial class CrmOpportunities
     }
 
     private void ViewDetailAsync(Guid id) => Navigation.NavigateTo($"crm/opportunities/{id}");
+    private void ViewCustomerDetail(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
+    private void ViewLeadDetail(Guid id) => Navigation.NavigateTo($"crm/leads/{id}");
     private void GoToBoard() => Navigation.NavigateTo("crm/opportunity-board");
 
     private async Task DeleteAsync(Guid id)

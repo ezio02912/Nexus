@@ -1,0 +1,51 @@
+@page "/reports"
+@rendermode InteractiveServer
+@inject TenantSessionService Session
+
+<PageTitle>Báo cáo</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Quản trị tenant</p>
+            <h1>Báo cáo</h1>
+            <p>Tổng quan nghiệp vụ theo phân hệ đã bật.</p>
+        </div>
+    </header>
+
+    @if (!Session.IsAuthenticated)
+    {
+        <div class="app-alert">Đăng nhập để xem báo cáo tenant.</div>
+    }
+    else
+    {
+        <div class="app-grid">
+            <section class="app-card">
+                <h2>CRM</h2>
+                @if (Session.HasModule("CRM"))
+                {
+                    <p>Báo cáo pipeline khách hàng đang được bật.</p>
+                    <span class="app-status-badge app-status-active">Đã bật</span>
+                }
+                else
+                {
+                    <p>Báo cáo CRM đang ẩn vì phân hệ CRM chưa bật.</p>
+                    <span class="app-status-badge app-status-muted">Chưa bật</span>
+                }
+            </section>
+            <section class="app-card">
+                <h2>Bán hàng</h2>
+                @if (Session.HasModule("SALES"))
+                {
+                    <p>Báo cáo đơn bán hàng đang được bật.</p>
+                    <span class="app-status-badge app-status-active">Đã bật</span>
+                }
+                else
+                {
+                    <p>Báo cáo Bán hàng đang ẩn vì phân hệ Bán hàng chưa bật.</p>
+                    <span class="app-status-badge app-status-muted">Chưa bật</span>
+                }
+            </section>
+        </div>
+    }
+</section>

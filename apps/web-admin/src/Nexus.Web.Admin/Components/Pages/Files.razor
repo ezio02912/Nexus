@@ -1,0 +1,122 @@
+@page "/files"
+@inject CoreApiClient Api
+@inject TenantLookupService TenantLookup
+
+<PageTitle>Tệp tin</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Tệp tin</h1>
+        <p>Đăng ký thông tin tệp và liên kết tệp với chứng từ nguồn.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
+}
+
+<div class="work-surface">
+    <Card HeaderText="Tạo tệp" IsShadow="true">
+        <BodyTemplate>
+            <Select TValue="string" @bind-Value="_tenantId" Items="_tenantOptions"
+                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true"
+                    PlaceHolder="Chọn khách thuê" class="mb-2" />
+            <BootstrapInput @bind-Value="_fileName" DisplayText="Tên tệp" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_contentType" DisplayText="Loại nội dung" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_storagePath" DisplayText="Đường dẫn lưu trữ" ShowLabel="true" class="mb-2" />
+            <BootstrapInputNumber @bind-Value="_size" DisplayText="Kích thước" ShowLabel="true" class="mb-3" />
+            <Button Text="Tạo mới" Icon="fa-solid fa-plus" Color="Color.Success" IsAsync="true" OnClick="CreateAsync" />
+        </BodyTemplate>
+    </Card>
+
+    <Card HeaderText="Danh sách tệp" IsShadow="true">
+        <BodyTemplate>
+            <Table @ref="_table" TItem="FileRecord" OnQueryAsync="OnQueryAsync"
+                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.FileName" Text="Tên" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.ContentType" Text="Loại" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.Size" Text="Kích thước" Sortable="true" />
+                    <TableColumn @bind-Field="@context.StoragePath" Text="Đường dẫn" Searchable="true" />
+                </TableColumns>
+            </Table>
+        </BodyTemplate>
+    </Card>
+</div>
+
+@code {
+    private Table<FileRecord>? _table;
+    private string _tenantId = "";
+    private string _fileName = "";
+    private string _contentType = "application/pdf";
+    private string _storagePath = "tenant/sample.pdf";
+    private long _size = 1024;
+    private List<SelectedItem> _tenantOptions = [];
+    private string? _message;
+    private Color _messageColor = Color.Primary;
+    private static readonly int[] _pageItems = [10, 20, 50];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Tenant is optional for a file record.
+            _tenantOptions = await TenantLookup.GetOptionsAsync(includeEmpty: true, forceRefresh: true);
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task<QueryData<FileRecord>> OnQueryAsync(QueryPageOptions options)
+    {
+        var all = await LoadAsync();
+        return TableQuery.Apply(all, options);
+    }
+
+    private async Task<List<FileRecord>> LoadAsync()
+    {
+        try
+        {
+            return (await Api.GetFilesAsync())?.Items.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+            return [];
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        try
+        {
+            Guid? tenantId = Guid.TryParse(_tenantId, out var parsed) ? parsed : null;
+            await Api.CreateFileAsync(new CreateFileRequest(tenantId, _fileName, _contentType, _size, _storagePath));
+            SetInfo("Đã tạo tệp.");
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private void SetInfo(string text)
+    {
+        _message = text;
+        _messageColor = Color.Success;
+    }
+
+    private void SetError(string text)
+    {
+        _message = text;
+        _messageColor = Color.Danger;
+    }
+}

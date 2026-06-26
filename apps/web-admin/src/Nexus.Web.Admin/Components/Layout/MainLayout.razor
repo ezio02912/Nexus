@@ -1,0 +1,203 @@
+﻿@inherits LayoutComponentBase
+@using System.Globalization
+@inject AdminSessionService Session
+@inject NavigationManager Navigation
+
+<BootstrapBlazorRoot>
+    @if (_ready && Session.IsAuthenticated)
+    {
+        <Layout Menus="@_menus" IsFullSide="true" IsFixedHeader="true" ShowCollapseBar="true"
+                IsAccordion="true" ShowFooter="true" ShowGotoTop="true" SideWidth="290px"
+                UseTabSet="true" TabStyle="TabStyle.Chrome" TabDefaultUrl="/" AllowDragTab="true"
+                ShowTabExtendButtons="true" IsOnlyRenderActiveTab="true">
+            <Side>
+                @* Brand banner pinned to the top of the sidebar, TailAdmin style *@
+                <div class="admin-brand">
+                    <span class="admin-brand-logo">N</span>
+                    <span class="admin-brand-name">Nexus<span class="admin-brand-suffix">Admin</span></span>
+                </div>
+                <div class="admin-menu-label">MENU</div>
+            </Side>
+            <Header>
+                <div class="layout-header d-flex flex-fill align-items-center justify-content-between">
+                    @* Command/search box on the left, like the TailAdmin top bar *@
+                    <div class="header-search d-none d-md-flex">
+                        <i class="fa-solid fa-magnifying-glass header-search-icon"></i>
+                        <BootstrapInput TValue="string" @bind-Value="_search"
+                                        placeholder="Tìm kiếm hoặc gõ lệnh..." ShowLabel="false" />
+                        <span class="header-search-kbd">⌘K</span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        @* Language switcher (fixed option set -> Select per UI rule) *@
+                        <div class="header-lang">
+                            <Select TValue="string" Value="@_culture" Items="_cultures"
+                                    OnValueChanged="OnCultureChangedAsync" ShowLabel="false" />
+                        </div>
+
+                        @* Notifications *@
+                        <button class="header-icon-btn" type="button" aria-label="Thông báo">
+                            <i class="fa-regular fa-bell"></i>
+                            <span class="header-icon-dot"></span>
+                        </button>
+
+                        @* Profile menu *@
+                        <div class="dropdown header-profile">
+                            <button class="header-profile-toggle dropdown-toggle d-flex align-items-center gap-2"
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="profile-avatar">@Initials(Session.UserName)</span>
+                                <span class="d-none d-sm-inline profile-name">@Session.UserName</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <span class="dropdown-item-text">
+                                        <strong class="d-block">@Session.UserName</strong>
+                                        <span class="text-muted small">Quản trị viên nền tảng</span>
+                                    </span>
+                                </li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <a class="dropdown-item" href="users">
+                                        <i class="fa-solid fa-id-badge me-2"></i>Hồ sơ
+                                    </a>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item text-danger" type="button" @onclick="SignOut">
+                                        <i class="fa-solid fa-right-from-bracket me-2"></i>Đăng xuất
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </Header>
+            <Main>
+                <article class="layout-content px-4 py-3">
+                    @Body
+                </article>
+            </Main>
+            <Footer>
+                <div class="text-center text-muted py-2 small">
+                    Nexus SaaS Platform &mdash; Bảng điều khiển quản trị
+                </div>
+            </Footer>
+        </Layout>
+    }
+    else
+    {
+        <div class="auth-required d-flex flex-column align-items-center justify-content-center text-center">
+            <span class="brand-mark mb-3">N</span>
+            @if (!_ready)
+            {
+                <Spinner Color="Color.Primary" />
+                <p class="text-muted mt-3">Đang kiểm tra phiên đăng nhập...</p>
+            }
+            else
+            {
+                <h5>Cần đăng nhập</h5>
+                <p class="text-muted">Đang chuyển đến trang đăng nhập...</p>
+            }
+        </div>
+    }
+</BootstrapBlazorRoot>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Đã xảy ra lỗi không mong muốn.
+    <a href="." class="reload">Tải lại</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private List<MenuItem> _menus = [];
+    private bool _ready;
+    private string? _search;
+    private string _culture = CultureInfo.CurrentUICulture.Name.StartsWith("en") ? "en" : "vi";
+
+    private static readonly List<SelectedItem> _cultures =
+    [
+        new("vi", "Tiếng Việt"),
+        new("en", "English")
+    ];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // Restore the session from browser storage first. ProtectedLocalStorage uses JS
+        // interop, which is only available after the first render, so the auth decision
+        // must happen here instead of OnInitialized. This keeps the user signed in across
+        // full page reloads (language change) and newly opened browser tabs.
+        await Session.InitializeAsync();
+
+        if (!Session.IsAuthenticated)
+        {
+            _ready = true;
+            Navigation.NavigateTo("login");
+            return;
+        }
+
+        BuildMenus();
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private void BuildMenus()
+    {
+        // Grouped, collapsible sidebar navigation in the style of the BootstrapBlazor docs site
+        _menus =
+        [
+            new MenuItem("Tổng quan", "", "fa-solid fa-gauge-high") { Match = NavLinkMatch.All },
+            new MenuItem
+            {
+                Text = "Quản trị hệ thống",
+                Icon = "fa-solid fa-screwdriver-wrench",
+                Items =
+                [
+                    new MenuItem("Khách thuê", "tenants", "fa-solid fa-building"),
+                    new MenuItem("Người dùng", "users", "fa-solid fa-users"),
+                    new MenuItem("Phân quyền", "permissions", "fa-solid fa-user-shield"),
+                ]
+            },
+            new MenuItem
+            {
+                Text = "Nghiệp vụ",
+                Icon = "fa-solid fa-layer-group",
+                Items =
+                [
+                    new MenuItem("Quy trình", "workflow", "fa-solid fa-diagram-project"),
+                    new MenuItem("Tệp tin", "files", "fa-solid fa-folder-open"),
+                    new MenuItem("Đánh số", "numbering", "fa-solid fa-hashtag"),
+                ]
+            },
+            new MenuItem
+            {
+                Text = "Giám sát",
+                Icon = "fa-solid fa-chart-line",
+                Items =
+                [
+                    new MenuItem("Nhật ký", "audit", "fa-solid fa-clipboard-list"),
+                ]
+            },
+        ];
+    }
+
+    private Task OnCultureChangedAsync(string value)
+    {
+        _culture = value;
+        var redirect = Uri.EscapeDataString(new Uri(Navigation.Uri).PathAndQuery);
+        Navigation.NavigateTo($"set-culture?culture={value}&redirect={redirect}", forceLoad: true);
+        return Task.CompletedTask;
+    }
+
+    private async Task SignOut()
+    {
+        await Session.SignOutAsync();
+        Navigation.NavigateTo("login");
+    }
+
+    private static string Initials(string? name)
+        => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+}

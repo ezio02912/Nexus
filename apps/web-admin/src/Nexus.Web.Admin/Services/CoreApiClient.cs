@@ -1,0 +1,86 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using Microsoft.Extensions.Options;
+
+namespace Nexus.Web.Admin.Services;
+
+public sealed class CoreApiClient
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly CoreServiceOptions _options;
+    private readonly AdminSessionService _session;
+
+    public CoreApiClient(IHttpClientFactory httpClientFactory, IOptions<CoreServiceOptions> options, AdminSessionService session)
+    {
+        _httpClientFactory = httpClientFactory;
+        _options = options.Value;
+        _session = session;
+    }
+
+    public Task<PagedResult<TenantDto>?> GetTenantsAsync() => GetAsync<PagedResult<TenantDto>>(_options.Tenant, "/api/tenants/");
+    public Task<TenantDto?> CreateTenantAsync(CreateTenantRequest request) => PostAsync<TenantDto>(_options.Tenant, "/api/tenants/", request);
+    public Task<TenantDto?> ActivateTenantAsync(Guid id) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/activate", new { });
+    public Task<TenantDto?> SuspendTenantAsync(Guid id) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/suspend", new { });
+    public Task<TenantDto?> EnableTenantModuleAsync(Guid id, ChangeTenantModuleRequest request) => PostAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/modules/enable", request);
+    public Task<TenantDto?> UpdateTenantSettingsAsync(Guid id, UpdateTenantSettingsRequest request) => PutAsync<TenantDto>(_options.Tenant, $"/api/tenants/{id}/settings", request);
+
+    public Task<PagedResult<UserDto>?> GetUsersAsync() => GetAsync<PagedResult<UserDto>>(_options.Identity, "/api/users/");
+    public Task<UserDto?> CreateUserAsync(CreateUserRequest request) => PostAsync<UserDto>(_options.Identity, "/api/users/", request);
+    public Task<LoginResult?> LoginAsync(LoginRequest request) => PostAsync<LoginResult>(_options.Identity, "/api/auth/login", request);
+
+    public Task<IReadOnlyList<string>?> GetPermissionCatalogAsync() => GetAsync<IReadOnlyList<string>>(_options.Permission, "/api/permissions");
+    public Task<RolePermissionDto?> GetRolePermissionsAsync(string roleName) => GetAsync<RolePermissionDto>(_options.Permission, $"/api/roles/{Uri.EscapeDataString(roleName)}/permissions");
+    public Task<RolePermissionDto?> UpdateRolePermissionsAsync(string roleName, UpdateRolePermissionsRequest request) => PutAsync<RolePermissionDto>(_options.Permission, $"/api/roles/{Uri.EscapeDataString(roleName)}/permissions", request);
+
+    public Task<PagedResult<AuditLogEntry>?> GetAuditLogsAsync() => GetAsync<PagedResult<AuditLogEntry>>(_options.Audit, "/api/audit-logs");
+    public Task<AuditLogEntry?> CreateAuditLogAsync(CreateAuditLogRequest request) => PostAsync<AuditLogEntry>(_options.Audit, "/api/audit-logs", request);
+
+    public Task<PagedResult<FileRecord>?> GetFilesAsync() => GetAsync<PagedResult<FileRecord>>(_options.File, "/api/files");
+    public Task<FileRecord?> CreateFileAsync(CreateFileRequest request) => PostAsync<FileRecord>(_options.File, "/api/files", request);
+    public Task<FileLinkRecord?> CreateFileLinkAsync(CreateFileLinkRequest request) => PostAsync<FileLinkRecord>(_options.File, "/api/file-links", request);
+
+    public Task<NextNumberResult?> GetNextNumberAsync(NextNumberRequest request) => PostAsync<NextNumberResult>(_options.Numbering, "/api/numbering/next", request);
+    public Task<IReadOnlyList<NumberSequenceDto>?> GetNumberSequencesAsync() => GetAsync<IReadOnlyList<NumberSequenceDto>>(_options.Numbering, "/api/numbering/sequences");
+
+    public Task<IReadOnlyList<WorkflowDefinitionRecord>?> GetWorkflowDefinitionsAsync() => GetAsync<IReadOnlyList<WorkflowDefinitionRecord>>(_options.Workflow, "/api/workflow-definitions");
+    public Task<WorkflowDefinitionRecord?> CreateWorkflowDefinitionAsync(CreateWorkflowDefinitionRequest request) => PostAsync<WorkflowDefinitionRecord>(_options.Workflow, "/api/workflow-definitions", request);
+    public Task<WorkflowInstanceRecord?> CreateWorkflowInstanceAsync(CreateWorkflowInstanceRequest request) => PostAsync<WorkflowInstanceRecord>(_options.Workflow, "/api/workflow-instances", request);
+
+    private async Task<T?> GetAsync<T>(string baseUrl, string path)
+    {
+        var client = CreateClient();
+        return await client.GetFromJsonAsync<T>(BuildUrl(baseUrl, path));
+    }
+
+    private async Task<T?> PostAsync<T>(string baseUrl, string path, object request)
+    {
+        var client = CreateClient();
+        var response = await client.PostAsJsonAsync(BuildUrl(baseUrl, path), request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    private async Task<T?> PutAsync<T>(string baseUrl, string path, object request)
+    {
+        var client = CreateClient();
+        var response = await client.PutAsJsonAsync(BuildUrl(baseUrl, path), request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    // Routes go through the API gateway, so the per-service base already includes the gateway
+    // prefix (e.g. http://localhost:7200/tenant). We compose the absolute URL ourselves rather
+    // than relying on BaseAddress because the API paths start with '/'.
+    private static string BuildUrl(string baseUrl, string path) => baseUrl.TrimEnd('/') + path;
+
+    private HttpClient CreateClient()
+    {
+        var client = _httpClientFactory.CreateClient();
+        if (_session.IsAuthenticated && !string.IsNullOrEmpty(_session.Login?.AccessToken))
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _session.Login.AccessToken);
+        }
+
+        return client;
+    }
+}

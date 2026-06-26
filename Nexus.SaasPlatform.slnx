@@ -1,0 +1,126 @@
+<Solution>
+  <Folder Name="/apps/" />
+  <Folder Name="/apps/web-admin/" />
+  <Folder Name="/apps/web-admin/src/">
+    <Project Path="apps/web-admin/src/Nexus.Web.Admin/Nexus.Web.Admin.csproj" />
+  </Folder>
+  <Folder Name="/apps/web-tenant/" />
+  <Folder Name="/apps/web-tenant/src/">
+    <Project Path="apps/web-tenant/src/Nexus.Web.Tenant/Nexus.Web.Tenant.csproj" />
+  </Folder>
+  <Folder Name="/gateways/" />
+  <Folder Name="/gateways/api-gateway/" />
+  <Folder Name="/gateways/api-gateway/src/">
+    <Project Path="gateways/api-gateway/src/Nexus.Gateway.Api/Nexus.Gateway.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/" />
+  <Folder Name="/services/accounting-service/" />
+  <Folder Name="/services/accounting-service/src/">
+    <Project Path="services/accounting-service/src/Nexus.Services.Accounting.Api/Nexus.Services.Accounting.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/attendance-service/" />
+  <Folder Name="/services/attendance-service/src/">
+    <Project Path="services/attendance-service/src/Nexus.Services.Attendance.Api/Nexus.Services.Attendance.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/audit-service/" />
+  <Folder Name="/services/audit-service/src/">
+    <Project Path="services/audit-service/src/Nexus.Services.Audit.Api/Nexus.Services.Audit.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/crm-service/" />
+  <Folder Name="/services/crm-service/src/">
+    <Project Path="services/crm-service/src/Nexus.Services.Crm.Api/Nexus.Services.Crm.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/erp-service/" />
+  <Folder Name="/services/erp-service/src/">
+    <Project Path="services/erp-service/src/Nexus.Services.Erp.Api/Nexus.Services.Erp.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/file-service/" />
+  <Folder Name="/services/file-service/src/">
+    <Project Path="services/file-service/src/Nexus.Services.File.Api/Nexus.Services.File.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/hrm-service/" />
+  <Folder Name="/services/hrm-service/src/">
+    <Project Path="services/hrm-service/src/Nexus.Services.Hrm.Api/Nexus.Services.Hrm.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/identity-service/" />
+  <Folder Name="/services/identity-service/src/">
+    <Project Path="services/identity-service/src/Nexus.Services.Identity.Api/Nexus.Services.Identity.Api.csproj" />
+    <Project Path="services/identity-service/src/Nexus.Services.Identity.Application/Nexus.Services.Identity.Application.csproj" />
+    <Project Path="services/identity-service/src/Nexus.Services.Identity.Contracts/Nexus.Services.Identity.Contracts.csproj" />
+    <Project Path="services/identity-service/src/Nexus.Services.Identity.Domain/Nexus.Services.Identity.Domain.csproj" />
+    <Project Path="services/identity-service/src/Nexus.Services.Identity.Infrastructure/Nexus.Services.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/services/inventory-service/" />
+  <Folder Name="/services/inventory-service/src/">
+    <Project Path="services/inventory-service/src/Nexus.Services.Inventory.Api/Nexus.Services.Inventory.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/invoice-service/" />
+  <Folder Name="/services/invoice-service/src/">
+    <Project Path="services/invoice-service/src/Nexus.Services.Invoice.Api/Nexus.Services.Invoice.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/notification-service/" />
+  <Folder Name="/services/notification-service/src/">
+    <Project Path="services/notification-service/src/Nexus.Services.Notification.Api/Nexus.Services.Notification.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/numbering-service/" />
+  <Folder Name="/services/numbering-service/src/">
+    <Project Path="services/numbering-service/src/Nexus.Services.Numbering.Api/Nexus.Services.Numbering.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/payroll-service/" />
+  <Folder Name="/services/payroll-service/src/">
+    <Project Path="services/payroll-service/src/Nexus.Services.Payroll.Api/Nexus.Services.Payroll.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/permission-service/" />
+  <Folder Name="/services/permission-service/src/">
+    <Project Path="services/permission-service/src/Nexus.Services.Permission.Api/Nexus.Services.Permission.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/purchase-service/" />
+  <Folder Name="/services/purchase-service/src/">
+    <Project Path="services/purchase-service/src/Nexus.Services.Purchase.Api/Nexus.Services.Purchase.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/report-service/" />
+  <Folder Name="/services/report-service/src/">
+    <Project Path="services/report-service/src/Nexus.Services.Report.Api/Nexus.Services.Report.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/sales-service/" />
+  <Folder Name="/services/sales-service/src/">
+    <Project Path="services/sales-service/src/Nexus.Services.Sales.Api/Nexus.Services.Sales.Api.csproj" />
+  </Folder>
+  <Folder Name="/services/tenant-service/" />
+  <Folder Name="/services/tenant-service/src/">
+    <Project Path="services/tenant-service/src/Nexus.Services.Tenant.Api/Nexus.Services.Tenant.Api.csproj" />
+    <Project Path="services/tenant-service/src/Nexus.Services.Tenant.Application/Nexus.Services.Tenant.Application.csproj" />
+    <Project Path="services/tenant-service/src/Nexus.Services.Tenant.Contracts/Nexus.Services.Tenant.Contracts.csproj" />
+    <Project Path="services/tenant-service/src/Nexus.Services.Tenant.Domain/Nexus.Services.Tenant.Domain.csproj" />
+    <Project Path="services/tenant-service/src/Nexus.Services.Tenant.Infrastructure/Nexus.Services.Tenant.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/services/workflow-service/" />
+  <Folder Name="/services/workflow-service/src/">
+    <Project Path="services/workflow-service/src/Nexus.Services.Workflow.Api/Nexus.Services.Workflow.Api.csproj" />
+  </Folder>
+  <Folder Name="/shared/" />
+  <Folder Name="/shared/api-contracts/" />
+  <Folder Name="/shared/api-contracts/src/">
+    <Project Path="shared/api-contracts/src/Nexus.ApiContracts/Nexus.ApiContracts.csproj" />
+  </Folder>
+  <Folder Name="/shared/building-blocks/" />
+  <Folder Name="/shared/building-blocks/src/">
+    <Project Path="shared/building-blocks/src/Nexus.BuildingBlocks/Nexus.BuildingBlocks.csproj" />
+    <Project Path="shared/building-blocks/src/Nexus.BuildingBlocks.EntityFrameworkCore/Nexus.BuildingBlocks.EntityFrameworkCore.csproj" />
+    <Project Path="shared/building-blocks/src/Nexus.BuildingBlocks.Web/Nexus.BuildingBlocks.Web.csproj" />
+    <Project Path="shared/building-blocks/src/Nexus.BuildingBlocks.Messaging/Nexus.BuildingBlocks.Messaging.csproj" />
+  </Folder>
+  <Folder Name="/shared/common-kernel/" />
+  <Folder Name="/shared/common-kernel/src/">
+    <Project Path="shared/common-kernel/src/Nexus.SharedKernel/Nexus.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/shared/event-contracts/" />
+  <Folder Name="/shared/event-contracts/src/">
+    <Project Path="shared/event-contracts/src/Nexus.EventContracts/Nexus.EventContracts.csproj" />
+  </Folder>
+  <Folder Name="/workers/" />
+  <Folder Name="/workers/background-worker/" />
+  <Folder Name="/workers/background-worker/src/">
+    <Project Path="workers/background-worker/src/Nexus.Worker.Host/Nexus.Worker.Host.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,126 @@
+@page "/numbering"
+@inject CoreApiClient Api
+@inject TenantLookupService TenantLookup
+
+<PageTitle>Đánh số</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Đánh số</h1>
+        <p>Cấp số chứng từ theo khách thuê, mô-đun, loại và kỳ.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
+}
+
+<div class="work-surface">
+    <Card HeaderText="Cấp số tiếp theo" IsShadow="true">
+        <BodyTemplate>
+            <Select TValue="string" @bind-Value="_tenantId" Items="_tenantOptions"
+                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true"
+                    PlaceHolder="Chọn khách thuê" class="mb-2" />
+            <Select TValue="string" @bind-Value="_module" Items="UiCatalogs.Modules"
+                    DisplayText="Mô-đun" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_documentType" DisplayText="Loại chứng từ" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_prefix" DisplayText="Tiền tố" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_period" DisplayText="Kỳ" ShowLabel="true" class="mb-3" />
+            <Button Text="Sinh số" Icon="fa-solid fa-hashtag" Color="Color.Info" IsAsync="true" OnClick="NextAsync" />
+            @if (_lastNumber is not null)
+            {
+                <Alert Color="Color.Success" class="mt-3">Số tiếp theo: <strong>@_lastNumber.Number</strong></Alert>
+            }
+        </BodyTemplate>
+    </Card>
+
+    <Card HeaderText="Danh sách chuỗi số" IsShadow="true">
+        <BodyTemplate>
+            <Table @ref="_table" TItem="NumberSequenceDto" OnQueryAsync="OnQueryAsync"
+                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.Key" Text="Khóa" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.CurrentValue" Text="Giá trị hiện tại" Sortable="true" />
+                </TableColumns>
+            </Table>
+        </BodyTemplate>
+    </Card>
+</div>
+
+@code {
+    private Table<NumberSequenceDto>? _table;
+    private NextNumberResult? _lastNumber;
+    private string _tenantId = "";
+    private string _module = "INVOICE";
+    private string _documentType = "SalesInvoice";
+    private string _prefix = "INV-";
+    private string _period = DateTimeOffset.UtcNow.ToString("yyyyMM");
+    private List<SelectedItem> _tenantOptions = [];
+    private string? _message;
+    private Color _messageColor = Color.Primary;
+    private static readonly int[] _pageItems = [10, 20, 50];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Tenant is optional when generating a document number.
+            _tenantOptions = await TenantLookup.GetOptionsAsync(includeEmpty: true, forceRefresh: true);
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task<QueryData<NumberSequenceDto>> OnQueryAsync(QueryPageOptions options)
+    {
+        var all = await LoadAsync();
+        return TableQuery.Apply(all, options);
+    }
+
+    private async Task<List<NumberSequenceDto>> LoadAsync()
+    {
+        try
+        {
+            return (await Api.GetNumberSequencesAsync())?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+            return [];
+        }
+    }
+
+    private async Task NextAsync()
+    {
+        try
+        {
+            Guid? tenantId = Guid.TryParse(_tenantId, out var parsed) ? parsed : null;
+            _lastNumber = await Api.GetNextNumberAsync(new NextNumberRequest(tenantId, _module, _documentType, _prefix, 5, _period));
+            SetInfo("Đã sinh số mới.");
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private void SetInfo(string text)
+    {
+        _message = text;
+        _messageColor = Color.Success;
+    }
+
+    private void SetError(string text)
+    {
+        _message = text;
+        _messageColor = Color.Danger;
+    }
+}

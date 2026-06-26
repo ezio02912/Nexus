@@ -1,0 +1,58 @@
+﻿@inherits LayoutComponentBase
+@inject TenantSessionService Session
+@inject NavigationManager Navigation
+
+<BootstrapBlazorRoot>
+    <div class="tenant-shell page">
+        <div class="sidebar tenant-sidebar">
+            <NavMenu />
+        </div>
+
+        <main>
+            <div class="top-row tenant-topbar px-4">
+                <div class="tenant-topbar-title">
+                    <strong>@(Session.Tenant?.Name ?? "Không gian tenant")</strong>
+                    <span>@(Session.IsAuthenticated ? $"Đang đăng nhập: {Session.UserName}" : "Đăng nhập để tải phân hệ tenant")</span>
+                </div>
+                <div class="tenant-topbar-search">
+                    <span>Tìm kiếm</span>
+                    <input placeholder="Tìm trong workspace..." />
+                </div>
+                <div class="tenant-topbar-actions">
+                    @if (Session.IsAuthenticated)
+                    {
+                        <span class="app-status-badge app-status-active">@Session.Tenant?.Code</span>
+                        <span class="tenant-user-chip">@UserInitial</span>
+                        <Button Text="Đăng xuất" Color="Color.Secondary" Size="Size.ExtraSmall" OnClick="SignOut" />
+                    }
+                    else
+                    {
+                        <a class="btn btn-sm btn-primary" href="login">Đăng nhập</a>
+                    }
+                </div>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+</BootstrapBlazorRoot>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Đã xảy ra lỗi.
+    <a href="." class="reload">Tải lại</a>
+    <span class="dismiss">×</span>
+</div>
+
+@code {
+    private void SignOut()
+    {
+        Session.SignOut();
+        Navigation.NavigateTo("login");
+    }
+
+    private string UserInitial => string.IsNullOrWhiteSpace(Session.UserName)
+        ? "U"
+        : Session.UserName[..1].ToUpperInvariant();
+}

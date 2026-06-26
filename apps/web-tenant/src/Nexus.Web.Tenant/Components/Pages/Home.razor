@@ -1,0 +1,128 @@
+@page "/"
+@inject TenantSessionService Session
+
+<PageTitle>Bảng điều khiển tenant</PageTitle>
+
+<section class="tenant-dashboard">
+    <header class="tenant-dashboard-header">
+        <div>
+            <p class="app-eyebrow">Bảng điều khiển tenant</p>
+            <h1>@(Session.Tenant?.Name ?? "Chào mừng đến Nexus")</h1>
+            <p>@(Session.IsAuthenticated ? "Theo dõi phân hệ, vận hành và quyền truy cập theo tenant." : "Đăng nhập để tải phân hệ và dữ liệu workspace.")</p>
+        </div>
+        <a class="btn btn-primary tenant-primary-action" href="@(Session.IsAuthenticated ? "crm" : "login")">
+            @(Session.IsAuthenticated ? "Mở CRM" : "Đăng nhập")
+        </a>
+    </header>
+
+    <div class="tenant-metric-grid">
+        <section class="tenant-metric-card">
+            <span class="tenant-metric-icon">M</span>
+            <div>
+                <p>Phân hệ đã bật</p>
+                <strong>@Session.EnabledModules.Count</strong>
+            </div>
+            <small>@ModuleSummary</small>
+        </section>
+        <section class="tenant-metric-card">
+            <span class="tenant-metric-icon">T</span>
+            <div>
+                <p>Trạng thái tenant</p>
+                <strong>@(Session.Tenant?.Status ?? "Khách")</strong>
+            </div>
+            <small>@(Session.Tenant?.Code ?? "Chưa đăng nhập")</small>
+        </section>
+        <section class="tenant-metric-card">
+            <span class="tenant-metric-icon">U</span>
+            <div>
+                <p>Người dùng hiện tại</p>
+                <strong>@(Session.UserName ?? "Chưa đăng nhập")</strong>
+            </div>
+            <small>Workspace theo vai trò</small>
+        </section>
+        <section class="tenant-metric-card">
+            <span class="tenant-metric-icon">A</span>
+            <div>
+                <p>Công cụ quản trị</p>
+                <strong>@(Session.IsAuthenticated ? "Sẵn sàng" : "Đang khóa")</strong>
+            </div>
+            <small>Người dùng, phân quyền, thiết lập</small>
+        </section>
+    </div>
+
+    <div class="tenant-dashboard-grid">
+        <section class="tenant-panel tenant-panel-wide">
+            <div class="app-toolbar">
+                <div>
+                    <p class="app-eyebrow">Workspace</p>
+                    <h2>Phân hệ khả dụng</h2>
+                </div>
+            </div>
+
+            @if (!Session.IsAuthenticated)
+            {
+                <div class="app-empty-state">Đăng nhập để tải quyền truy cập phân hệ.</div>
+            }
+            else if (Session.EnabledModules.Count == 0)
+            {
+                <div class="app-empty-state">Tenant này chưa bật phân hệ nào.</div>
+            }
+            else
+            {
+                <div class="tenant-module-grid">
+                    @foreach (var module in Session.EnabledModules)
+                    {
+                        <a class="tenant-module-card tenant-module-link" href="@ModuleUrl(module)">
+                            <span>@ModuleInitial(module)</span>
+                            <strong>@module</strong>
+                            <small>@ModuleDescription(module)</small>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="tenant-panel">
+            <p class="app-eyebrow">Hôm nay</p>
+            <h2>Tổng quan vận hành</h2>
+            <div class="tenant-timeline">
+                <div><span></span><strong>CRM</strong><small>@(Session.HasModule("CRM") ? "Đã mở pipeline khách hàng" : "Chưa bật phân hệ")</small></div>
+                <div><span></span><strong>Bán hàng</strong><small>@(Session.HasModule("SALES") ? "Đã mở đơn hàng" : "Chưa bật phân hệ")</small></div>
+                <div><span></span><strong>Phân quyền</strong><small>@(Session.IsAuthenticated ? "Vai trò tenant đang hoạt động" : "Chờ đăng nhập")</small></div>
+            </div>
+        </section>
+
+        <section class="tenant-panel">
+            <p class="app-eyebrow">Quản trị</p>
+            <h2>Thao tác nhanh</h2>
+            <div class="tenant-quick-actions">
+                <a href="tenant-users">Quản lý người dùng</a>
+                <a href="tenant-permissions">Phân quyền vai trò</a>
+                <a href="settings">Thiết lập tenant</a>
+                <a href="reports">Báo cáo</a>
+            </div>
+        </section>
+    </div>
+</section>
+
+@code {
+    private string ModuleSummary => Session.EnabledModules.Count == 0
+        ? "Chưa tải phân hệ"
+        : string.Join(", ", Session.EnabledModules);
+
+    private static string ModuleInitial(string module) => module.Length == 0 ? "M" : module[0].ToString();
+
+    private static string ModuleUrl(string module) => module.ToUpperInvariant() switch
+    {
+        "CRM" => "crm",
+        "SALES" => "sales",
+        _ => "settings"
+    };
+
+    private static string ModuleDescription(string module) => module.ToUpperInvariant() switch
+    {
+        "CRM" => "Khách hàng, lead, báo giá và hợp đồng",
+        "SALES" => "Đơn hàng, duyệt đơn và hoàn tất",
+        _ => "Phân hệ nghiệp vụ đã bật"
+    };
+}

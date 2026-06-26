@@ -1,0 +1,1039 @@
+---
+description: SaaS UI rules for web-admin and web-tenant - BootstrapBlazor, loading spinner, error modal, processing/progress feedback
+globs: apps/web-admin/**/*.razor,apps/web-admin/**/*.razor.cs,apps/web-tenant/**/*.razor,apps/web-tenant/**/*.razor.cs
+alwaysApply: false
+---
+
+# OCEAN_SAAS_AI_CODING_RULES.md
+
+# Ocean SaaS AI Coding Rules
+
+Version: 1.0  
+Target: Blazor + BootstrapBlazor Enterprise SaaS  
+Theme: Ocean Gradient inspired by Nha Trang sea
+
+---
+
+# 1. Main Goal
+
+AI Agent must build a modern enterprise SaaS UI for:
+
+- CRM
+- ERP
+- Accounting
+- HRM
+- Attendance
+- Payroll
+- Workflow
+- Documents
+- Reports
+
+The UI must not look like old ERP systems.
+
+The UI must feel like:
+
+- Microsoft Fluent 2
+- Stripe Dashboard
+- Linear
+- Atlassian
+- Notion
+- Vercel
+- Supabase
+
+But must be implemented using BootstrapBlazor.
+
+---
+
+# 2. Mandatory Technology Rules
+
+Use:
+
+- Blazor
+- BootstrapBlazor
+- C#
+- Razor component
+- CSS variables
+- Code-behind `.razor.cs`
+- Dependency Injection
+
+Do not use:
+
+- Inline style
+- Random CSS
+- Hardcoded colors
+- Raw HTML table when BootstrapBlazor has Table component
+- JavaScript unless absolutely required
+- Bootstrap default look without customization
+
+---
+
+# 3. Theme Name
+
+The default theme is:
+
+```text
+Ocean Enterprise Design System
+```
+
+Short name:
+
+```text
+OEDS
+```
+
+Design feeling:
+
+```text
+Clean
+Modern
+Enterprise
+Ocean
+Soft
+Fast
+Professional
+Friendly
+```
+
+---
+
+# 4. Ocean Color Tokens
+
+All colors must come from CSS variables.
+
+Never hardcode colors inside Razor components.
+
+```css
+:root {
+  --ocean-50: #E6FBFF;
+  --ocean-100: #CCF6FF;
+  --ocean-200: #99ECFF;
+  --ocean-300: #66D9FF;
+  --ocean-400: #29B6F6;
+  --ocean-500: #0096FF;
+  --ocean-600: #0288D1;
+  --ocean-700: #0277BD;
+  --ocean-800: #075985;
+  --ocean-900: #0C4A6E;
+
+  --app-primary: var(--ocean-500);
+  --app-primary-hover: var(--ocean-600);
+  --app-primary-soft: var(--ocean-100);
+
+  --app-success: #14B8A6;
+  --app-warning: #F59E0B;
+  --app-danger: #DC2626;
+  --app-info: #0EA5E9;
+
+  --app-bg: #F8FCFF;
+  --app-surface: #FFFFFF;
+  --app-surface-soft: #F0F9FF;
+  --app-border: #D8EEF7;
+
+  --app-text: #0F172A;
+  --app-text-muted: #64748B;
+  --app-text-soft: #94A3B8;
+
+  --app-shadow-sm: 0 1px 2px rgba(0, 150, 255, .08);
+  --app-shadow-md: 0 8px 24px rgba(0, 150, 255, .12);
+  --app-shadow-lg: 0 16px 48px rgba(0, 150, 255, .16);
+
+  --app-radius-sm: 6px;
+  --app-radius-md: 10px;
+  --app-radius-lg: 16px;
+  --app-radius-xl: 24px;
+}
+```
+
+---
+
+# 5. Ocean Gradient
+
+Use this gradient for hero, login page, empty state, onboarding, and tenant welcome cards.
+
+```css
+.ocean-gradient {
+  background:
+    radial-gradient(circle at top left, rgba(230, 251, 255, .95), transparent 38%),
+    linear-gradient(
+      135deg,
+      #E6FBFF 0%,
+      #B3F0FF 20%,
+      #66D9FF 45%,
+      #29B6F6 70%,
+      #0288D1 100%
+    );
+}
+```
+
+Do not overuse gradient.
+
+Gradient is allowed only in:
+
+- Login page
+- Landing dashboard welcome card
+- Empty state illustration background
+- Onboarding page
+- Subscription upgrade card
+
+---
+
+# 6. Glass Card Rule
+
+Glass card can be used for premium SaaS look.
+
+```css
+.ocean-glass-card {
+  background: rgba(255, 255, 255, .76);
+  border: 1px solid rgba(255, 255, 255, .38);
+  box-shadow: 0 16px 48px rgba(0, 150, 255, .14);
+  backdrop-filter: blur(20px);
+  border-radius: var(--app-radius-lg);
+}
+```
+
+Use glass card only in:
+
+- Login
+- Dashboard hero
+- KPI highlight
+- Onboarding
+- AI Assistant panel
+
+Do not use glass card for data-heavy tables.
+
+---
+
+# 7. Admin Console Style
+
+Admin Console is for platform owners.
+
+It manages:
+
+- Tenants
+- Plans
+- Billing
+- Modules
+- Users
+- Audit
+- Logs
+- Background Jobs
+- Service Health
+
+Visual style:
+
+```text
+Control Center
+Technical
+Compact
+Professional
+Dark Ocean
+```
+
+Admin theme:
+
+```css
+.admin-shell {
+  --app-bg: #061826;
+  --app-surface: #0B2538;
+  --app-surface-soft: #10344D;
+  --app-border: rgba(148, 211, 255, .18);
+  --app-text: #EAF8FF;
+  --app-text-muted: #9CCCE5;
+  --app-primary: #29B6F6;
+}
+```
+
+Admin sidebar must contain only platform items:
+
+```text
+Dashboard
+Tenants
+Subscriptions
+Plans
+Modules
+Billing
+Users
+Roles
+Audit Logs
+Service Health
+Background Jobs
+Settings
+```
+
+Admin must not show:
+
+- CRM customer menu
+- Attendance menu
+- Payroll menu
+- Sales order menu
+- Daily task widgets
+
+---
+
+# 8. Tenant Workspace Style
+
+Tenant Workspace is for business users.
+
+It manages daily operations:
+
+- CRM
+- Sales
+- Purchase
+- Inventory
+- Finance
+- Accounting
+- HRM
+- Attendance
+- Payroll
+- Documents
+- Reports
+- Approval Tasks
+
+Visual style:
+
+```text
+Business Workspace
+Friendly
+Bright
+Ocean
+Clean
+Operational
+```
+
+Tenant theme:
+
+```css
+.tenant-shell {
+  --app-bg: #F8FCFF;
+  --app-surface: #FFFFFF;
+  --app-surface-soft: #F0F9FF;
+  --app-border: #D8EEF7;
+  --app-text: #0F172A;
+  --app-text-muted: #64748B;
+  --app-primary: #0096FF;
+}
+```
+
+Tenant sidebar must contain:
+
+```text
+Dashboard
+CRM
+Sales
+Purchase
+Inventory
+Finance
+Accounting
+HRM
+Attendance
+Payroll
+Documents
+Workflow
+Reports
+Settings
+```
+
+Tenant must not show:
+
+- Tenant package
+- Billing plan
+- Service health
+- API monitoring
+- Platform logs
+
+---
+
+# 9. BootstrapBlazor Component Rules
+
+Always prefer BootstrapBlazor components.
+
+Use BootstrapBlazor for:
+
+- Table
+- Modal
+- Drawer
+- Toast
+- DatePicker
+- Select
+- Tree
+- Upload
+- Tabs
+- Dropdown
+- Card
+- Button
+- Pagination
+- Form
+- Validation
+- Layout
+- Menu
+
+Do not create custom component unless:
+
+- BootstrapBlazor does not support it
+- The component is reusable
+- The component follows design tokens
+
+---
+
+# 10. Required Page Structure
+
+Every page must follow this structure:
+
+```text
+PageHeader
+Breadcrumb
+Toolbar
+Filter/Search
+Main Content
+Pagination if list page
+Empty State
+Loading State
+Error State
+```
+
+Never create a page without:
+
+- Loading state
+- Empty state
+- Error state
+
+---
+
+# 11. Razor File Structure
+
+For each page:
+
+```text
+PageName.razor
+PageName.razor.cs
+PageNameState.cs
+PageNameService.cs if needed
+```
+
+Rules:
+
+- `.razor` only contains UI markup.
+- `.razor.cs` contains lifecycle and event handlers.
+- Service class calls API.
+- Do not call API directly in `.razor`.
+- Do not put business logic in UI.
+
+---
+
+# 12. Component Naming
+
+Shared components:
+
+```text
+AppButton
+AppCard
+AppTable
+AppPageHeader
+AppToolbar
+AppStatusBadge
+AppEmptyState
+AppLoading
+AppConfirmDialog
+AppFormSection
+```
+
+Admin components:
+
+```text
+AdminShell
+AdminSidebar
+AdminTopbar
+AdminDashboardCard
+AdminServiceHealthWidget
+```
+
+Tenant components:
+
+```text
+TenantShell
+TenantSidebar
+TenantTopbar
+TenantDashboardCard
+TenantApprovalWidget
+```
+
+Do not mix Admin components into Tenant app.
+
+Do not mix Tenant components into Admin app.
+
+---
+
+# 13. CSS Naming
+
+Use prefix:
+
+```text
+app-
+admin-
+tenant-
+ocean-
+```
+
+Examples:
+
+```css
+.app-page-header {}
+.admin-sidebar {}
+.tenant-dashboard {}
+.ocean-gradient {}
+```
+
+Do not use vague class names:
+
+```text
+box
+container2
+main-style
+blue-card
+custom-card
+```
+
+---
+
+# 14. Button Rules
+
+Allowed button variants:
+
+```text
+Primary
+Secondary
+Success
+Warning
+Danger
+Ghost
+Outline
+Link
+```
+
+Primary button:
+
+- Only one main primary button per section.
+- Used for create/save/confirm.
+
+Danger button:
+
+- Only for destructive actions.
+- Must show confirmation dialog.
+
+Do not use multiple primary buttons in one toolbar.
+
+---
+
+# 15. Status Badge Rules
+
+Status mapping:
+
+| Status | Variant |
+|---|---|
+| Draft | Info |
+| Pending | Warning |
+| Approved | Success |
+| Rejected | Danger |
+| Cancelled | Neutral |
+| Active | Success |
+| Inactive | Neutral |
+| Locked | Danger |
+| Processing | Primary |
+| Completed | Success |
+| Failed | Danger |
+| Paid | Success |
+| Unpaid | Warning |
+| Overdue | Danger |
+
+Badge style:
+
+```css
+.app-status-badge {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+```
+
+---
+
+# 16. Data Table Rules
+
+Every table must have:
+
+- Title
+- Search
+- Filter
+- Refresh
+- Export if business data
+- Column visibility if more than 8 columns
+- Pagination
+- Empty state
+- Loading skeleton
+
+Table action rules:
+
+- Row actions stay on right.
+- Destructive action must require confirm dialog.
+- Bulk action must show selected row count.
+
+Do not show too many buttons in each row.
+
+Use dropdown action menu if more than 3 actions.
+
+---
+
+# 17. Form Rules
+
+Form layout:
+
+- Label on top
+- Helper text below input
+- Validation below helper text
+- Required field uses `*`
+- Save/Cancel sticky footer for long forms
+
+Large form must use:
+
+- Section
+- Tabs
+- Stepper
+- Accordion
+
+Do not create a single giant form without grouping.
+
+---
+
+# 18. Dashboard Rules
+
+Admin Dashboard widgets:
+
+```text
+Total Tenants
+Active Tenants
+Monthly Recurring Revenue
+Active Subscriptions
+API Errors
+Failed Jobs
+Service Health
+Recent Audit Logs
+```
+
+Tenant Dashboard widgets:
+
+```text
+Revenue This Month
+Receivables
+Payables
+Pending Approvals
+Attendance Today
+Payroll Status
+Recent Invoices
+Recent Documents
+Contract Reminders
+```
+
+Do not reuse Admin dashboard layout for Tenant.
+
+---
+
+# 19. Module Accent Colors
+
+Use module accent only for icon, sidebar indicator, chart series.
+
+Do not use module accent as full page background.
+
+```css
+--module-crm: #0096FF;
+--module-sales: #0288D1;
+--module-purchase: #F59E0B;
+--module-inventory: #7C3AED;
+--module-accounting: #14B8A6;
+--module-finance: #0891B2;
+--module-hrm: #EC4899;
+--module-attendance: #EA580C;
+--module-payroll: #16A34A;
+--module-document: #64748B;
+--module-workflow: #0EA5E9;
+--module-report: #4F46E5;
+```
+
+---
+
+# 20. Icon Rules
+
+Use Bootstrap Icons only.
+
+Icon size:
+
+```text
+Small: 16px
+Default: 20px
+Large: 24px
+Hero: 40px
+```
+
+Module icons:
+
+```text
+CRM: bi-people
+Sales: bi-receipt
+Purchase: bi-cart-check
+Inventory: bi-box-seam
+Accounting: bi-journal-text
+Finance: bi-cash-stack
+HRM: bi-person-badge
+Attendance: bi-clock-history
+Payroll: bi-wallet2
+Documents: bi-folder2-open
+Workflow: bi-diagram-3
+Reports: bi-bar-chart
+Settings: bi-gear
+```
+
+Do not use decorative icons without meaning.
+
+---
+
+# 21. Animation Rules
+
+Allowed:
+
+```text
+Hover transition 150ms
+Card hover lift 2px
+Fade in 150ms
+Drawer slide
+Modal fade
+```
+
+Not allowed:
+
+```text
+Bouncy animation
+Flashy animation
+Continuous moving background
+Too much parallax
+```
+
+---
+
+# 22. Accessibility Rules
+
+Must support:
+
+- Keyboard navigation
+- Focus visible
+- ARIA label for icon-only button
+- Sufficient contrast
+- Tooltip for unclear action
+- Error message linked to input
+
+Do not remove outline unless replaced by visible focus style.
+
+---
+
+# 23. AI Must Avoid
+
+AI must not generate:
+
+- Old ERP layout
+- AdminLTE style
+- Metronic-heavy dashboard
+- Too many colors
+- Too many borders
+- Random gradients
+- Raw Bootstrap default page
+- Inline CSS
+- Inline JavaScript
+- Business logic inside Razor
+- Duplicate components
+- API call inside markup
+- Hardcoded enum text without mapping
+- Table without empty/loading/error state
+
+---
+
+# 24. AI Implementation Checklist
+
+Before completing any UI task, AI must check:
+
+```text
+[ ] Uses BootstrapBlazor component where possible
+[ ] Uses design token colors
+[ ] No inline style
+[ ] No hardcoded color
+[ ] Has loading state
+[ ] Has empty state
+[ ] Has error state
+[ ] Page has PageHeader
+[ ] Table has search/filter/pagination
+[ ] Form has validation
+[ ] Admin and Tenant styles are not mixed
+[ ] Code-behind is separated
+[ ] API call is in service class
+[ ] Components are reusable
+[ ] Every data load shows a loading spinner
+[ ] Every async action button uses IsAsync="true"
+[ ] Every API call is wrapped in try/catch
+[ ] Errors are shown in a modal (SwalService), never swallowed
+[ ] Create / Update / Delete shows processing feedback
+[ ] Delete asks for confirmation before executing
+```
+
+---
+
+# 25. Mandatory BootstrapBlazor Library
+
+Both `web-admin` and `web-tenant` MUST build all UI with the vendored
+BootstrapBlazor library at `external/bootstrap-blazor` (referenced via project
+reference). Reference docs/demos: https://www.blazor.zone/introduction.
+
+Rules:
+
+- Never add another UI/component library (MudBlazor, Radzen, Ant, etc.).
+- Never hand-roll a control when BootstrapBlazor already provides it
+  (`Table`, `Select`, `BootstrapInput`, `Card`, `Button`, `Modal`, `Drawer`...).
+- Register services in `Program.cs` with `builder.Services.AddBootstrapBlazor();`
+  and place `<BootstrapBlazorRoot>` at the app root so `SwalService`,
+  `DialogService`, `ToastService`, `MessageService` work.
+- This rule applies equally to Admin app and Tenant app.
+
+---
+
+# 26. Loading & Spinner Rules
+
+Every async data load MUST show a loading indicator. The user must never see a
+blank screen while data is being fetched.
+
+Rules:
+
+- Tables use the built-in `Table` loading. Keep `ShowLoadingInFirstRender="true"`
+  (default) and load data inside `OnQueryAsync`; do not pre-render rows.
+- For a section or full page load, drive a `_loading` flag and render
+  BootstrapBlazor `<Spinner>` (or the shared `AppLoading`) while `true`.
+- Use `Skeleton` / `SkeletonTable` for the first paint of cards and lists.
+- Always toggle the flag with `try`/`finally` so it is reset even on error.
+
+Loading flag pattern (code-behind):
+
+```csharp
+private bool _loading;
+
+protected override async Task OnInitializedAsync()
+{
+    _loading = true;
+    try
+    {
+        // Load data from the service layer
+        _items = await DataService.GetItemsAsync();
+    }
+    finally
+    {
+        // Always clear the loading flag, even when an error is thrown
+        _loading = false;
+    }
+}
+```
+
+Spinner markup (.razor):
+
+```razor
+@if (_loading)
+{
+    <div class="app-loading">
+        <Spinner Color="Color.Primary" />
+        <span class="app-loading-text">Đang tải dữ liệu...</span>
+    </div>
+}
+else
+{
+    <!-- Loaded content here -->
+}
+```
+
+Do not:
+
+- Render a table/list without a loading state.
+- Block the whole app when only one section is loading.
+
+---
+
+# 27. Error Handling & Error Modal Rules
+
+Every call into a service / API from code-behind MUST be wrapped in `try`/`catch`.
+Errors must surface to the user in a modal, never be silently swallowed.
+
+Rules:
+
+- Inject `SwalService` and show a blocking error modal with
+  `SwalCategory.Error` when an operation fails.
+- Use `ToastService` only for non-blocking success/info notifications, not for
+  errors that the user must acknowledge.
+- Never display raw stack traces to tenant users; log full detail server-side and
+  show a short friendly message.
+- Centralize the handler (e.g. a shared `ShowErrorAsync` helper) instead of
+  duplicating Swal calls in every page.
+
+Inject the service:
+
+```razor
+@inject SwalService SwalService
+```
+
+Try/catch with error modal:
+
+```csharp
+private async Task SaveAsync()
+{
+    try
+    {
+        await DataService.SaveAsync(_model);
+        // Notify success via toast (non-blocking)
+        await ToastService.Success("Thành công", "Đã lưu dữ liệu.");
+    }
+    catch (Exception ex)
+    {
+        // Surface the failure in a blocking error modal
+        await SwalService.Show(new SwalOption
+        {
+            Category = SwalCategory.Error,
+            Title = "Đã xảy ra lỗi",
+            Content = ex.Message
+        });
+    }
+}
+```
+
+Destructive actions (delete) MUST confirm before executing:
+
+```csharp
+private async Task DeleteAsync(Guid id)
+{
+    var confirmed = await SwalService.ShowModal(new SwalOption
+    {
+        Category = SwalCategory.Question,
+        Title = "Xác nhận xoá",
+        Content = "Bạn có chắc muốn xoá bản ghi này?"
+    });
+    if (!confirmed)
+    {
+        return;
+    }
+
+    try
+    {
+        await DataService.DeleteAsync(id);
+        await ToastService.Success("Đã xoá", "Bản ghi đã được xoá.");
+        await ReloadAsync();
+    }
+    catch (Exception ex)
+    {
+        await SwalService.Show(new SwalOption
+        {
+            Category = SwalCategory.Error,
+            Title = "Xoá thất bại",
+            Content = ex.Message
+        });
+    }
+}
+```
+
+Do not:
+
+- Leave an empty `catch {}` block.
+- Show an error only as plain inline text without a modal for failed actions.
+
+---
+
+# 28. Processing / Progress Rules
+
+Any operation that processes data — load, create, update, delete, import, export
+— MUST give the user visual processing feedback and must prevent double submit.
+
+Rules:
+
+- Action buttons that trigger async work MUST set `IsAsync="true"` so the button
+  shows its built-in spinner and is disabled while running.
+- For longer operations with a known percentage (import/export/batch), use the
+  `<Progress>` component bound to a value.
+- For indeterminate longer operations, show a full overlay `<Spinner>` with a
+  message and disable the surrounding form.
+- After completion, show a success `Toast` and refresh the affected data.
+- Guard against re-entry with a `_processing` flag (or rely on `IsAsync`).
+
+Async button (auto spinner + disabled while running):
+
+```razor
+<Button Text="Tạo mới" Icon="fa-solid fa-plus" Color="Color.Success"
+        IsAsync="true" OnClick="CreateAsync" />
+```
+
+Determinate progress (e.g. import):
+
+```razor
+@if (_processing)
+{
+    <Progress Value="_progress" IsShowValue="true" Color="Color.Primary" />
+}
+```
+
+```csharp
+private bool _processing;
+private double _progress;
+
+private async Task ImportAsync()
+{
+    _processing = true;
+    _progress = 0;
+    try
+    {
+        // Report progress as each chunk completes
+        await DataService.ImportAsync(_file, p =>
+        {
+            _progress = p;
+            InvokeAsync(StateHasChanged);
+        });
+        await ToastService.Success("Hoàn tất", "Đã nhập dữ liệu.");
+    }
+    catch (Exception ex)
+    {
+        await SwalService.Show(new SwalOption
+        {
+            Category = SwalCategory.Error,
+            Title = "Nhập dữ liệu thất bại",
+            Content = ex.Message
+        });
+    }
+    finally
+    {
+        _processing = false;
+    }
+}
+```
+
+Do not:
+
+- Fire create/update/delete without disabling the trigger.
+- Leave the user without feedback during a long-running task.
+
+---
+
+# 29. Final Rule
+
+The system must look like a modern Ocean-inspired enterprise SaaS.
+
+It must not look like a traditional ERP.
+
+Every screen should feel:
+
+```text
+Fast
+Clean
+Trusted
+Ocean
+Enterprise
+Friendly
+Auditable
+```

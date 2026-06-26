@@ -1,0 +1,165 @@
+@page "/users"
+@inject CoreApiClient Api
+@inject TenantLookupService TenantLookup
+
+<PageTitle>Người dùng</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Người dùng</h1>
+        <p>Tạo người dùng cho khách thuê và kiểm tra đăng nhập.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
+}
+
+<div class="work-surface">
+    <Card HeaderText="Tạo người dùng" IsShadow="true">
+        <BodyTemplate>
+            <Select TValue="string" @bind-Value="_tenantId" Items="_tenantOptions"
+                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true"
+                    PlaceHolder="Chọn khách thuê" class="mb-2" />
+            <BootstrapInput @bind-Value="_userName" DisplayText="Tên đăng nhập" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_email" DisplayText="Email" ShowLabel="true" class="mb-2" />
+            <BootstrapPassword @bind-Value="_password" DisplayText="Mật khẩu" ShowLabel="true" class="mb-2" />
+            <Select TValue="string" @bind-Value="_selectedRole" Items="UiCatalogs.Roles"
+                    DisplayText="Vai trò" ShowLabel="true" class="mb-3" />
+            <div class="d-flex gap-2">
+                <Button Text="Tạo mới" Icon="fa-solid fa-user-plus" Color="Color.Success" IsAsync="true" OnClick="CreateAsync" />
+                <Button Text="Đăng nhập thử" Icon="fa-solid fa-key" Color="Color.Info" IsOutline="true" IsAsync="true" OnClick="LoginAsync" />
+            </div>
+        </BodyTemplate>
+    </Card>
+
+    <Card HeaderText="Danh sách người dùng" IsShadow="true">
+        <BodyTemplate>
+            <Table @ref="_table" TItem="UserDto" OnQueryAsync="OnQueryAsync"
+                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.UserName" Text="Tên đăng nhập" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.Email" Text="Email" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.TenantId" Text="Khách thuê" Sortable="false">
+                        <Template Context="v">@TenantLookup.Describe(v.Row.TenantId)</Template>
+                    </TableColumn>
+                    <TableColumn @bind-Field="@context.Id" Text="Vai trò" Sortable="false">
+                        <Template Context="v">@RolesText(v.Row)</Template>
+                    </TableColumn>
+                </TableColumns>
+            </Table>
+        </BodyTemplate>
+    </Card>
+</div>
+
+@code {
+    private Table<UserDto>? _table;
+    private string _tenantId = "";
+    private string _userName = "";
+    private string _email = "";
+    private string _password = "Password@123";
+    private string _selectedRole = "ADMIN";
+    private List<SelectedItem> _tenantOptions = [];
+    private string? _message;
+    private Color _messageColor = Color.Primary;
+    private static readonly int[] _pageItems = [10, 20, 50];
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Preload the tenant catalog so the dropdown shows codes and the table can
+        // resolve tenant Ids to their code/name instead of showing a raw GUID.
+        try
+        {
+            _tenantOptions = await TenantLookup.GetOptionsAsync(forceRefresh: true);
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task<QueryData<UserDto>> OnQueryAsync(QueryPageOptions options)
+    {
+        var all = await LoadAsync();
+        return TableQuery.Apply(all, options);
+    }
+
+    private async Task<List<UserDto>> LoadAsync()
+    {
+        try
+        {
+            return (await Api.GetUsersAsync())?.Items.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+            return [];
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        if (!Guid.TryParse(_tenantId, out var tenantId))
+        {
+            SetError("Vui lòng chọn khách thuê.");
+            return;
+        }
+
+        try
+        {
+            await Api.CreateUserAsync(new CreateUserRequest(tenantId, _userName, _email, _password, [_selectedRole]));
+            SetInfo("Đã tạo người dùng.");
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task LoginAsync()
+    {
+        if (!Guid.TryParse(_tenantId, out var tenantId))
+        {
+            SetError("Vui lòng chọn khách thuê.");
+            return;
+        }
+
+        try
+        {
+            var result = await Api.LoginAsync(new LoginRequest(tenantId, _userName, _password));
+            if (result is null)
+            {
+                SetError("Đăng nhập thất bại.");
+            }
+            else
+            {
+                SetInfo($"Đăng nhập thành công. Token hết hạn lúc {result.ExpiresAt:u}");
+            }
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private static string RolesText(UserDto user)
+        => string.Join(", ", user.Roles ?? Array.Empty<string>());
+
+    private void SetInfo(string text)
+    {
+        _message = text;
+        _messageColor = Color.Success;
+    }
+
+    private void SetError(string text)
+    {
+        _message = text;
+        _messageColor = Color.Danger;
+    }
+}

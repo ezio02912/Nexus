@@ -1,0 +1,148 @@
+@page "/workflow"
+@inject CoreApiClient Api
+@inject TenantLookupService TenantLookup
+
+<PageTitle>Quy trình</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Quy trình</h1>
+        <p>Tạo định nghĩa quy trình và khởi tạo phiên phê duyệt.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
+}
+
+<div class="work-surface">
+    <Card HeaderText="Tạo định nghĩa" IsShadow="true">
+        <BodyTemplate>
+            <Select TValue="string" @bind-Value="_tenantId" Items="_tenantOptions"
+                    DisplayText="Mã khách thuê" ShowLabel="true" ShowSearch="true"
+                    PlaceHolder="Chọn khách thuê" class="mb-2" />
+            <BootstrapInput @bind-Value="_code" DisplayText="Mã" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_name" DisplayText="Tên" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_stepsText" DisplayText="Các bước" PlaceHolder="Manager, Finance" ShowLabel="true" class="mb-3" />
+            <Button Text="Tạo mới" Icon="fa-solid fa-plus" Color="Color.Success" IsAsync="true" OnClick="CreateDefinitionAsync" />
+        </BodyTemplate>
+    </Card>
+
+    <Card HeaderText="Danh sách định nghĩa" IsShadow="true">
+        <BodyTemplate>
+            <Table @ref="_table" TItem="WorkflowDefinitionRecord" OnQueryAsync="OnQueryAsync"
+                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowDefaultButtons="false"
+                   ShowExtendButtons="true" ExtendButtonColumnWidth="160" ShowRefresh="true">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.IsActive" Text="Các bước" Sortable="false">
+                        <Template Context="v">@string.Join(" -> ", v.Row.Steps)</Template>
+                    </TableColumn>
+                </TableColumns>
+                <RowButtonTemplate>
+                    <TableCellButton Color="Color.Primary" Icon="fa-solid fa-play" Text="Khởi tạo thử"
+                                     OnClick="() => StartInstanceAsync(context.Id)" />
+                </RowButtonTemplate>
+            </Table>
+            @if (_lastInstance is not null)
+            {
+                <Alert Color="Color.Info" class="mt-3">
+                    Đã khởi tạo phiên @_lastInstance.Id với trạng thái @_lastInstance.Status.
+                </Alert>
+            }
+        </BodyTemplate>
+    </Card>
+</div>
+
+@code {
+    private Table<WorkflowDefinitionRecord>? _table;
+    private WorkflowInstanceRecord? _lastInstance;
+    private string _tenantId = "";
+    private string _code = "PAYMENT_APPROVAL";
+    private string _name = "Payment Approval";
+    private string _stepsText = "Manager, Finance";
+    private List<SelectedItem> _tenantOptions = [];
+    private string? _message;
+    private Color _messageColor = Color.Primary;
+    private static readonly int[] _pageItems = [10, 20, 50];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Tenant is optional for a workflow definition, so allow an empty choice.
+            _tenantOptions = await TenantLookup.GetOptionsAsync(includeEmpty: true, forceRefresh: true);
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task<QueryData<WorkflowDefinitionRecord>> OnQueryAsync(QueryPageOptions options)
+    {
+        var all = await LoadAsync();
+        return TableQuery.Apply(all, options);
+    }
+
+    private async Task<List<WorkflowDefinitionRecord>> LoadAsync()
+    {
+        try
+        {
+            return (await Api.GetWorkflowDefinitionsAsync())?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+            return [];
+        }
+    }
+
+    private async Task CreateDefinitionAsync()
+    {
+        try
+        {
+            Guid? tenantId = Guid.TryParse(_tenantId, out var parsed) ? parsed : null;
+            var steps = _stepsText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            await Api.CreateWorkflowDefinitionAsync(new CreateWorkflowDefinitionRequest(tenantId, _code, _name, steps));
+            SetInfo("Đã tạo định nghĩa quy trình.");
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task StartInstanceAsync(Guid definitionId)
+    {
+        try
+        {
+            Guid? tenantId = Guid.TryParse(_tenantId, out var parsed) ? parsed : null;
+            _lastInstance = await Api.CreateWorkflowInstanceAsync(new CreateWorkflowInstanceRequest(tenantId, definitionId, "Accounting", "PaymentRequest", Guid.NewGuid().ToString()));
+            SetInfo("Đã khởi tạo phiên quy trình.");
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private void SetInfo(string text)
+    {
+        _message = text;
+        _messageColor = Color.Success;
+    }
+
+    private void SetError(string text)
+    {
+        _message = text;
+        _messageColor = Color.Danger;
+    }
+}

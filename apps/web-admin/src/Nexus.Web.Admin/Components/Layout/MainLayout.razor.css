@@ -1,0 +1,4 @@
+/* The main work surface fills the available height under the tab workspace. */
+.layout-content {
+    min-height: 100%;
+}

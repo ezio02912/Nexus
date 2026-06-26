@@ -1,0 +1,41 @@
+@page "/workflow"
+@rendermode InteractiveServer
+@inject TenantSessionService Session
+
+<PageTitle>Quy trình</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Quản trị tenant</p>
+            <h1>Quy trình</h1>
+            <p>Không gian phê duyệt chứng từ CRM và Bán hàng của tenant.</p>
+        </div>
+    </header>
+
+    @if (!Session.IsAuthenticated)
+    {
+        <div class="app-alert">Đăng nhập để xem quy trình tenant.</div>
+    }
+    else
+    {
+        <div class="app-grid">
+            <section class="app-card">
+                <h2>Chờ phê duyệt</h2>
+                <div class="app-empty-state">Không có hồ sơ chờ phê duyệt.</div>
+            </section>
+            <section class="app-card">
+                <h2>Nguồn quy trình đã bật</h2>
+                <div class="tenant-permission-catalog">
+                    @foreach (var module in Session.EnabledModules)
+                    {
+                        <div class="tenant-permission-item">
+                            <span class="app-status-badge app-status-active">@module</span>
+                            <span>Phê duyệt phân hệ đang khả dụng cho tenant này.</span>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+    }
+</section>

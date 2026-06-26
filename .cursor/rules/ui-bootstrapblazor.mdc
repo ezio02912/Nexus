@@ -1,0 +1,41 @@
+---
+description: UI conventions - always build Blazor UI with the vendored BootstrapBlazor component library
+globs: apps/**/*.razor,apps/**/*.razor.cs
+alwaysApply: false
+---
+
+# BootstrapBlazor UI Conventions
+
+All Blazor UI in `apps/**` MUST be built with the vendored BootstrapBlazor library
+(`external/bootstrap-blazor`, referenced via project reference). Reference component
+usage and demos at https://www.blazor.zone/introduction.
+
+## Rules
+
+- Prefer BootstrapBlazor components over raw HTML/Bootstrap markup.
+- Data lists MUST use `<Table>` with built-in pagination (`IsPagination="true"`,
+  `PageItemsSource`) instead of hand-rolled tables/paging.
+- Dropdowns MUST use `<Select>` / `<SelectGeneric>` (not raw `<select>` or free-text
+  inputs) for fixed option sets (status, role, module, etc.).
+- Text/number/password inputs use `BootstrapInput` / `BootstrapInputNumber` /
+  `BootstrapPassword`; group content in `<Card>`.
+- The admin shell body MUST be a Chrome-style tab workspace: the `<Layout>` uses
+  `UseTabSet="true"` and `TabStyle="TabStyle.Chrome"` so menu clicks open closeable
+  Chrome tabs.
+
+## Example
+
+```razor
+<Layout UseTabSet="true" TabStyle="TabStyle.Chrome" TabDefaultUrl="/" ...>
+    ...
+</Layout>
+
+<Select TValue="string" @bind-Value="_status" Items="_statusOptions" DisplayText="Trạng thái" />
+
+<Table TItem="UserDto" OnQueryAsync="OnQueryAsync"
+       IsPagination="true" PageItemsSource="_pageItems" ShowSearch="true">
+    <TableColumns>
+        <TableColumn @bind-Field="@context.UserName" Text="Tên đăng nhập" Sortable="true" />
+    </TableColumns>
+</Table>
+```

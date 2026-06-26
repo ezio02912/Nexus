@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../shared/building-blocks/src/Nexus.BuildingBlocks.Messaging/Nexus.BuildingBlocks.Messaging.csproj" />
+    <ProjectReference Include="../../../../shared/building-blocks/src/Nexus.BuildingBlocks.Web/Nexus.BuildingBlocks.Web.csproj" />
+    <ProjectReference Include="../../../../shared/event-contracts/src/Nexus.EventContracts/Nexus.EventContracts.csproj" />
+  </ItemGroup>
+
+</Project>

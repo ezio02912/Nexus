@@ -1,0 +1,140 @@
+@page "/tenant-users"
+@rendermode InteractiveServer
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>Người dùng tenant</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Quản trị tenant</p>
+            <h1>Người dùng</h1>
+            <p>Tạo và quản lý người dùng trong tenant hiện tại.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.IsAuthenticated)
+    {
+        <div class="app-alert">Đăng nhập để quản lý người dùng tenant.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="@messageCss">@message</div>
+        }
+
+        <div class="tenant-work-grid">
+            <section class="app-card">
+                <h2>Tạo người dùng</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Tên đăng nhập *</label>
+                        <input class="form-control" @bind="userName" />
+                    </div>
+                    <div>
+                        <label>Email *</label>
+                        <input class="form-control" @bind="email" />
+                    </div>
+                    <div>
+                        <label>Mật khẩu *</label>
+                        <input class="form-control" type="password" @bind="password" />
+                    </div>
+                    <div>
+                        <label>Vai trò</label>
+                        <input class="form-control" @bind="rolesText" />
+                    </div>
+                </div>
+                <Button Text="Tạo người dùng" Color="Color.Primary" OnClick="CreateAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Người dùng</h2>
+                @if (CurrentTenantUsers.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có người dùng.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Tài khoản</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th></tr></thead>
+                        <tbody>
+                            @foreach (var user in CurrentTenantUsers)
+                            {
+                                <tr>
+                                    <td>@user.UserName</td>
+                                    <td>@user.Email</td>
+                                    <td>@RolesText(user)</td>
+                                    <td><span class="@StatusCss(user)">@(user.IsActive ? "Hoạt động" : "Ngừng")</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private List<UserDto> users = [];
+    private string userName = "";
+    private string email = "";
+    private string password = "Password@123";
+    private string rolesText = "TenantAdmin";
+    private string message = "";
+    private string messageCss = "app-alert";
+
+    private List<UserDto> CurrentTenantUsers => Session.TenantId is Guid tenantId
+        ? users.Where(x => x.TenantId == tenantId).ToList()
+        : [];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        users = (await Api.GetUsersAsync(Session.TenantId))?.Items.ToList() ?? [];
+    }
+
+    private async Task CreateAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            ShowError("Thiếu phiên tenant.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            ShowError("Vui lòng nhập tên đăng nhập, email và mật khẩu.");
+            return;
+        }
+
+        var roles = rolesText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        await Api.CreateUserAsync(new CreateUserRequest(tenantId, userName, email, password, roles));
+        userName = "";
+        email = "";
+        ShowSuccess("Đã tạo người dùng tenant.");
+        await LoadAsync();
+    }
+
+    private static string RolesText(UserDto user) => string.Join(", ", user.Roles ?? Array.Empty<string>());
+
+    private static string StatusCss(UserDto user) => user.IsActive
+        ? "app-status-badge app-status-active"
+        : "app-status-badge app-status-muted";
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "app-alert";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "app-alert app-alert-danger";
+    }
+}

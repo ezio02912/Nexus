@@ -1,0 +1,114 @@
+@page "/login"
+@layout LoginLayout
+@rendermode InteractiveServer
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject NavigationManager Navigation
+
+<PageTitle>Đăng nhập</PageTitle>
+
+<div class="tenant-login-page">
+    <section class="tenant-login-form-pane">
+        <div class="tenant-login-card">
+            <a class="tenant-login-back" href="/">&larr; Quay lại</a>
+            <div class="tenant-login-heading">
+                <span class="brand-mark">N</span>
+                <div>
+                    <p class="app-eyebrow">Cổng tenant</p>
+                    <h1>Đăng nhập</h1>
+                    <p>Dùng tài khoản tenant để mở CRM, Bán hàng và công cụ quản trị.</p>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(error))
+            {
+                <div class="app-alert app-alert-danger">@error</div>
+            }
+
+            <EditForm Model="model" OnValidSubmit="LoginAsync" class="tenant-form">
+                <DataAnnotationsValidator />
+                <label class="form-label">Mã tenant</label>
+                <InputText class="form-control tenant-input" @bind-Value="model.TenantCode" />
+                <div class="form-text">Nhập mã tenant, ví dụ: DEMO.</div>
+
+                <label class="form-label">Tên đăng nhập</label>
+                <InputText class="form-control tenant-input" @bind-Value="model.UserName" />
+
+                <label class="form-label">Mật khẩu</label>
+                <InputText class="form-control tenant-input" type="password" @bind-Value="model.Password" />
+
+                <Button Text="@(isBusy ? "Đang đăng nhập..." : "Đăng nhập")" ButtonType="ButtonType.Submit" Color="Color.Primary" IsBlock="true" IsDisabled="@isBusy" />
+            </EditForm>
+
+            <div class="tenant-login-demo">
+                <span>Demo</span>
+                <code>DEMO / tenantadmin / 123123</code>
+            </div>
+        </div>
+    </section>
+
+    <section class="tenant-login-visual">
+        <div class="tenant-login-visual-inner">
+            <span class="tenant-brand-badge">Nexus</span>
+            <h2>Vận hành mỗi tenant như một SaaS riêng.</h2>
+            <p>Module, menu và phân quyền được tải theo ngữ cảnh tenant sau khi đăng nhập.</p>
+            <div class="tenant-login-stats">
+                <div><strong>CRM</strong><span>Khách hàng</span></div>
+                <div><strong>Sales</strong><span>Bán hàng</span></div>
+                <div><strong>RBAC</strong><span>Theo tenant</span></div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private readonly LoginFormModel model = new();
+    private bool isBusy;
+    private string? error;
+
+    private async Task LoginAsync()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(model.TenantCode))
+        {
+            error = "Vui lòng nhập mã tenant.";
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            var tenant = await Api.GetTenantByCodeAsync(model.TenantCode);
+            if (tenant is null)
+            {
+                error = "Không tìm thấy tenant theo mã đã nhập.";
+                return;
+            }
+
+            var login = await Api.LoginAsync(new LoginRequest(tenant.Id, model.UserName, model.Password));
+            if (login is null)
+            {
+                error = "Đăng nhập thất bại. Vui lòng kiểm tra tài khoản hoặc mật khẩu.";
+                return;
+            }
+
+            Session.SignIn(model.UserName, login, tenant);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private sealed class LoginFormModel
+    {
+        public string TenantCode { get; set; } = "DEMO";
+        public string UserName { get; set; } = "tenantadmin";
+        public string Password { get; set; } = "123123";
+    }
+}

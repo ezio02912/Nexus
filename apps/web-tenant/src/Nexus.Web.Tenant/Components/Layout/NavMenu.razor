@@ -1,0 +1,60 @@
+﻿@inject TenantSessionService Session
+
+<div class="top-row ps-3 navbar navbar-dark tenant-brandbar">
+    <div class="container-fluid">
+        <a class="navbar-brand tenant-logo" href="">
+            <span>N</span>
+            <strong>Nexus Tenant</strong>
+        </a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-section">Tổng quan</div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Bảng điều khiển</NavLink>
+        </div>
+
+        @if (Session.HasModule("CRM") || Session.HasModule("SALES"))
+        {
+            <div class="nav-section">Phân hệ</div>
+        }
+
+        @if (Session.HasModule("CRM"))
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="crm">CRM</NavLink>
+            </div>
+        }
+
+        @if (Session.HasModule("SALES"))
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="sales">Bán hàng</NavLink>
+            </div>
+        }
+
+        @if (Session.IsAuthenticated)
+        {
+            <div class="nav-section">Quản trị tenant</div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="tenant-users">Người dùng</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="tenant-permissions">Phân quyền</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="workflow">Quy trình</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="reports">Báo cáo</NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="settings">Thiết lập</NavLink>
+            </div>
+        }
+    </nav>
+</div>

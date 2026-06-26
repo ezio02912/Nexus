@@ -1,0 +1,48 @@
+@page "/"
+@* Pin the home page as a permanent, non-closeable tab so its title is always shown *@
+@attribute [TabItemOption(Text = "Tổng quan", Icon = "fa-solid fa-gauge-high", Closable = false)]
+
+<PageTitle>Nexus Admin</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Nexus Admin</h1>
+        <p>Vận hành lõi cho khách thuê, danh tính, phân quyền, nhật ký, tệp tin, đánh số và quy trình.</p>
+    </div>
+</section>
+
+<div class="row g-3">
+    @foreach (var tile in _tiles)
+    {
+        <div class="col-12 col-sm-6 col-xl-4">
+            <a class="text-decoration-none" href="@tile.Url">
+                <Card IsShadow="true" class="dashboard-tile h-100">
+                    <BodyTemplate>
+                        <div class="d-flex align-items-center">
+                            <span class="dashboard-tile-icon">
+                                <i class="@tile.Icon"></i>
+                            </span>
+                            <div class="ms-3">
+                                <strong class="d-block">@tile.Title</strong>
+                                <span class="text-muted small">@tile.Description</span>
+                            </div>
+                        </div>
+                    </BodyTemplate>
+                </Card>
+            </a>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly (string Title, string Description, string Url, string Icon)[] _tiles =
+    [
+        ("Khách thuê", "Công ty, mô-đun, cấu hình", "tenants", "fa-solid fa-building"),
+        ("Người dùng", "Danh tính và gán vai trò", "users", "fa-solid fa-users"),
+        ("Phân quyền", "Quyền vai trò và kiểm tra", "permissions", "fa-solid fa-user-shield"),
+        ("Quy trình", "Định nghĩa và phiên phê duyệt", "workflow", "fa-solid fa-diagram-project"),
+        ("Tệp tin", "Thông tin và liên kết chứng từ", "files", "fa-solid fa-folder-open"),
+        ("Đánh số", "Chuỗi số chứng từ", "numbering", "fa-solid fa-hashtag"),
+        ("Nhật ký", "Nhật ký truy cập và thay đổi", "audit", "fa-solid fa-clipboard-list"),
+    ];
+}

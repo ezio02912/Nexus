@@ -1,0 +1,429 @@
+@page "/crm"
+@rendermode InteractiveServer
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Quản lý khách hàng</h1>
+            <p>Quản lý khách hàng, lead, cơ hội, báo giá và hợp đồng trong tenant hiện tại.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.HasModule("CRM"))
+    {
+        <div class="app-alert">Tenant này chưa được bật phân hệ CRM.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="@messageCss">@message</div>
+        }
+
+        <div class="tenant-work-grid">
+            <section class="app-card">
+                <h2>Tạo khách hàng</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Mã khách hàng *</label>
+                        <input class="form-control" @bind="customerCode" />
+                    </div>
+                    <div>
+                        <label>Tên khách hàng *</label>
+                        <input class="form-control" @bind="customerName" />
+                    </div>
+                    <div>
+                        <label>Email</label>
+                        <input class="form-control" @bind="customerEmail" />
+                    </div>
+                </div>
+                <Button Text="Tạo khách hàng" Color="Color.Primary" OnClick="CreateCustomerAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <div class="app-toolbar">
+                    <h2>Khách hàng</h2>
+                    <input class="form-control app-search" placeholder="Tìm khách hàng" @bind="search" @bind:event="oninput" />
+                </div>
+                @if (isLoading)
+                {
+                    <div class="app-loading">Đang tải khách hàng...</div>
+                }
+                else if (!FilteredCustomers.Any())
+                {
+                    <div class="app-empty-state">Chưa có khách hàng.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Mã</th><th>Tên</th><th>Email</th><th>Trạng thái</th></tr></thead>
+                        <tbody>
+                            @foreach (var item in FilteredCustomers)
+                            {
+                                <tr>
+                                    <td>@item.Code</td>
+                                    <td>@item.Name</td>
+                                    <td>@item.Email</td>
+                                    <td><span class="app-status-badge app-status-active">@item.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+
+            <section class="app-card">
+                <h2>Tạo lead</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Họ tên *</label>
+                        <input class="form-control" @bind="leadName" />
+                    </div>
+                    <div>
+                        <label>Công ty</label>
+                        <input class="form-control" @bind="leadCompany" />
+                    </div>
+                    <div>
+                        <label>Nguồn</label>
+                        <input class="form-control" @bind="leadSource" />
+                    </div>
+                </div>
+                <Button Text="Tạo lead" Color="Color.Primary" OnClick="CreateLeadAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Leads</h2>
+                @if (leads.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có lead.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Tên</th><th>Công ty</th><th>Nguồn</th><th>Trạng thái</th></tr></thead>
+                        <tbody>
+                            @foreach (var item in leads)
+                            {
+                                <tr><td>@item.FullName</td><td>@item.CompanyName</td><td>@item.Source</td><td>@item.Status</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+
+            <section class="app-card">
+                <h2>Tạo cơ hội</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Khách hàng</label>
+                        <select class="form-select" @bind="opportunityCustomerId">
+                            <option value="">Chưa chọn khách hàng</option>
+                            @foreach (var customer in customers)
+                            {
+                                <option value="@customer.Id">@CustomerOption(customer)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label>Tên cơ hội *</label>
+                        <input class="form-control" @bind="opportunityName" />
+                    </div>
+                    <div>
+                        <label>Giá trị</label>
+                        <input class="form-control" type="number" @bind="opportunityAmount" />
+                    </div>
+                </div>
+                <Button Text="Tạo cơ hội" Color="Color.Primary" OnClick="CreateOpportunityAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Cơ hội</h2>
+                @if (opportunities.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có cơ hội.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Tên</th><th>Giai đoạn</th><th>Giá trị</th><th>Dự kiến chốt</th></tr></thead>
+                        <tbody>
+                            @foreach (var item in opportunities)
+                            {
+                                <tr><td>@item.Name</td><td>@item.Stage</td><td>@item.Amount.ToString("N2")</td><td>@item.ExpectedCloseDate</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+
+            <section class="app-card">
+                <h2>Tạo báo giá</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Khách hàng *</label>
+                        <select class="form-select" @bind="quotationCustomerId">
+                            <option value="">Chọn khách hàng</option>
+                            @foreach (var customer in customers)
+                            {
+                                <option value="@customer.Id">@CustomerOption(customer)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label>Số báo giá *</label>
+                        <input class="form-control" @bind="quotationNo" />
+                    </div>
+                    <div>
+                        <label>Tổng tiền</label>
+                        <input class="form-control" type="number" @bind="quotationTotal" />
+                    </div>
+                </div>
+                <Button Text="Tạo báo giá" Color="Color.Primary" OnClick="CreateQuotationAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Báo giá</h2>
+                @if (quotations.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có báo giá.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Số</th><th>Khách hàng</th><th>Trạng thái</th><th>Tổng tiền</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var item in quotations)
+                            {
+                                <tr>
+                                    <td>@item.QuotationNo</td>
+                                    <td>@CustomerText(item.CustomerId)</td>
+                                    <td><span class="app-status-badge">@item.Status</span></td>
+                                    <td>@item.TotalAmount.ToString("N2")</td>
+                                    <td>
+                                        <Button Text="Duyệt" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(item.Status == "Approved")" OnClick="@(() => ApproveQuotationAsync(item.Id))" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+
+            <section class="app-card">
+                <h2>Tạo hợp đồng</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Khách hàng *</label>
+                        <select class="form-select" @bind="contractCustomerId">
+                            <option value="">Chọn khách hàng</option>
+                            @foreach (var customer in customers)
+                            {
+                                <option value="@customer.Id">@CustomerOption(customer)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label>Số hợp đồng *</label>
+                        <input class="form-control" @bind="contractNo" />
+                    </div>
+                    <div>
+                        <label>Tiêu đề *</label>
+                        <input class="form-control" @bind="contractTitle" />
+                    </div>
+                </div>
+                <Button Text="Tạo hợp đồng" Color="Color.Primary" OnClick="CreateContractAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Hợp đồng</h2>
+                @if (contracts.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có hợp đồng.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Số</th><th>Tiêu đề</th><th>Trạng thái</th><th>Ngày ký</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var item in contracts)
+                            {
+                                <tr>
+                                    <td>@item.ContractNo</td>
+                                    <td>@item.Title</td>
+                                    <td><span class="app-status-badge">@item.Status</span></td>
+                                    <td>@item.SignedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>
+                                        <Button Text="Ký" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(item.Status == "Signed")" OnClick="@(() => SignContractAsync(item.Id))" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private List<CustomerRecord> customers = [];
+    private List<LeadRecord> leads = [];
+    private List<OpportunityRecord> opportunities = [];
+    private List<QuotationRecord> quotations = [];
+    private List<ContractRecord> contracts = [];
+    private bool isLoading;
+    private string search = "";
+    private string message = "";
+    private string messageCss = "app-alert";
+
+    private string customerCode = "";
+    private string customerName = "";
+    private string customerEmail = "";
+    private string leadName = "";
+    private string leadCompany = "";
+    private string leadSource = "Website";
+    private string opportunityCustomerId = "";
+    private string opportunityName = "";
+    private decimal opportunityAmount = 1000;
+    private string quotationCustomerId = "";
+    private string quotationNo = "QT-0001";
+    private decimal quotationTotal = 1000;
+    private string contractCustomerId = "";
+    private string contractNo = "CT-0001";
+    private string contractTitle = "";
+
+    private IEnumerable<CustomerRecord> FilteredCustomers => string.IsNullOrWhiteSpace(search)
+        ? customers
+        : customers.Where(x => x.Code.Contains(search, StringComparison.OrdinalIgnoreCase) || x.Name.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    private static string CustomerOption(CustomerRecord customer) => $"{customer.Code} - {customer.Name}";
+
+    private string CustomerText(Guid customerId)
+    {
+        var customer = customers.FirstOrDefault(x => x.Id == customerId);
+        return customer is null ? "Không xác định" : CustomerOption(customer);
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        isLoading = true;
+        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
+        leads = (await Api.GetLeadsAsync(tenantId))?.ToList() ?? [];
+        opportunities = (await Api.GetOpportunitiesAsync(tenantId))?.ToList() ?? [];
+        quotations = (await Api.GetQuotationsAsync(tenantId))?.ToList() ?? [];
+        contracts = (await Api.GetContractsAsync(tenantId))?.ToList() ?? [];
+        isLoading = false;
+    }
+
+    private async Task CreateCustomerAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(customerCode) || string.IsNullOrWhiteSpace(customerName))
+        {
+            ShowError("Vui lòng nhập mã và tên khách hàng.");
+            return;
+        }
+
+        await Api.CreateCustomerAsync(new CreateCustomerRequest(tenantId, customerCode, customerName, customerEmail, null));
+        customerCode = "";
+        customerName = "";
+        customerEmail = "";
+        ShowSuccess("Đã tạo khách hàng.");
+        await LoadAsync();
+    }
+
+    private async Task CreateLeadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(leadName))
+        {
+            ShowError("Vui lòng nhập tên lead.");
+            return;
+        }
+
+        await Api.CreateLeadAsync(new CreateLeadRequest(tenantId, leadName, leadCompany, null, null, leadSource));
+        leadName = "";
+        leadCompany = "";
+        ShowSuccess("Đã tạo lead.");
+        await LoadAsync();
+    }
+
+    private async Task CreateOpportunityAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(opportunityName))
+        {
+            ShowError("Vui lòng nhập tên cơ hội.");
+            return;
+        }
+
+        Guid? customerId = Guid.TryParse(opportunityCustomerId, out var parsedCustomerId) ? parsedCustomerId : null;
+        await Api.CreateOpportunityAsync(new CreateOpportunityRequest(tenantId, customerId, opportunityName, opportunityAmount, null));
+        opportunityName = "";
+        ShowSuccess("Đã tạo cơ hội.");
+        await LoadAsync();
+    }
+
+    private async Task CreateQuotationAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || !Guid.TryParse(quotationCustomerId, out var customerId) || string.IsNullOrWhiteSpace(quotationNo))
+        {
+            ShowError("Vui lòng chọn khách hàng và nhập số báo giá.");
+            return;
+        }
+
+        await Api.CreateQuotationAsync(new CreateQuotationRequest(tenantId, customerId, quotationNo, quotationTotal));
+        ShowSuccess("Đã tạo báo giá.");
+        await LoadAsync();
+    }
+
+    private async Task ApproveQuotationAsync(Guid id)
+    {
+        await Api.ApproveQuotationAsync(id);
+        ShowSuccess("Đã duyệt báo giá.");
+        await LoadAsync();
+    }
+
+    private async Task CreateContractAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || !Guid.TryParse(contractCustomerId, out var customerId) || string.IsNullOrWhiteSpace(contractNo) || string.IsNullOrWhiteSpace(contractTitle))
+        {
+            ShowError("Vui lòng chọn khách hàng, nhập số hợp đồng và tiêu đề.");
+            return;
+        }
+
+        await Api.CreateContractAsync(new CreateContractRequest(tenantId, customerId, contractNo, contractTitle));
+        contractTitle = "";
+        ShowSuccess("Đã tạo hợp đồng.");
+        await LoadAsync();
+    }
+
+    private async Task SignContractAsync(Guid id)
+    {
+        await Api.SignContractAsync(id);
+        ShowSuccess("Đã ký hợp đồng.");
+        await LoadAsync();
+    }
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "app-alert";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "app-alert app-alert-danger";
+    }
+}

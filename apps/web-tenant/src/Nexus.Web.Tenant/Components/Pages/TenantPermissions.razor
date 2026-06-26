@@ -1,0 +1,101 @@
+@page "/tenant-permissions"
+@rendermode InteractiveServer
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>Phân quyền tenant</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Quản trị tenant</p>
+            <h1>Phân quyền</h1>
+            <p>Quản lý quyền theo vai trò trong phạm vi tenant hiện tại.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadCatalogAsync" />
+    </header>
+
+    @if (!Session.IsAuthenticated)
+    {
+        <div class="app-alert">Đăng nhập để quản lý phân quyền tenant.</div>
+    }
+    else
+    {
+        <div class="tenant-work-grid">
+            <section class="app-card">
+                <h2>Gán quyền vai trò</h2>
+                <label>Tên vai trò</label>
+                <input class="form-control" @bind="roleName" />
+                <div class="form-text">Khóa theo tenant: @ScopedRoleName</div>
+                <div class="app-actions app-actions-left">
+                    <Button Text="Tải quyền" Color="Color.Secondary" OnClick="LoadRoleAsync" />
+                    <Button Text="Lưu quyền" Color="Color.Primary" OnClick="SaveAsync" />
+                </div>
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <div class="app-alert">@message</div>
+                }
+            </section>
+
+            <section class="app-card app-card-wide">
+                <div class="app-toolbar">
+                    <h2>Danh mục quyền</h2>
+                    <input class="form-control app-search" placeholder="Lọc quyền" @bind="filter" @bind:event="oninput" />
+                </div>
+                <div class="tenant-permission-catalog">
+                    @foreach (var permission in FilteredCatalog)
+                    {
+                        <label class="tenant-permission-item">
+                            <input type="checkbox" checked="@selectedPermissions.Contains(permission)" @onchange="@((args) => TogglePermission(permission, args))" />
+                            <code>@permission</code>
+                        </label>
+                    }
+                </div>
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private List<string> catalog = [];
+    private HashSet<string> selectedPermissions = new(StringComparer.OrdinalIgnoreCase);
+    private string roleName = "TenantAdmin";
+    private string filter = "";
+    private string? message;
+    private string ScopedRoleName => $"{(Session.TenantId?.ToString("N") ?? "NO-TENANT")}:{roleName}".ToUpperInvariant();
+
+    private IEnumerable<string> FilteredCatalog => string.IsNullOrWhiteSpace(filter)
+        ? catalog
+        : catalog.Where(x => x.Contains(filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await LoadCatalogAsync();
+
+    private async Task LoadCatalogAsync()
+    {
+        catalog = (await Api.GetPermissionCatalogAsync())?.OrderBy(x => x).ToList() ?? [];
+    }
+
+    private async Task LoadRoleAsync()
+    {
+        var role = await Api.GetRolePermissionsAsync(ScopedRoleName);
+        selectedPermissions = new HashSet<string>(role?.Permissions ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        message = $"Đã tải {selectedPermissions.Count} quyền.";
+    }
+
+    private async Task SaveAsync()
+    {
+        var role = await Api.UpdateRolePermissionsAsync(ScopedRoleName, new UpdateRolePermissionsRequest(selectedPermissions.OrderBy(x => x).ToArray()));
+        message = $"Đã lưu {role?.Permissions.Count ?? 0} quyền.";
+    }
+
+    private void TogglePermission(string permission, ChangeEventArgs args)
+    {
+        if (args.Value is bool isChecked && isChecked)
+        {
+            selectedPermissions.Add(permission);
+            return;
+        }
+
+        selectedPermissions.Remove(permission);
+    }
+}

@@ -1,0 +1,103 @@
+@page "/audit"
+@inject CoreApiClient Api
+
+<PageTitle>Nhật ký</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Nhật ký</h1>
+        <p>Xem các bản ghi nhật ký và tạo bản ghi kiểm thử thủ công.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
+}
+
+<div class="work-surface">
+    <Card HeaderText="Tạo bản ghi thử" IsShadow="true">
+        <BodyTemplate>
+            <BootstrapInput @bind-Value="_serviceName" DisplayText="Dịch vụ" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_entityName" DisplayText="Thực thể" ShowLabel="true" class="mb-2" />
+            <BootstrapInput @bind-Value="_summary" DisplayText="Tóm tắt" ShowLabel="true" class="mb-3" />
+            <Button Text="Tạo mới" Icon="fa-solid fa-plus" Color="Color.Success" IsAsync="true" OnClick="CreateAsync" />
+        </BodyTemplate>
+    </Card>
+
+    <Card HeaderText="Bản ghi nhật ký" IsShadow="true">
+        <BodyTemplate>
+            <Table @ref="_table" TItem="AuditLogEntry" OnQueryAsync="OnQueryAsync"
+                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.OccurredAt" Text="Thời gian" Sortable="true">
+                        <Template Context="v">@v.Row.OccurredAt.ToLocalTime().ToString("g")</Template>
+                    </TableColumn>
+                    <TableColumn @bind-Field="@context.ServiceName" Text="Dịch vụ" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.EntityName" Text="Thực thể" Sortable="true" Searchable="true" />
+                    <TableColumn @bind-Field="@context.Action" Text="Hành động" Sortable="true" />
+                    <TableColumn @bind-Field="@context.Summary" Text="Tóm tắt" Searchable="true" />
+                </TableColumns>
+            </Table>
+        </BodyTemplate>
+    </Card>
+</div>
+
+@code {
+    private Table<AuditLogEntry>? _table;
+    private string _serviceName = "web-admin";
+    private string _entityName = "SmokeTest";
+    private string _summary = "Manual audit check";
+    private string? _message;
+    private Color _messageColor = Color.Primary;
+    private static readonly int[] _pageItems = [10, 20, 50];
+
+    private async Task<QueryData<AuditLogEntry>> OnQueryAsync(QueryPageOptions options)
+    {
+        var all = await LoadAsync();
+        return TableQuery.Apply(all, options);
+    }
+
+    private async Task<List<AuditLogEntry>> LoadAsync()
+    {
+        try
+        {
+            return (await Api.GetAuditLogsAsync())?.Items.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+            return [];
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        try
+        {
+            await Api.CreateAuditLogAsync(new CreateAuditLogRequest(null, null, _serviceName, _entityName, null, 4, _summary, Guid.NewGuid().ToString("N")));
+            SetInfo("Đã tạo bản ghi nhật ký.");
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private void SetInfo(string text)
+    {
+        _message = text;
+        _messageColor = Color.Success;
+    }
+
+    private void SetError(string text)
+    {
+        _message = text;
+        _messageColor = Color.Danger;
+    }
+}

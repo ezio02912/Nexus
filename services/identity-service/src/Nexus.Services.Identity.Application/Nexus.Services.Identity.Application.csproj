@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Nexus.Services.Identity.Contracts/Nexus.Services.Identity.Contracts.csproj" />
+    <ProjectReference Include="../Nexus.Services.Identity.Domain/Nexus.Services.Identity.Domain.csproj" />
+    <ProjectReference Include="../../../../shared/building-blocks/src/Nexus.BuildingBlocks/Nexus.BuildingBlocks.csproj" />
+    <ProjectReference Include="../../../../shared/event-contracts/src/Nexus.EventContracts/Nexus.EventContracts.csproj" />
+  </ItemGroup>
+
+</Project>

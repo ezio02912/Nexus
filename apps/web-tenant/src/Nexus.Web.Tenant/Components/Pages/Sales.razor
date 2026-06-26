@@ -1,0 +1,191 @@
+@page "/sales"
+@rendermode InteractiveServer
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>Bán hàng</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Bán hàng</p>
+            <h1>Đơn bán hàng</h1>
+            <p>Tạo, duyệt và hoàn tất đơn bán hàng của tenant.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.HasModule("SALES"))
+    {
+        <div class="app-alert">Tenant này chưa được bật phân hệ Bán hàng.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="@messageCss">@message</div>
+        }
+
+        <div class="tenant-work-grid">
+            <section class="app-card">
+                <h2>Tạo đơn hàng</h2>
+                <div class="app-form-grid">
+                    <div>
+                        <label>Khách hàng *</label>
+                        <select class="form-select" @bind="customerIdText">
+                            <option value="">Chọn khách hàng</option>
+                            @foreach (var customer in customers)
+                            {
+                                <option value="@customer.Id">@CustomerOption(customer)</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label>Số đơn *</label>
+                        <input class="form-control" @bind="orderNo" />
+                    </div>
+                    <div>
+                        <label>Mã hàng</label>
+                        <input class="form-control" @bind="productCode" />
+                    </div>
+                    <div>
+                        <label>Mô tả</label>
+                        <input class="form-control" @bind="description" />
+                    </div>
+                    <div>
+                        <label>Số lượng</label>
+                        <input class="form-control" type="number" @bind="quantity" />
+                    </div>
+                    <div>
+                        <label>Đơn giá</label>
+                        <input class="form-control" type="number" @bind="unitPrice" />
+                    </div>
+                </div>
+                <Button Text="Tạo đơn hàng" Color="Color.Primary" OnClick="CreateAsync" />
+            </section>
+
+            <section class="app-card app-card-wide">
+                <h2>Đơn hàng</h2>
+                @if (orders.Count == 0)
+                {
+                    <div class="app-empty-state">Chưa có đơn bán hàng.</div>
+                }
+                else
+                {
+                    <table class="app-table">
+                        <thead><tr><th>Số đơn</th><th>Khách hàng</th><th>Trạng thái</th><th>Tổng tiền</th><th>Dòng hàng</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var order in orders)
+                            {
+                                <tr>
+                                    <td>@order.OrderNo</td>
+                                    <td>@CustomerText(order.CustomerId)</td>
+                                    <td><span class="@StatusCss(order.Status)">@order.Status</span></td>
+                                    <td>@order.TotalAmount.ToString("N2")</td>
+                                    <td>@LinesText(order)</td>
+                                    <td>
+                                        <div class="app-actions">
+                                            <Button Text="Duyệt" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(order.Status != "Draft")" OnClick="@(() => ApproveAsync(order.Id))" />
+                                            <Button Text="Hoàn tất" Size="Size.ExtraSmall" Color="Color.Primary" IsDisabled="@(order.Status != "Approved")" OnClick="@(() => CompleteAsync(order.Id))" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private List<SalesOrderRecord> orders = [];
+    private List<CustomerRecord> customers = [];
+    private string customerIdText = "";
+    private string orderNo = "SO-0001";
+    private string productCode = "SKU-001";
+    private string description = "Hàng mẫu";
+    private decimal quantity = 1;
+    private decimal unitPrice = 100;
+    private string message = "";
+    private string messageCss = "app-alert";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        orders = (await Api.GetSalesOrdersAsync(tenantId))?.Items.ToList() ?? [];
+        customers = (await Api.GetCustomersAsync(tenantId))?.Items.ToList() ?? [];
+    }
+
+    private async Task CreateAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || !Guid.TryParse(customerIdText, out var customerId) || string.IsNullOrWhiteSpace(orderNo))
+        {
+            ShowError("Vui lòng chọn khách hàng và nhập số đơn.");
+            return;
+        }
+
+        var lines = new[] { new CreateSalesOrderLineRequest(productCode, description, quantity, unitPrice) };
+        await Api.CreateSalesOrderAsync(new CreateSalesOrderRequest(tenantId, customerId, orderNo, lines));
+        ShowSuccess("Đã tạo đơn bán hàng.");
+        await LoadAsync();
+    }
+
+    private async Task ApproveAsync(Guid id)
+    {
+        await Api.ApproveSalesOrderAsync(id);
+        ShowSuccess("Đã duyệt đơn bán hàng.");
+        await LoadAsync();
+    }
+
+    private async Task CompleteAsync(Guid id)
+    {
+        await Api.CompleteSalesOrderAsync(id);
+        ShowSuccess("Đã hoàn tất đơn bán hàng.");
+        await LoadAsync();
+    }
+
+    private static string LinesText(SalesOrderRecord order)
+    {
+        if (order.Lines is null || order.Lines.Count == 0)
+        {
+            return "-";
+        }
+
+        return string.Join(", ", order.Lines.Select(x => $"{x.ProductCode} x{x.Quantity:N0}"));
+    }
+
+    private static string CustomerOption(CustomerRecord customer) => $"{customer.Code} - {customer.Name}";
+
+    private string CustomerText(Guid customerId)
+    {
+        var customer = customers.FirstOrDefault(x => x.Id == customerId);
+        return customer is null ? "Không xác định" : CustomerOption(customer);
+    }
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Approved" => "app-status-badge app-status-active",
+        "Completed" => "app-status-badge app-status-active",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private void ShowSuccess(string text)
+    {
+        message = text;
+        messageCss = "app-alert";
+    }
+
+    private void ShowError(string text)
+    {
+        message = text;
+        messageCss = "app-alert app-alert-danger";
+    }
+}

@@ -1,0 +1,102 @@
+@page "/login"
+@layout LoginLayout
+@inject CoreApiClient Api
+@inject AdminSessionService Session
+@inject NavigationManager Navigation
+
+<PageTitle>Đăng nhập</PageTitle>
+
+<div class="login-page">
+    <Card IsShadow="true" class="login-panel">
+        <BodyTemplate>
+            <div class="login-brand">
+                <span class="brand-mark">N</span>
+                <div>
+                    <h1>Nexus Admin</h1>
+                    <p>Đăng nhập bằng tài khoản của Identity Service.</p>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <Alert Color="Color.Danger" ShowDismiss="true" class="mb-3">@_error</Alert>
+            }
+
+            @if (Session.IsAuthenticated)
+            {
+                <Alert Color="Color.Success" class="mb-3">
+                    Đang đăng nhập với tên <strong>@Session.UserName</strong>.
+                </Alert>
+            }
+
+            <EditForm Model="_model" OnValidSubmit="LoginAsync" class="login-form">
+                <DataAnnotationsValidator />
+
+                <BootstrapInput @bind-Value="_model.TenantId" DisplayText="Mã khách thuê" ShowLabel="true"
+                                PlaceHolder="Tenant guid" class="mb-3" />
+                <BootstrapInput @bind-Value="_model.UserName" DisplayText="Tên đăng nhập" ShowLabel="true"
+                                autocomplete="username" class="mb-3" />
+                <BootstrapPassword @bind-Value="_model.Password" DisplayText="Mật khẩu" ShowLabel="true"
+                                   autocomplete="current-password" class="mb-3" />
+
+                <Button Text="@(_isBusy ? "Đang đăng nhập..." : "Đăng nhập")" Icon="fa-solid fa-right-to-bracket"
+                        ButtonType="ButtonType.Submit" Color="Color.Primary" IsBlock="true" IsDisabled="@_isBusy" />
+                <Button Text="Đăng xuất" Icon="fa-solid fa-right-from-bracket" Color="Color.Secondary"
+                        IsOutline="true" IsBlock="true" OnClick="SignOut" IsDisabled="@(!Session.IsAuthenticated)" class="mt-2" />
+            </EditForm>
+        </BodyTemplate>
+    </Card>
+</div>
+
+@code {
+    private readonly LoginFormModel _model = new();
+    private bool _isBusy;
+    private string? _error;
+
+    private async Task LoginAsync()
+    {
+        _error = null;
+
+        if (!Guid.TryParse(_model.TenantId, out var tenantId))
+        {
+            _error = "Mã khách thuê không hợp lệ.";
+            return;
+        }
+
+        _isBusy = true;
+        try
+        {
+            var result = await Api.LoginAsync(new LoginRequest(tenantId, _model.UserName, _model.Password));
+            if (result is null)
+            {
+                _error = "Đăng nhập thất bại.";
+                return;
+            }
+
+            await Session.SignInAsync(_model.UserName, result);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task SignOut()
+    {
+        await Session.SignOutAsync();
+        _error = null;
+    }
+
+    private sealed class LoginFormModel
+    {
+        // Pre-filled with the seeded platform administrator for convenience in development.
+        public string TenantId { get; set; } = "00000000-0000-0000-0000-000000000001";
+        public string UserName { get; set; } = "admin";
+        public string Password { get; set; } = "123123";
+    }
+}

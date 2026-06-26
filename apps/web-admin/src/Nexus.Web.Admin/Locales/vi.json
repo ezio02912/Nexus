@@ -1,0 +1,87 @@
+{
+  "BootstrapBlazor.Components.Pagination": {
+    "GotoNavigatorLabelText": "Đến trang"
+  },
+  "BootstrapBlazor.Components.PopConfirmButton": {
+    "CloseButtonText": "Hủy",
+    "ConfirmButtonText": "Đồng ý",
+    "Content": "Bạn có chắc chắn muốn thực hiện thao tác này?"
+  },
+  "BootstrapBlazor.Components.Search": {
+    "SearchButtonText": "Tìm kiếm",
+    "NoDataTip": "Không tìm thấy dữ liệu"
+  },
+  "BootstrapBlazor.Components.Select": {
+    "PlaceHolder": "Vui lòng chọn ...",
+    "NoSearchDataText": "Không có kết quả"
+  },
+  "BootstrapBlazor.Components.AutoComplete": {
+    "NoDataTip": "Không có dữ liệu",
+    "PlaceHolder": "Vui lòng nhập"
+  },
+  "BootstrapBlazor.Components.SweetAlert": {
+    "CloseButtonText": "Đóng",
+    "CancelButtonText": "Hủy",
+    "ConfirmButtonText": "Đồng ý"
+  },
+  "BootstrapBlazor.Components.Toast": {
+    "SuccessTitle": "Thành công",
+    "InformationTitle": "Thông báo",
+    "WarningTitle": "Cảnh báo",
+    "ErrorTitle": "Lỗi"
+  },
+  "BootstrapBlazor.Components.Table": {
+    "AddButtonText": "Thêm",
+    "EditButtonText": "Sửa",
+    "UpdateButtonText": "Cập nhật",
+    "DeleteButtonText": "Xóa",
+    "CancelButtonText": "Hủy",
+    "SaveButtonText": "Lưu",
+    "CloseButtonText": "Đóng",
+    "CancelDeleteButtonText": "Hủy",
+    "ConfirmDeleteButtonText": "Xóa",
+    "ConfirmDeleteContentText": "Bạn có chắc chắn muốn XÓA các dòng đã chọn?",
+    "RefreshButtonText": "Tải lại",
+    "CardViewButtonText": "Xem",
+    "ColumnButtonTitleText": "Ẩn/Hiện cột",
+    "ColumnButtonText": "Cột",
+    "ExportButtonText": "Xuất",
+    "SearchPlaceholderText": "Tìm kiếm",
+    "SearchButtonText": "Tìm kiếm",
+    "ResetSearchButtonText": "Đặt lại",
+    "AdvanceButtonText": "Tìm kiếm nâng cao",
+    "AdvancedSortModalTitle": "Sắp xếp",
+    "AdvancedSortButtonText": "Sắp xếp nâng cao",
+    "CheckboxDisplayText": "Tất cả",
+    "EditModalTitle": "Chỉnh sửa",
+    "AddModalTitle": "Thêm mới",
+    "LineNoText": "STT",
+    "ColumnButtonTemplateHeaderText": "Thao tác",
+    "SearchTooltip": "<div class='search-input-tooltip'>Vui lòng nhập ...</br><kbd>Enter</kbd> Tìm kiếm <kbd>ESC</kbd> Xóa</div>",
+    "SearchModalTitle": "Đang tìm kiếm",
+    "SuccessText": "Thành công",
+    "FailText": "Thất bại",
+    "UnsetText": "Tăng dần",
+    "SortAscText": "Giảm dần",
+    "SortDescText": "Bỏ sắp xếp",
+    "EmptyText": "Không có dữ liệu",
+    "PageInfoText": "{0} - {1} trong tổng {2}",
+    "PageItemsText": "{0}/trang",
+    "ColumnToolboxTitle": "Công cụ",
+    "AlignLeftText": "Trái",
+    "AlignCenterText": "Giữa",
+    "AlignRightText": "Phải",
+    "ColumnListSelectAllText": "Tất cả"
+  },
+  "BootstrapBlazor.Components.SelectFilter": {
+    "ConditionText": "Điều kiện",
+    "AndText": "Và",
+    "OrText": "Hoặc",
+    "EqualText": "Bằng",
+    "NotEqualText": "Khác",
+    "ContainsText": "Chứa",
+    "NotContainsText": "Không chứa",
+    "FilterButtonText": "Lọc",
+    "ClearButtonText": "Xóa lọc"
+  }
+}

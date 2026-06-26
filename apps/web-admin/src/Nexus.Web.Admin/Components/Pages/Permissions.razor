@@ -1,0 +1,116 @@
+@page "/permissions"
+@inject CoreApiClient Api
+
+<PageTitle>Phân quyền</PageTitle>
+
+<section class="page-header">
+    <div>
+        <h1>Phân quyền</h1>
+        <p>Quản lý quyền được cấp cho từng vai trò.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <Alert Color="@_messageColor" ShowDismiss="true" class="mb-3">@_message</Alert>
+}
+
+<div class="work-surface">
+    <Card HeaderText="Cấp quyền theo vai trò" IsShadow="true">
+        <BodyTemplate>
+            <Select TValue="string" @bind-Value="_roleName" Items="UiCatalogs.Roles"
+                    DisplayText="Tên vai trò" ShowLabel="true" class="mb-2" />
+            <Textarea @bind-Value="_permissionsText" DisplayText="Danh sách quyền" ShowLabel="true" rows="10" class="mb-3" />
+            <div class="d-flex gap-2">
+                <Button Text="Lưu" Icon="fa-solid fa-floppy-disk" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+                <Button Text="Tải vai trò" Icon="fa-solid fa-download" Color="Color.Info" IsOutline="true" IsAsync="true" OnClick="LoadRoleAsync" />
+            </div>
+        </BodyTemplate>
+    </Card>
+
+    <Card HeaderText="Danh mục quyền" IsShadow="true">
+        <BodyTemplate>
+            <Table @ref="_table" TItem="PermissionRow" OnQueryAsync="OnQueryAsync"
+                   IsPagination="true" PageItemsSource="@_pageItems" IsStriped="true" IsBordered="true"
+                   ShowToolbar="true" ShowSearch="true" ShowSearchText="true" ShowRefresh="true">
+                <TableColumns>
+                    <TableColumn @bind-Field="@context.Name" Text="Mã quyền" Sortable="true" Searchable="true" />
+                </TableColumns>
+            </Table>
+        </BodyTemplate>
+    </Card>
+</div>
+
+@code {
+    private Table<PermissionRow>? _table;
+    private string _roleName = "ADMIN";
+    private string _permissionsText = "";
+    private string? _message;
+    private Color _messageColor = Color.Primary;
+    private static readonly int[] _pageItems = [20, 50, 100];
+
+    private sealed class PermissionRow
+    {
+        public string Name { get; set; } = "";
+    }
+
+    private async Task<QueryData<PermissionRow>> OnQueryAsync(QueryPageOptions options)
+    {
+        var catalog = await LoadAsync();
+        var rows = catalog.Select(p => new PermissionRow { Name = p });
+        return TableQuery.Apply(rows, options);
+    }
+
+    private async Task<List<string>> LoadAsync()
+    {
+        try
+        {
+            return (await Api.GetPermissionCatalogAsync())?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+            return [];
+        }
+    }
+
+    private async Task LoadRoleAsync()
+    {
+        try
+        {
+            var result = await Api.GetRolePermissionsAsync(_roleName);
+            _permissionsText = string.Join(Environment.NewLine, result?.Permissions ?? []);
+            SetInfo($"Đã tải {result?.Permissions.Count ?? 0} quyền cho {_roleName}.");
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            var permissions = _permissionsText.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var result = await Api.UpdateRolePermissionsAsync(_roleName, new UpdateRolePermissionsRequest(permissions));
+            SetInfo($"Đã lưu {result?.Permissions.Count ?? 0} quyền cho {_roleName}.");
+        }
+        catch (Exception ex)
+        {
+            SetError(ex.Message);
+        }
+    }
+
+    private void SetInfo(string text)
+    {
+        _message = text;
+        _messageColor = Color.Success;
+    }
+
+    private void SetError(string text)
+    {
+        _message = text;
+        _messageColor = Color.Danger;
+    }
+}

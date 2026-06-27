@@ -89,8 +89,15 @@
                 <section class="product-form-section">
                     <h3>Thông tin hàng hoá</h3>
                     <div class="app-form-grid">
-                        <AppFormField Label="Mã hàng" Required="true">
-                            <BootstrapInput @bind-Value="_productFormCode" ShowLabel="false" />
+                        <AppFormField Label="Mã hàng">
+                            @if (_selectedProduct is null)
+                            {
+                                <BootstrapInput Value="@("(tự động)")" ShowLabel="false" IsDisabled="true" />
+                            }
+                            else
+                            {
+                                <BootstrapInput @bind-Value="_productFormCode" ShowLabel="false" IsDisabled="true" />
+                            }
                         </AppFormField>
                         <AppFormField Label="Tên hàng" Required="true">
                             <BootstrapInput @bind-Value="_productFormName" ShowLabel="false" />
@@ -111,9 +118,12 @@
                         <AppFormField Label="Thuế %">
                             <BootstrapInputNumber @bind-Value="_productTaxPercent" ShowLabel="false" />
                         </AppFormField>
-                        <div class="app-form-field product-active-field">
-                            <Checkbox @bind-Value="_productIsActive" DisplayText="Đang bán" />
-                        </div>
+                        <AppFormField Label="Trạng thái" Class="product-active-field">
+                            <div class="app-form-check-row">
+                                <Checkbox @bind-Value="_productIsActive" ShowLabel="false" />
+                                <span>Đang bán (cho phép chọn khi tạo đơn)</span>
+                            </div>
+                        </AppFormField>
                     </div>
                 </section>
 
@@ -189,7 +199,7 @@
     {
         _dialogTitle = "Thêm hàng hoá";
         _selectedProduct = null;
-        _productFormCode = $"SKU-{DateTime.Now:MMddHHmm}";
+        _productFormCode = "AUTO";
         _productFormName = "";
         _productUnit = "EA";
         _productCategory = "GOODS";

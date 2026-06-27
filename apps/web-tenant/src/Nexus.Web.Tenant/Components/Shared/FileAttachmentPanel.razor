@@ -105,6 +105,8 @@
     [Parameter, EditorRequired] public string EntityId { get; set; } = "";
     [Parameter] public string Title { get; set; } = "Chứng từ đính kèm";
     [Parameter] public string WarningText { get; set; } = "Chưa có chứng từ đính kèm. Vui lòng tải lên tài liệu liên quan.";
+    // Optional business document category; when set, the panel only lists/uploads files of this category.
+    [Parameter] public string? Category { get; set; }
 
     private bool CanView => Session.IsGranted(NexusPermissions.Files.View);
     private bool CanUpload => Session.IsGranted(NexusPermissions.Files.Upload);
@@ -112,7 +114,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        var key = $"{Module}|{EntityType}|{EntityId}";
+        var key = $"{Module}|{EntityType}|{EntityId}|{Category}";
         if (string.IsNullOrWhiteSpace(EntityId) || key == _loadedKey)
         {
             return;
@@ -134,7 +136,7 @@
         _loading = true;
         try
         {
-            _links = (await FileApi.GetLinksAsync(Module, EntityType, EntityId)).ToList();
+            _links = (await FileApi.GetLinksAsync(Module, EntityType, EntityId, Category)).ToList();
         }
         catch (Exception ex)
         {
@@ -166,7 +168,7 @@
             var uploaded = await FileApi.UploadAsync(buffer, file.Name, file.ContentType);
             if (uploaded is not null)
             {
-                await FileApi.LinkAsync(uploaded.Id, Module, EntityType, EntityId);
+                await FileApi.LinkAsync(uploaded.Id, Module, EntityType, EntityId, Category);
                 await ToastService.Success("Thành công", "Đã tải lên tài liệu.");
                 await LoadAsync();
             }

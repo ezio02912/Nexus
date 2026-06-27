@@ -106,7 +106,7 @@
                 @if (_isCreate)
                 {
                     <AppFormField Label="Mã khách hàng">
-                        <BootstrapInput @bind-Value="_createModel.Code" ShowLabel="false" PlaceHolder="Tự sinh nếu để trống" />
+                        <BootstrapInput Value="@("(tự động)")" ShowLabel="false" IsDisabled="true" />
                     </AppFormField>
                 }
                 <AppFormField Label="Tên khách hàng" Required="true">

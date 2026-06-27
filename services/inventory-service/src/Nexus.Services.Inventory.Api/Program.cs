@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
 using Nexus.BuildingBlocks.Observability;
@@ -11,7 +12,12 @@ var connectionString = builder.Configuration.GetConnectionString("InventoryDb")
     ?? "Host=localhost;Port=5432;Database=inventory_db;Username=nexus;Password=nexus_dev_password";
 
 builder.Services.AddNexusWeb();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddNexusEfCore<InventoryDbContext>(connectionString);
+builder.Services.AddHttpClient<NumberingClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:Numbering"] ?? "http://localhost:7206");
+});
 
 var app = builder.Build();
 
@@ -75,10 +81,13 @@ app.MapGet("/api/inventory/products", async (InventoryDbContext db, Guid tenantI
     return Results.Ok(items);
 });
 
-app.MapPost("/api/inventory/products", async (UpsertProductDto input, InventoryDbContext db, CancellationToken ct) =>
+app.MapPost("/api/inventory/products", async (UpsertProductDto input, InventoryDbContext db, NumberingClient numbering, CancellationToken ct) =>
 {
     var now = DateTimeOffset.UtcNow;
-    var productCode = StockBalance.NormalizeCode(input.ProductCode, 64);
+    var rawCode = (input.ProductCode ?? string.Empty).Trim();
+    var productCode = string.IsNullOrWhiteSpace(rawCode) || rawCode.Equals("AUTO", StringComparison.OrdinalIgnoreCase)
+        ? await numbering.GetNextNumberAsync(input.TenantId, "INVENTORY", "PRODUCT", "SKU-", ct)
+        : StockBalance.NormalizeCode(rawCode, 64);
     var product = await db.Products.SingleOrDefaultAsync(x => x.TenantId == input.TenantId && x.ProductCode == productCode, ct);
     if (product is null)
     {
@@ -205,7 +214,37 @@ app.MapGet("/api/inventory/movements", async (InventoryDbContext db, Guid tenant
     return Results.Ok(items);
 });
 
-app.MapPost("/api/inventory/transfers", async (TransferStockDto input, InventoryDbContext db, CancellationToken ct) =>
+app.MapGet("/api/inventory/transfers", async (InventoryDbContext db, Guid tenantId, string? search = null, CancellationToken ct = default) =>
+{
+    var query = db.StockTransfers.Where(x => x.TenantId == tenantId);
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        var term = search.Trim().ToLowerInvariant();
+        query = query.Where(x =>
+            x.TransferNo.ToLower().Contains(term)
+            || x.ProductCode.ToLower().Contains(term)
+            || x.ProductName.ToLower().Contains(term)
+            || x.FromWarehouseCode.ToLower().Contains(term)
+            || x.ToWarehouseCode.ToLower().Contains(term));
+    }
+
+    var rows = await query
+        .OrderByDescending(x => x.CreatedAt)
+        .ToArrayAsync(ct);
+
+    // Map after materialization; ToTransferDto is a local function and cannot live in an EF expression tree.
+    var items = rows.Select(ToTransferDto).ToArray();
+
+    return Results.Ok(items);
+});
+
+app.MapGet("/api/inventory/transfers/{id:guid}", async (Guid id, InventoryDbContext db, Guid tenantId, CancellationToken ct) =>
+{
+    var transfer = await db.StockTransfers.SingleOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId, ct);
+    return transfer is null ? Results.NotFound() : Results.Ok(ToTransferDto(transfer));
+});
+
+app.MapPost("/api/inventory/transfers", async (TransferStockDto input, InventoryDbContext db, NumberingClient numbering, CancellationToken ct) =>
 {
     var fromWarehouse = StockBalance.NormalizeCode(string.IsNullOrWhiteSpace(input.FromWarehouseCode) ? "MAIN" : input.FromWarehouseCode, 64);
     var toWarehouse = StockBalance.NormalizeCode(string.IsNullOrWhiteSpace(input.ToWarehouseCode) ? "MAIN" : input.ToWarehouseCode, 64);
@@ -234,7 +273,10 @@ app.MapPost("/api/inventory/transfers", async (TransferStockDto input, Inventory
 
     var now = DateTimeOffset.UtcNow;
     var productName = string.IsNullOrWhiteSpace(input.ProductName) ? source.ProductName : input.ProductName;
-    var sourceNo = string.IsNullOrWhiteSpace(input.SourceNo) ? $"Chuyển kho {fromWarehouse} -> {toWarehouse}" : input.SourceNo!;
+    var transferNo = await numbering.GetNextNumberAsync(input.TenantId, "INVENTORY", "TRANSFER", "TR-", ct);
+
+    var transfer = new StockTransfer(Guid.NewGuid(), input.TenantId, transferNo, fromWarehouse, toWarehouse, productCode, productName, input.Quantity, now);
+    await db.StockTransfers.AddAsync(transfer, ct);
 
     source.RemoveOnHand(input.Quantity, now);
 
@@ -247,14 +289,15 @@ app.MapPost("/api/inventory/transfers", async (TransferStockDto input, Inventory
 
     destination.Import(input.Quantity, now);
 
+    // Link both movements to the transfer document so the stock detail view can navigate back to it.
     await db.StockMovements.AddAsync(new StockMovement(
-        Guid.NewGuid(), input.TenantId, fromWarehouse, productCode, "TRANSFER_OUT", input.Quantity, "TRANSFER", Guid.Empty, sourceNo, now), ct);
+        Guid.NewGuid(), input.TenantId, fromWarehouse, productCode, "TRANSFER_OUT", input.Quantity, "TRANSFER", transfer.Id, transferNo, now), ct);
     await db.StockMovements.AddAsync(new StockMovement(
-        Guid.NewGuid(), input.TenantId, toWarehouse, productCode, "TRANSFER_IN", input.Quantity, "TRANSFER", Guid.Empty, sourceNo, now), ct);
+        Guid.NewGuid(), input.TenantId, toWarehouse, productCode, "TRANSFER_IN", input.Quantity, "TRANSFER", transfer.Id, transferNo, now), ct);
 
     await db.SaveChangesAsync(ct);
 
-    return Results.Ok(new StockBalanceDto(source.Id, source.TenantId, source.WarehouseCode, source.ProductCode, source.ProductName, source.OnHandQuantity, source.ReservedQuantity, source.AvailableQuantity, source.UpdatedAt));
+    return Results.Created($"/api/inventory/transfers/{transfer.Id}", ToTransferDto(transfer));
 });
 
 app.MapPost("/api/inventory/reservations", async (ReserveStockDto input, InventoryDbContext db, CancellationToken ct) =>
@@ -341,8 +384,42 @@ app.MapPost("/api/inventory/shipments", async (ShipStockDto input, InventoryDbCo
     return Results.Ok(ToReservationDto(reservation));
 });
 
+app.MapPost("/api/inventory/reservations/release", async (ShipStockDto input, InventoryDbContext db, CancellationToken ct) =>
+{
+    var sourceType = StockBalance.NormalizeCode(input.SourceType, 32);
+    var reservation = await db.StockReservations
+        .Include(x => x.Lines)
+        .SingleOrDefaultAsync(x => x.TenantId == input.TenantId && x.SourceType == sourceType && x.SourceId == input.SourceId, ct);
+
+    if (reservation is null)
+    {
+        // Nothing reserved (idempotent): treat as success so callers can safely un-approve.
+        return Results.Ok(new { Released = false });
+    }
+
+    if (reservation.Status == "Shipped")
+    {
+        return Results.Conflict(new { Code = "Inventory:AlreadyShipped", Message = "Đã xuất kho, không thể giải phóng giữ hàng." });
+    }
+
+    var now = DateTimeOffset.UtcNow;
+    foreach (var line in reservation.Lines)
+    {
+        var balance = await FindBalanceAsync(db, input.TenantId, line.WarehouseCode, line.ProductCode, ct);
+        balance?.ReleaseReserved(line.Quantity, now);
+    }
+
+    // Remove the reservation so the source document can be re-approved later without a unique-key clash.
+    db.StockReservations.Remove(reservation);
+    await db.SaveChangesAsync(ct);
+    return Results.Ok(new { Released = true });
+});
+
 app.MapNexusObservability();
 app.Run();
+
+static StockTransferDto ToTransferDto(StockTransfer x) => new(
+    x.Id, x.TenantId, x.TransferNo, x.FromWarehouseCode, x.ToWarehouseCode, x.ProductCode, x.ProductName, x.Quantity, x.Status, x.CreatedAt);
 
 static Task<StockBalance?> FindBalanceAsync(InventoryDbContext db, Guid tenantId, string warehouseCode, string productCode, CancellationToken ct)
 {
@@ -414,9 +491,55 @@ static StockReservationDto ToReservationDto(StockReservation reservation)
         reservation.ShippedAt);
 }
 
+public sealed class NumberingClient
+{
+    private readonly HttpClient _httpClient;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public NumberingClient(HttpClient httpClient, IHttpContextAccessor httpContextAccessor)
+    {
+        _httpClient = httpClient;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    // Allocates a guaranteed-unique number from the numbering-service, forwarding the caller's bearer token.
+    public async Task<string> GetNextNumberAsync(Guid tenantId, string module, string documentType, string prefix, CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/numbering/next")
+            {
+                Content = JsonContent.Create(new { TenantId = tenantId, Module = module, DocumentType = documentType, Prefix = prefix, Padding = 5 })
+            };
+
+            var authorization = _httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+            if (!string.IsNullOrWhiteSpace(authorization))
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", authorization);
+            }
+
+            var response = await _httpClient.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<NextNumberResponse>(cancellationToken: ct);
+            return result?.Number ?? $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        }
+        catch
+        {
+            return $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        }
+    }
+
+    private sealed record NextNumberResponse(string SequenceKey, string Number, long Value);
+}
+
 public sealed record StockBalanceDto(Guid Id, Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal OnHandQuantity, decimal ReservedQuantity, decimal AvailableQuantity, DateTimeOffset UpdatedAt);
 public sealed record StockMovementDto(Guid Id, Guid TenantId, string WarehouseCode, string ProductCode, string MovementType, decimal Quantity, string SourceType, Guid SourceId, string SourceNo, DateTimeOffset OccurredAt);
 public sealed record TransferStockDto(Guid TenantId, string FromWarehouseCode, string ToWarehouseCode, string ProductCode, string? ProductName, decimal Quantity, string? SourceNo);
+public sealed record StockTransferDto(Guid Id, Guid TenantId, string TransferNo, string FromWarehouseCode, string ToWarehouseCode, string ProductCode, string ProductName, decimal Quantity, string Status, DateTimeOffset CreatedAt);
 public sealed record ImportStockDto(Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, string? SourceType, Guid? SourceId, string? SourceNo);
 public sealed record ProductDto(Guid Id, Guid TenantId, string ProductCode, string ProductName, string Unit, string Category, decimal Price, decimal TaxPercent, bool IsActive, string Attributes, string Variants, DateTimeOffset UpdatedAt);
 public sealed record UpsertProductDto(Guid TenantId, string ProductCode, string ProductName, string Unit, string? Category, decimal Price, decimal TaxPercent, bool IsActive, string? Attributes, string? Variants);

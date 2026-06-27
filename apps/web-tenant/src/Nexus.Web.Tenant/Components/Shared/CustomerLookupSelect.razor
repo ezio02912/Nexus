@@ -1,7 +1,7 @@
 @inject CrmApiClient CrmApi
 @inject ToastService ToastService
 
-<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId" HasError="@HasError" ErrorText="@ErrorText">
     <div class="customer-lookup">
         <Select TValue="string"
                 @bind-Value="SelectedCustomerId"
@@ -29,8 +29,8 @@
     {
         <div class="customer-quick-create">
             <div class="app-form-grid app-form-grid-compact">
-                <AppFormField Label="Mã KH" Required="true">
-                    <BootstrapInput @bind-Value="_quick.Code" ShowLabel="false" PlaceHolder="VD: KH001" />
+                <AppFormField Label="Mã KH">
+                    <BootstrapInput Value="@("(tự động)")" ShowLabel="false" IsDisabled="true" />
                 </AppFormField>
                 <AppFormField Label="Tên KH" Required="true">
                     <BootstrapInput @bind-Value="_quick.Name" ShowLabel="false" PlaceHolder="Tên khách hàng" />
@@ -61,6 +61,8 @@
     [Parameter] public string PlaceHolder { get; set; } = "Tìm theo mã hoặc tên khách hàng...";
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+    [Parameter] public string? ErrorText { get; set; }
 
     private string? SelectedCustomerId
     {
@@ -94,10 +96,6 @@
     private void ToggleQuickCreate()
     {
         _showQuickCreate = !_showQuickCreate;
-        if (_showQuickCreate && string.IsNullOrWhiteSpace(_quick.Code))
-        {
-            _quick.Code = $"KH{DateTime.Now:MMddHHmm}";
-        }
     }
 
     private void CancelQuickCreate()
@@ -108,14 +106,14 @@
 
     private async Task CreateCustomerAsync()
     {
-        if (string.IsNullOrWhiteSpace(_quick.Code) || string.IsNullOrWhiteSpace(_quick.Name))
+        if (string.IsNullOrWhiteSpace(_quick.Name))
         {
-            await ToastService.Warning("Thiếu thông tin", "Vui lòng nhập mã và tên khách hàng.");
+            await ToastService.Warning("Thiếu thông tin", "Vui lòng nhập tên khách hàng.");
             return;
         }
 
         var customer = await CrmApi.CreateCustomerAsync(new CreateCustomerRequest(
-            _quick.Code.Trim(),
+            "AUTO",
             _quick.Name.Trim(),
             CustomerType.Company,
             _quick.Email,

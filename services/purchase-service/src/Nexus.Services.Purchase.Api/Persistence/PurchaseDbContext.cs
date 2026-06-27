@@ -102,6 +102,18 @@ public sealed class PurchaseOrder : NexusEntity<Guid>
         Status = "Received";
         ReceivedAt = now;
     }
+
+    // Approved (not yet received) orders may be reverted to Draft; received orders are locked.
+    public bool CanUnapprove => Status == "Approved";
+
+    public void Unapprove()
+    {
+        Status = "Draft";
+        ApprovedAt = null;
+    }
+
+    // Only draft orders may be deleted.
+    public bool CanDelete => Status == "Draft";
 }
 
 public sealed record PurchaseOrderLineDraft(string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, decimal UnitCost);

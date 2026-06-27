@@ -1,4 +1,4 @@
-<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId" HasError="@HasError" ErrorText="@ErrorText">
     <Select TValue="string"
             @bind-Value="SelectedValue"
             Items="@Items"
@@ -29,6 +29,8 @@
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
     [Parameter] public List<SelectedItem> Items { get; set; } = [];
     [Parameter] public Dictionary<string, (string Text, string BadgeClass)> Meta { get; set; } = [];
+    [Parameter] public bool HasError { get; set; }
+    [Parameter] public string? ErrorText { get; set; }
 
     private string? SelectedValue
     {

@@ -62,6 +62,7 @@ public static class TenantModuleMenus
             Item("Nhà cung cấp", "purchase/suppliers", "fa-solid fa-truck-field", NexusPermissions.Purchase.Suppliers.View),
             Item("Phiếu nhận hàng", "purchase/receipts", "fa-solid fa-truck-ramp-box", NexusPermissions.Purchase.Orders.Receive),
             Item("Tồn kho", "inventory", "fa-solid fa-boxes-stacked", NexusPermissions.Inventory.Stock.View),
+            Item("Chuyển kho", "inventory/transfers", "fa-solid fa-right-left", NexusPermissions.Inventory.Stock.Transfer),
             Item("Mã hàng hoá", "inventory/products", "fa-solid fa-box", NexusPermissions.Inventory.Products.View),
             Item("Kho hàng", "inventory/warehouses", "fa-solid fa-warehouse", NexusPermissions.Inventory.Warehouses.View),
         ]),

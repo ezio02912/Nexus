@@ -1,0 +1,152 @@
+@page "/inventory/stock/{Warehouse}/{Product}"
+@attribute [TabItemOption(Text = "Chi tiết tồn kho", Icon = "fa-solid fa-boxes-stacked")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject NavigationManager Navigation
+
+<PageTitle>Chi tiết tồn kho</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Kho / Tồn kho</p>
+            <h1>@Product</h1>
+            <p>Kho @Warehouse</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <Button Text="Quay lại" Color="Color.Secondary" Icon="fa-solid fa-arrow-left" OnClick="GoBack" />
+            <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+        </div>
+    </header>
+
+    @if (!Session.HasModule("INVENTORY"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Kho.</div>
+    }
+    else if (_loading)
+    {
+        <div class="app-loading">Đang tải chi tiết tồn kho...</div>
+    }
+    else
+    {
+        <section class="app-card app-card-wide mb-3">
+            <div class="app-detail-grid">
+                <div><span class="app-detail-label">Kho</span><span>@Warehouse</span></div>
+                <div><span class="app-detail-label">Mã hàng</span><span>@Product</span></div>
+                <div><span class="app-detail-label">Tên hàng</span><span>@(_balance?.ProductName ?? "—")</span></div>
+                <div><span class="app-detail-label">Tồn hiện có</span><span>@((_balance?.OnHandQuantity ?? 0).ToString("N2"))</span></div>
+                <div><span class="app-detail-label">Đã giữ</span><span>@((_balance?.ReservedQuantity ?? 0).ToString("N2"))</span></div>
+                <div><span class="app-detail-label">Khả dụng</span><span>@((_balance?.AvailableQuantity ?? 0).ToString("N2"))</span></div>
+            </div>
+        </section>
+
+        <section class="app-card app-card-wide">
+            <h2>Lịch sử xuất/nhập</h2>
+            @if (_movements.Count == 0)
+            {
+                <div class="app-empty-state">Chưa có lịch sử xuất/nhập cho mã hàng này.</div>
+            }
+            else
+            {
+                <table class="app-table">
+                    <thead>
+                        <tr><th>Thời điểm</th><th>Kho</th><th>Loại</th><th>Số lượng</th><th>Chứng từ nguồn</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in _movements)
+                        {
+                            var route = SourceRoute(m);
+                            <tr>
+                                <td>@m.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@m.WarehouseCode</td>
+                                <td><span class="@MovementCss(m.MovementType)">@MovementText(m.MovementType)</span></td>
+                                <td>@m.Quantity.ToString("N2")</td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(route))
+                                    {
+                                        <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => Navigation.NavigateTo(route))">
+                                            @(string.IsNullOrWhiteSpace(m.SourceNo) ? SourceTypeText(m.SourceType) : m.SourceNo)
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span>@(string.IsNullOrWhiteSpace(m.SourceNo) ? SourceTypeText(m.SourceType) : m.SourceNo)</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    [Parameter] public string Warehouse { get; set; } = "";
+    [Parameter] public string Product { get; set; } = "";
+
+    private StockBalanceRecord? _balance;
+    private List<StockMovementRecord> _movements = [];
+    private bool _loading;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            var balances = (await Api.GetStockBalancesAsync(tenantId, Product))?.ToList() ?? [];
+            _balance = balances.FirstOrDefault(x =>
+                string.Equals(x.WarehouseCode, Warehouse, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(x.ProductCode, Product, StringComparison.OrdinalIgnoreCase));
+            _movements = (await Api.GetStockMovementsAsync(tenantId, Product, Warehouse))?.ToList() ?? [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // Map a movement's source document to its detail route so the user can trace the flow.
+    private static string SourceRoute(StockMovementRecord m) => m.SourceType switch
+    {
+        "SALES_ORDER" when m.SourceId != Guid.Empty => $"sales/orders/{m.SourceId}",
+        "TRANSFER" when m.SourceId != Guid.Empty => $"inventory/transfers/{m.SourceId}",
+        "PURCHASE_RECEIPT" => "purchase",
+        _ => ""
+    };
+
+    private static string SourceTypeText(string? value) => value switch
+    {
+        "SALES_ORDER" => "Đơn bán",
+        "PURCHASE_RECEIPT" => "Nhập mua",
+        "TRANSFER" => "Chuyển kho",
+        "MANUAL" => "Thủ công",
+        _ => value ?? "—"
+    };
+
+    private static string MovementText(string type) => type switch
+    {
+        "IN" => "Nhập",
+        "OUT" => "Xuất",
+        "TRANSFER_IN" => "Chuyển đến",
+        "TRANSFER_OUT" => "Chuyển đi",
+        _ => type
+    };
+
+    private static string MovementCss(string type) => type switch
+    {
+        "IN" or "TRANSFER_IN" => "app-status-badge app-status-active",
+        "OUT" or "TRANSFER_OUT" => "app-status-badge app-status-danger",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private void GoBack() => Navigation.NavigateTo("inventory");
+}

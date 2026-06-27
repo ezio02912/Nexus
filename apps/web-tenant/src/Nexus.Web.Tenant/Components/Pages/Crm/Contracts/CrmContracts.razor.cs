@@ -62,7 +62,7 @@ public partial class CrmContracts
     {
         _model = new ContractFormModel
         {
-            ContractNo = $"CT-{DateTime.Now:yyyyMMddHHmm}",
+            ContractNo = "AUTO",
             ContractValue = 0,
             Currency = "VND",
             StartDate = DateTime.Today
@@ -84,6 +84,13 @@ public partial class CrmContracts
             return;
         }
 
+        // A contract file is mandatory when creating a contract.
+        if (_model.PendingFiles.Count == 0)
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng đính kèm tệp hợp đồng trước khi lưu."));
+            return;
+        }
+
         try
         {
             Guid? contactId = Guid.TryParse(_contactIdText, out var parsedContactId) ? parsedContactId : null;
@@ -98,7 +105,7 @@ public partial class CrmContracts
                 _model.PaymentTerms, _model.Notes, _model.Terms, null, null, []));
             if (contract is not null && _model.PendingFiles.Count > 0)
             {
-                await FileApi.UploadAndLinkAsync(_model.PendingFiles, "CRM", "Contract", contract.Id.ToString());
+                await FileApi.UploadAndLinkAsync(_model.PendingFiles, "CRM", "Contract", contract.Id.ToString(), DocumentFileCatalog.Contract);
             }
 
             await ToastService.Success("Thành công", "Đã tạo hợp đồng.");

@@ -32,6 +32,7 @@ public static class CrmInfrastructureModule
         services.AddScoped<IActivityRepository, EfCoreActivityRepository>();
         services.AddScoped<IPipelineStageRepository, EfCorePipelineStageRepository>();
         services.AddScoped<CrmEventPublisher>();
+        services.AddHttpContextAccessor();
         services.AddHttpClient<INumberingClient, HttpNumberingClient>();
 
         return services;

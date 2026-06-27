@@ -1,6 +1,7 @@
 using Nexus.ApiContracts.Dtos;
 using Nexus.EventContracts.Crm;
 using Nexus.Services.Crm.Contracts.Customers;
+using Nexus.Services.Crm.Contracts.Numbering;
 using Nexus.Services.Crm.Domain;
 using Nexus.Services.Crm.Domain.Customers;
 using Nexus.Services.Crm.Domain.Enums;
@@ -14,10 +15,12 @@ public sealed class CustomerAppService : CrmAppServiceBase, ICustomerAppService
 {
     private readonly ICustomerRepository _customerRepository;
     private readonly IEventBus _eventBus;
+    private readonly INumberingClient _numberingClient;
 
     public CustomerAppService(
         ICustomerRepository customerRepository,
         IEventBus eventBus,
+        INumberingClient numberingClient,
         ICurrentTenant currentTenant,
         ICurrentUser currentUser,
         ICorrelationContext correlationContext)
@@ -25,6 +28,7 @@ public sealed class CustomerAppService : CrmAppServiceBase, ICustomerAppService
     {
         _customerRepository = customerRepository;
         _eventBus = eventBus;
+        _numberingClient = numberingClient;
     }
 
     public async Task<PagedResultDto<CustomerDto>> GetListAsync(GetCustomersInput input, CancellationToken cancellationToken = default)
@@ -61,7 +65,11 @@ public sealed class CustomerAppService : CrmAppServiceBase, ICustomerAppService
         var tenantId = GetRequiredTenantId();
         var now = DateTimeOffset.UtcNow;
 
-        if (await _customerRepository.FindByCodeAsync(tenantId, input.Code, cancellationToken) is not null)
+        var code = string.IsNullOrWhiteSpace(input.Code) || input.Code.Equals("AUTO", StringComparison.OrdinalIgnoreCase)
+            ? await _numberingClient.GetNextNumberAsync(tenantId, "CRM", "Customer", "KH-", cancellationToken)
+            : input.Code;
+
+        if (await _customerRepository.FindByCodeAsync(tenantId, code, cancellationToken) is not null)
         {
             throw new NexusBusinessException(CrmErrorCodes.CustomerAlreadyExists, "Customer code already exists.");
         }
@@ -69,7 +77,7 @@ public sealed class CustomerAppService : CrmAppServiceBase, ICustomerAppService
         var customer = new Customer(
             Guid.NewGuid(),
             tenantId,
-            input.Code,
+            code,
             input.Name,
             input.CustomerType,
             input.Email,

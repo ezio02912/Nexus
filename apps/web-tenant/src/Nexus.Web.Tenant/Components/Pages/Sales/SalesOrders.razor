@@ -4,6 +4,7 @@
 @inject CrmApiClient CrmApi
 @inject TenantSessionService Session
 @inject NavigationManager Navigation
+@inject FileApiClient FileApi
 
 <PageTitle>Đơn hàng - Bán hàng</PageTitle>
 
@@ -72,7 +73,7 @@
                                         }
                                     </td>
                                     <td>@CustomerText(order.CustomerId)</td>
-                                    <td><span class="@StatusCss(order.Status)">@order.Status</span></td>
+                                    <td><span class="@StatusCss(order.Status)">@SalesLabels.OrderStatus(order.Status)</span></td>
                                     <td><span class="@ReservationStatusCss(order.InventoryReservationStatus)">@ReservationStatusText(order.InventoryReservationStatus)</span></td>
                                     <td><span class="@DeliveryStatusCss(order.DeliveryStatus)">@DeliveryStatusText(order.DeliveryStatus)</span></td>
                                     <td>
@@ -84,8 +85,16 @@
                                         <div class="app-actions">
                                             <Button Text="Chi tiết" Size="Size.ExtraSmall" Color="Color.Secondary" OnClick="@(() => OpenOrder(order.Id))" />
                                             <Button Text="Duyệt" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(order.Status != "Draft")" OnClick="@(() => ApproveAsync(order.Id))" />
+                                            @if (order.Status == "Approved" && order.DeliveryStatus != "Delivered")
+                                            {
+                                                <Button Text="Huỷ duyệt" Size="Size.ExtraSmall" Color="Color.Warning" IsAsync="true" OnClick="@(() => UnapproveAsync(order.Id))" />
+                                            }
                                             <Button Text="Đã giao" Size="Size.ExtraSmall" Color="Color.Info" IsDisabled="@(order.Status == "Draft" || order.DeliveryStatus == "Delivered")" OnClick="@(() => DeliverAsync(order.Id))" />
                                             <Button Text="Hoàn tất" Size="Size.ExtraSmall" Color="Color.Primary" IsDisabled="@(order.Status != "Approved")" OnClick="@(() => CompleteAsync(order.Id))" />
+                                            @if (order.Status == "Draft")
+                                            {
+                                                <Button Text="Xoá" Size="Size.ExtraSmall" Color="Color.Danger" IsAsync="true" OnClick="@(() => DeleteOrderAsync(order.Id))" />
+                                            }
                                         </div>
                                     </td>
                                 </tr>
@@ -100,14 +109,18 @@
 <Modal @ref="createModal" IsBackdrop="true">
     <ModalDialog Title="Tạo đơn bán hàng" Size="Size.Large" ShowCloseButton="false">
         <BodyTemplate>
+            @if (!string.IsNullOrWhiteSpace(modalMessage))
+            {
+                <div class="@modalMessageCss">@modalMessage</div>
+            }
             @if (!string.IsNullOrWhiteSpace(sourceNo))
             {
                 <div class="app-alert app-alert-compact">Đang tạo đơn hàng từ @sourceTypeText: @sourceNo</div>
             }
             <div class="app-form-grid">
                 <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="customerIdText" />
-                <AppFormField Label="Số đơn" Required="true">
-                    <BootstrapInput @bind-Value="orderNo" ShowLabel="false" />
+                <AppFormField Label="Số đơn">
+                    <BootstrapInput Value="@("(tự động)")" ShowLabel="false" IsDisabled="true" />
                 </AppFormField>
                 <WarehouseLookupSelect Label="Kho" @bind-Value="warehouseCode" />
                 <ProductLookupSelect Label="Mã hàng" @bind-Value="productCode" OnProductSelected="OnProductSelected" />
@@ -177,7 +190,7 @@
     private Modal? createModal;
     private bool isLoading;
     private string customerIdText = "";
-    private string orderNo = "SO-0001";
+    private string orderNo = "AUTO";
     private string warehouseCode = "MAIN";
     private string productCode = "SKU-001";
     private string description = "Hàng mẫu";
@@ -188,6 +201,8 @@
     private decimal taxPercent;
     private string message = "";
     private string messageCss = "app-alert";
+    private string modalMessage = "";
+    private string modalMessageCss = "app-alert";
     private string sourceType = "";
     private Guid? sourceId;
     private string sourceNo = "";
@@ -206,8 +221,48 @@
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
-    private Task ShowCreateDialogAsync() => createModal!.Show();
+    private Task ShowCreateDialogAsync()
+    {
+        // Reset the form for a clean manual entry; keep values when prefilled from a source document.
+        if (sourceId is null)
+        {
+            ResetForm();
+        }
+
+        modalMessage = "";
+        return createModal!.Show();
+    }
+
     private Task CloseCreateDialogAsync() => createModal!.Close();
+
+    private void ResetForm()
+    {
+        customerIdText = "";
+        orderNo = "AUTO";
+        warehouseCode = "MAIN";
+        productCode = "";
+        description = "";
+        quantity = 1;
+        unitPrice = 0;
+        discountPercent = 0;
+        taxPercent = 0;
+        draftLines.Clear();
+        sourceType = "";
+        sourceId = null;
+        sourceNo = "";
+    }
+
+    private void ShowModalError(string text)
+    {
+        modalMessage = text;
+        modalMessageCss = "app-alert app-alert-danger";
+    }
+
+    private void ShowModalSuccess(string text)
+    {
+        modalMessage = text;
+        modalMessageCss = "app-alert";
+    }
 
     private async Task LoadAsync()
     {
@@ -298,7 +353,7 @@
     {
         if (Session.TenantId is not Guid tenantId || !Guid.TryParse(customerIdText, out var customerId) || string.IsNullOrWhiteSpace(orderNo))
         {
-            ShowError("Vui lòng chọn khách hàng và nhập số đơn.");
+            ShowModalError("Vui lòng chọn khách hàng.");
             return;
         }
 
@@ -323,7 +378,7 @@
 
             if (shortage is not null)
             {
-                ShowError($"Không đủ tồn kho cho {shortage.Warehouse}/{shortage.Product}. Khả dụng {shortage.Available:N2}, cần {shortage.Requested:N2}.");
+                ShowModalError($"Không đủ tồn kho cho {shortage.Warehouse}/{shortage.Product}. Khả dụng {shortage.Available:N2}, cần {shortage.Requested:N2}.");
                 return;
             }
         }
@@ -370,8 +425,9 @@
 
         if (query.TryGetValue("sourceNo", out var sourceNoValue))
         {
+            // Keep the order number auto-generated; the source document is tracked via sourceType/sourceId/sourceNo.
             sourceNo = sourceNoValue;
-            orderNo = $"SO-{sourceNoValue}".Replace("/", "-").Replace(" ", "-").ToUpperInvariant();
+            orderNo = "AUTO";
         }
 
         if (query.TryGetValue("productCode", out var productCodeValue))
@@ -440,18 +496,18 @@
     {
         if (string.IsNullOrWhiteSpace(productCode) || quantity <= 0)
         {
-            ShowError("Vui lòng nhập mã hàng và số lượng lớn hơn 0.");
+            ShowModalError("Vui lòng nhập mã hàng và số lượng lớn hơn 0.");
             return;
         }
 
         if (HasStockData && CurrentAvailable < quantity)
         {
-            ShowError($"Không đủ tồn kho cho {warehouseCode}/{productCode}. Khả dụng {CurrentAvailable:N2}, cần {quantity:N2}.");
+            ShowModalError($"Không đủ tồn kho cho {warehouseCode}/{productCode}. Khả dụng {CurrentAvailable:N2}, cần {quantity:N2}.");
             return;
         }
 
         draftLines.Add(SalesOrderLineDraftModel.FromRequest(CurrentLineRequest()));
-        ShowSuccess($"Đã thêm dòng hàng. Tổng tạm tạo: {DraftTotal.ToString("N0")}");
+        ShowModalSuccess($"Đã thêm dòng hàng. Tổng tạm tạo: {DraftTotal.ToString("N0")}");
     }
 
     // Only enforce the client-side block when we actually loaded stock data for this tenant.
@@ -496,16 +552,76 @@
 
     private async Task CompleteAsync(Guid id)
     {
-        await Api.CompleteSalesOrderAsync(id);
-        ShowSuccess("Đã hoàn tất đơn bán hàng.");
-        await LoadAsync();
+        try
+        {
+            if (!await HasFileAsync(id, DocumentFileCatalog.SalesInvoice))
+            {
+                ShowError("Vui lòng đính kèm hoá đơn bán (ở chi tiết đơn) trước khi hoàn tất.");
+                return;
+            }
+
+            await Api.CompleteSalesOrderAsync(id);
+            ShowSuccess("Đã hoàn tất đơn bán hàng.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
     }
 
     private async Task DeliverAsync(Guid id)
     {
-        await Api.DeliverSalesOrderAsync(id);
-        ShowSuccess("Đã cập nhật trạng thái giao hàng.");
-        await LoadAsync();
+        try
+        {
+            if (!await HasFileAsync(id, DocumentFileCatalog.SalesDelivery))
+            {
+                ShowError("Vui lòng đính kèm phiếu xuất kho (ở chi tiết đơn) trước khi giao hàng.");
+                return;
+            }
+
+            await Api.DeliverSalesOrderAsync(id);
+            ShowSuccess("Đã cập nhật trạng thái giao hàng.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private async Task<bool> HasFileAsync(Guid id, string category)
+    {
+        var links = await FileApi.GetLinksAsync("SALES", "SalesOrder", id.ToString(), category);
+        return links.Count > 0;
+    }
+
+    private async Task UnapproveAsync(Guid id)
+    {
+        try
+        {
+            await Api.UnapproveSalesOrderAsync(id);
+            ShowSuccess("Đã huỷ duyệt đơn bán hàng.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private async Task DeleteOrderAsync(Guid id)
+    {
+        try
+        {
+            await Api.DeleteSalesOrderAsync(id);
+            ShowSuccess("Đã xoá đơn bán hàng.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
     }
 
     private async Task ClearSearchAsync()

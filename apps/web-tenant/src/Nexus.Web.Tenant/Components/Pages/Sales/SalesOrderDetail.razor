@@ -4,6 +4,8 @@
 @inject CrmApiClient CrmApi
 @inject TenantSessionService Session
 @inject NavigationManager Navigation
+@inject ToastService ToastService
+@inject FileApiClient FileApi
 
 <PageTitle>Chi tiết đơn hàng - Bán hàng</PageTitle>
 
@@ -18,8 +20,16 @@
             @if (_order is not null)
             {
                 <Button Text="Duyệt" Color="Color.Success" Icon="fa-solid fa-check" IsDisabled="@(_order.Status != "Draft")" IsAsync="true" OnClick="ApproveAsync" />
+                @if (_order.Status == "Approved" && _order.DeliveryStatus != "Delivered")
+                {
+                    <Button Text="Huỷ duyệt" Color="Color.Warning" Icon="fa-solid fa-rotate-left" IsAsync="true" OnClick="UnapproveAsync" />
+                }
                 <Button Text="Đã giao" Color="Color.Info" Icon="fa-solid fa-truck" IsDisabled="@(_order.Status == "Draft" || _order.DeliveryStatus == "Delivered")" IsAsync="true" OnClick="DeliverAsync" />
                 <Button Text="Hoàn tất" Color="Color.Primary" Icon="fa-solid fa-circle-check" IsDisabled="@(_order.Status != "Approved")" IsAsync="true" OnClick="CompleteAsync" />
+                @if (_order.Status == "Draft")
+                {
+                    <Button Text="Xoá" Color="Color.Danger" Icon="fa-solid fa-trash" IsAsync="true" OnClick="DeleteAsync" />
+                }
             }
             <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
         </div>
@@ -111,8 +121,15 @@
 
         <div class="mt-3">
             <FileAttachmentPanel Module="SALES" EntityType="SalesOrder" EntityId="@_order.Id.ToString()"
-                                 Title="Chứng từ đơn hàng"
-                                 WarningText="Chưa có chứng từ đơn hàng. Vui lòng tải lên hoá đơn/biên bản giao hàng." />
+                                 Category="@DocumentFileCatalog.SalesDelivery"
+                                 Title="Phiếu xuất kho"
+                                 WarningText="Chưa có phiếu xuất kho. Bắt buộc đính kèm trước khi giao hàng." />
+        </div>
+        <div class="mt-3">
+            <FileAttachmentPanel Module="SALES" EntityType="SalesOrder" EntityId="@_order.Id.ToString()"
+                                 Category="@DocumentFileCatalog.SalesInvoice"
+                                 Title="Hoá đơn bán"
+                                 WarningText="Chưa có hoá đơn bán. Bắt buộc đính kèm trước khi hoàn tất." />
         </div>
     }
 </section>
@@ -147,14 +164,74 @@
 
     private async Task DeliverAsync()
     {
-        await Api.DeliverSalesOrderAsync(Id);
-        await LoadAsync();
+        try
+        {
+            if (!await HasFileAsync(DocumentFileCatalog.SalesDelivery))
+            {
+                await ToastService.Error("Thiếu chứng từ", "Vui lòng đính kèm phiếu xuất kho trước khi giao hàng.");
+                return;
+            }
+
+            await Api.DeliverSalesOrderAsync(Id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
     }
 
     private async Task CompleteAsync()
     {
-        await Api.CompleteSalesOrderAsync(Id);
-        await LoadAsync();
+        try
+        {
+            if (!await HasFileAsync(DocumentFileCatalog.SalesInvoice))
+            {
+                await ToastService.Error("Thiếu chứng từ", "Vui lòng đính kèm hoá đơn bán trước khi hoàn tất.");
+                return;
+            }
+
+            await Api.CompleteSalesOrderAsync(Id);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
+    }
+
+    private async Task<bool> HasFileAsync(string category)
+    {
+        var links = await FileApi.GetLinksAsync("SALES", "SalesOrder", Id.ToString(), category);
+        return links.Count > 0;
+    }
+
+    private async Task UnapproveAsync()
+    {
+        try
+        {
+            await Api.UnapproveSalesOrderAsync(Id);
+            await ToastService.Success("Thành công", "Đã huỷ duyệt đơn bán hàng.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        try
+        {
+            await Api.DeleteSalesOrderAsync(Id);
+            await ToastService.Success("Đã xoá", "Đơn bán hàng đã được xoá.");
+            Navigation.NavigateTo("sales/orders");
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", ex.Message);
+        }
     }
 
     private void GoBack() => Navigation.NavigateTo("sales/orders");

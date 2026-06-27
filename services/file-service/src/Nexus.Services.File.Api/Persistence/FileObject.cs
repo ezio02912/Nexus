@@ -34,9 +34,9 @@ public sealed class FileObject : NexusEntity<Guid>
     public DateTimeOffset CreatedAt { get; private set; }
     public IReadOnlyCollection<FileLink> Links => _links.AsReadOnly();
 
-    public FileLink AddLink(string module, string entityType, string entityId, DateTimeOffset now)
+    public FileLink AddLink(string module, string entityType, string entityId, string? category, DateTimeOffset now)
     {
-        var link = new FileLink(Guid.NewGuid(), Id, module, entityType, entityId, now);
+        var link = new FileLink(Guid.NewGuid(), Id, module, entityType, entityId, category, now);
         _links.Add(link);
         return link;
     }
@@ -51,13 +51,14 @@ public sealed class FileLink : NexusEntity<Guid>
         EntityId = string.Empty;
     }
 
-    public FileLink(Guid id, Guid fileId, string module, string entityType, string entityId, DateTimeOffset createdAt)
+    public FileLink(Guid id, Guid fileId, string module, string entityType, string entityId, string? category, DateTimeOffset createdAt)
     {
         Id = id;
         FileId = fileId;
         Module = module;
         EntityType = entityType;
         EntityId = entityId;
+        Category = string.IsNullOrWhiteSpace(category) ? null : category.Trim();
         CreatedAt = createdAt;
     }
 
@@ -65,6 +66,10 @@ public sealed class FileLink : NexusEntity<Guid>
     public string Module { get; private set; }
     public string EntityType { get; private set; }
     public string EntityId { get; private set; }
+
+    // Business document type of the attachment (e.g. SALES_INVOICE, PURCHASE_RECEIPT).
+    // Nullable so legacy links remain valid.
+    public string? Category { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 }
 
@@ -99,7 +104,8 @@ public sealed class FileDbContext : NexusDbContext
             builder.Property(x => x.Module).HasMaxLength(128).IsRequired();
             builder.Property(x => x.EntityType).HasMaxLength(128).IsRequired();
             builder.Property(x => x.EntityId).HasMaxLength(128).IsRequired();
-            builder.HasIndex(x => new { x.Module, x.EntityType, x.EntityId });
+            builder.Property(x => x.Category).HasMaxLength(64);
+            builder.HasIndex(x => new { x.Module, x.EntityType, x.EntityId, x.Category });
         });
 
         base.OnModelCreating(modelBuilder);

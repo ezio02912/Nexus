@@ -15,9 +15,10 @@ public sealed record FileLinkRecord(
     string Module,
     string EntityType,
     string EntityId,
+    string? Category,
     DateTimeOffset CreatedAt,
     string FileName,
     string ContentType,
     long Size);
 
-public sealed record CreateFileLinkRequest(Guid FileId, string Module, string EntityType, string EntityId);
+public sealed record CreateFileLinkRequest(Guid FileId, string Module, string EntityType, string EntityId, string? Category);

@@ -4,7 +4,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
-<AppFormField Label="@Label" Required="@Required" InputId="@_inputId">
+<AppFormField Label="@Label" Required="@Required" InputId="@_inputId" HasError="@HasError" ErrorText="@ErrorText">
     <input @ref="_inputElement"
            id="@_inputId"
            class="form-control app-money-input"
@@ -25,6 +25,8 @@
     [Parameter] public int DecimalPlaces { get; set; }
     [Parameter] public decimal Value { get; set; }
     [Parameter] public EventCallback<decimal> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+    [Parameter] public string? ErrorText { get; set; }
 
     private ElementReference _inputElement;
     private IJSObjectReference? _module;

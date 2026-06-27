@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Nexus.Services.Crm.Domain/Nexus.Services.Crm.Domain.csproj" />
     <ProjectReference Include="../Nexus.Services.Crm.Contracts/Nexus.Services.Crm.Contracts.csproj" />
     <ProjectReference Include="../../../../shared/building-blocks/src/Nexus.BuildingBlocks/Nexus.BuildingBlocks.csproj" />

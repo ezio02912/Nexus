@@ -4,6 +4,7 @@
 @inject TenantSessionService Session
 @inject SwalService SwalService
 @inject ToastService ToastService
+@inject NavigationManager Navigation
 
 <PageTitle>Tồn kho</PageTitle>
 
@@ -48,6 +49,8 @@
                         }
                     </TableToolbarTemplate>
                     <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewStockDetail(context))" />
                         <TableCellButton Color="Color.Secondary" Icon="fa-solid fa-clock-rotate-left" Text="Lịch sử"
                                          OnClick="@(() => ShowHistoryAsync(context))" />
                     </RowButtonTemplate>
@@ -115,9 +118,12 @@
                 <AppFormField Label="Số lượng" Required="true">
                     <BootstrapInputNumber @bind-Value="_transferQuantity" ShowLabel="false" />
                 </AppFormField>
-                <AppFormField Label="Số chứng từ">
-                    <BootstrapInput @bind-Value="_transferSourceNo" ShowLabel="false" />
+                <AppFormField Label="Số phiếu chuyển kho">
+                    <BootstrapInput Value="@("(tự động)")" ShowLabel="false" IsDisabled="true" />
                 </AppFormField>
+            </div>
+            <div class="app-alert app-alert-compact mt-2">
+                Sau khi tạo phiếu, hệ thống sẽ mở chi tiết phiếu để bạn đính kèm phiếu chuyển kho.
             </div>
         </BodyTemplate>
         <FooterTemplate>
@@ -319,9 +325,15 @@
 
         try
         {
-            await Api.TransferStockAsync(new TransferStockRequest(tenantId, _transferFromWarehouse, _transferToWarehouse, _transferProductCode, _transferProductName, _transferQuantity, _transferSourceNo));
-            await ToastService.Success("Thành công", "Đã chuyển kho.");
+            var transfer = await Api.TransferStockAsync(new TransferStockRequest(tenantId, _transferFromWarehouse, _transferToWarehouse, _transferProductCode, _transferProductName, _transferQuantity, null));
+            await ToastService.Success("Thành công", "Đã tạo phiếu chuyển kho.");
             await _transferModal!.Close();
+            if (transfer is not null)
+            {
+                Navigation.NavigateTo($"inventory/transfers/{transfer.Id}");
+                return;
+            }
+
             await ReloadTableAsync();
         }
         catch (Exception ex)
@@ -357,6 +369,9 @@
     }
 
     private Task CloseHistoryAsync() => _historyModal!.Close();
+
+    private void ViewStockDetail(StockBalanceRecord item) =>
+        Navigation.NavigateTo($"inventory/stock/{Uri.EscapeDataString(item.WarehouseCode)}/{Uri.EscapeDataString(item.ProductCode)}");
 
     private static string MovementText(string type) => type switch
     {

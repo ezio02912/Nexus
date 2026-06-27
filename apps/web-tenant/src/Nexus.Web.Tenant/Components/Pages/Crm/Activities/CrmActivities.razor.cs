@@ -43,6 +43,10 @@ public partial class CrmActivities
         _isCreate = true;
         _modalTitle = "Thêm hoạt động";
         _model = new ActivityFormModel { ActivityDate = DateTimeOffset.Now };
+        // Reset all selects to their defaults so a previous edit does not leak in.
+        _relatedTypeText = CrmRelatedEntityType.Customer.ToString();
+        _activityTypeText = CrmActivityType.Task.ToString();
+        _statusText = CrmActivityStatus.Planned.ToString();
         _relatedEntityIdText = "";
         return _editModal!.Show();
     }

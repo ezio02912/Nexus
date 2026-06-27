@@ -66,7 +66,7 @@ public partial class CrmQuotations
         _modalTitle = "Thêm báo giá";
         _model = new QuotationFormModel
         {
-            QuotationNo = $"QT-{DateTime.Now:yyyyMMddHHmm}",
+            QuotationNo = "AUTO",
             Lines = []
         };
         _customerIdText = _customerOptions.FirstOrDefault()?.Value ?? "";
@@ -131,11 +131,18 @@ public partial class CrmQuotations
             Guid? contactId = Guid.TryParse(_contactIdText, out var parsedContactId) ? parsedContactId : null;
             if (_isCreate)
             {
+                // A quotation file is mandatory when creating a quotation.
+                if (_model.PendingFiles.Count == 0)
+                {
+                    await ShowErrorAsync(new InvalidOperationException("Vui lòng đính kèm tệp báo giá trước khi lưu."));
+                    return;
+                }
+
                 var quotation = await CrmApi.CreateQuotationAsync(new CreateQuotationRequest(
                     customerId, _model.QuotationNo.Trim(), null, contactId, _model.Subject, null, lines));
                 if (quotation is not null && _model.PendingFiles.Count > 0)
                 {
-                    await FileApi.UploadAndLinkAsync(_model.PendingFiles, "CRM", "Quotation", quotation.Id.ToString());
+                    await FileApi.UploadAndLinkAsync(_model.PendingFiles, "CRM", "Quotation", quotation.Id.ToString(), DocumentFileCatalog.Quotation);
                 }
 
                 await ToastService.Success("Thành công", "Đã tạo báo giá.");

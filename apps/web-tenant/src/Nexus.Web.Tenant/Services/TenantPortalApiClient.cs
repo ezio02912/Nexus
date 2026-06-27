@@ -111,6 +111,8 @@ public sealed class TenantPortalApiClient
     public Task<SalesOrderRecord?> ApproveSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/approve", new { });
     public Task<SalesOrderRecord?> DeliverSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/deliver", new { });
     public Task<SalesOrderRecord?> CompleteSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/complete", new { });
+    public Task<SalesOrderRecord?> UnapproveSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/unapprove", new { });
+    public Task DeleteSalesOrderAsync(Guid id) => DeleteAsync(_options.Sales, $"/api/sales/orders/{id}");
 
     public Task<IReadOnlyList<StockBalanceRecord>?> GetStockBalancesAsync(Guid tenantId, string? search = null)
     {
@@ -126,8 +128,22 @@ public sealed class TenantPortalApiClient
     public Task<StockBalanceRecord?> ImportStockAsync(ImportStockRequest request) =>
         PostAsync<StockBalanceRecord>(_options.Inventory, "/api/inventory/stock/import", request);
 
-    public Task<StockBalanceRecord?> TransferStockAsync(TransferStockRequest request) =>
-        PostAsync<StockBalanceRecord>(_options.Inventory, "/api/inventory/transfers", request);
+    public Task<StockTransferRecord?> TransferStockAsync(TransferStockRequest request) =>
+        PostAsync<StockTransferRecord>(_options.Inventory, "/api/inventory/transfers", request);
+
+    public Task<IReadOnlyList<StockTransferRecord>?> GetStockTransfersAsync(Guid tenantId, string? search = null)
+    {
+        var path = $"/api/inventory/transfers?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            path += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        return GetAsync<IReadOnlyList<StockTransferRecord>>(_options.Inventory, path);
+    }
+
+    public Task<StockTransferRecord?> GetStockTransferAsync(Guid tenantId, Guid id) =>
+        GetAsync<StockTransferRecord>(_options.Inventory, $"/api/inventory/transfers/{id}?tenantId={tenantId}");
 
     public Task<IReadOnlyList<StockMovementRecord>?> GetStockMovementsAsync(Guid tenantId, string? productCode = null, string? warehouseCode = null)
     {
@@ -206,6 +222,11 @@ public sealed class TenantPortalApiClient
 
     public Task<PurchaseOrderRecord?> ReceivePurchaseOrderAsync(Guid id, ReceivePurchaseOrderRequest request) =>
         PostAsync<PurchaseOrderRecord>(_options.Purchase, $"/api/purchase/orders/{id}/receive", request);
+
+    public Task<PurchaseOrderRecord?> UnapprovePurchaseOrderAsync(Guid id) =>
+        PostAsync<PurchaseOrderRecord>(_options.Purchase, $"/api/purchase/orders/{id}/unapprove", new { });
+
+    public Task DeletePurchaseOrderAsync(Guid id) => DeleteAsync(_options.Purchase, $"/api/purchase/orders/{id}");
 
     public Task<IReadOnlyList<GoodsReceiptRecord>?> GetGoodsReceiptsAsync(Guid tenantId) =>
         GetAsync<IReadOnlyList<GoodsReceiptRecord>>(_options.Purchase, $"/api/purchase/goods-receipts?tenantId={tenantId}");
@@ -320,6 +341,15 @@ public sealed class TenantPortalApiClient
         var response = await CreateClient().PutAsJsonAsync(BuildUrl(baseUrl, path), request);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    private async Task DeleteAsync(string baseUrl, string path)
+    {
+        var response = await CreateClient().DeleteAsync(BuildUrl(baseUrl, path));
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(await ReadErrorMessageAsync(response));
+        }
     }
 
     private static string BuildUrl(string baseUrl, string path) => baseUrl.TrimEnd('/') + path;

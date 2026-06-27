@@ -1,0 +1,78 @@
+@page "/inventory/transfers/{Id:guid}"
+@attribute [TabItemOption(Text = "Chi tiết chuyển kho", Icon = "fa-solid fa-right-left")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject NavigationManager Navigation
+
+<PageTitle>Chi tiết phiếu chuyển kho</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Kho / Chuyển kho</p>
+            <h1>@(_transfer?.TransferNo ?? "Chi tiết phiếu chuyển kho")</h1>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <Button Text="Quay lại" Color="Color.Secondary" Icon="fa-solid fa-arrow-left" OnClick="GoBack" />
+            <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+        </div>
+    </header>
+
+    @if (!Session.HasModule("INVENTORY"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Kho.</div>
+    }
+    else if (_loading)
+    {
+        <div class="app-loading">Đang tải phiếu chuyển kho...</div>
+    }
+    else if (_transfer is null)
+    {
+        <div class="app-empty-state">Không tìm thấy phiếu chuyển kho.</div>
+    }
+    else
+    {
+        <section class="app-card app-card-wide mb-3">
+            <div class="app-detail-grid">
+                <div><span class="app-detail-label">Số phiếu</span><span>@_transfer.TransferNo</span></div>
+                <div><span class="app-detail-label">Kho nguồn</span><span>@_transfer.FromWarehouseCode</span></div>
+                <div><span class="app-detail-label">Kho đích</span><span>@_transfer.ToWarehouseCode</span></div>
+                <div><span class="app-detail-label">Mã hàng</span><span>@_transfer.ProductCode</span></div>
+                <div><span class="app-detail-label">Tên hàng</span><span>@_transfer.ProductName</span></div>
+                <div><span class="app-detail-label">Số lượng</span><span>@_transfer.Quantity.ToString("N2")</span></div>
+                <div><span class="app-detail-label">Trạng thái</span><span class="app-status-badge app-status-active">Hoàn tất</span></div>
+                <div><span class="app-detail-label">Ngày tạo</span><span>@_transfer.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span></div>
+            </div>
+        </section>
+
+        <div class="mt-3">
+            <FileAttachmentPanel Module="INVENTORY" EntityType="StockTransfer" EntityId="@_transfer.Id.ToString()"
+                                 Category="@DocumentFileCatalog.StockTransfer"
+                                 Title="Phiếu chuyển kho"
+                                 WarningText="Chưa có phiếu chuyển kho đính kèm. Vui lòng tải lên phiếu chuyển kho." />
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private StockTransferRecord? _transfer;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        _loading = true;
+        _transfer = await Api.GetStockTransferAsync(tenantId, Id);
+        _loading = false;
+    }
+
+    private void GoBack() => Navigation.NavigateTo("inventory/transfers");
+}

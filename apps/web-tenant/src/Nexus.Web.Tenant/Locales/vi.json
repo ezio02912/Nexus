@@ -24,6 +24,14 @@
     "CancelButtonText": "Hủy",
     "ConfirmButtonText": "Đồng ý"
   },
+  "BootstrapBlazor.Components.ModalDialog": {
+    "CloseButtonText": "Đóng",
+    "SaveButtonText": "Lưu"
+  },
+  "BootstrapBlazor.Components.Dialog": {
+    "CloseButtonText": "Đóng",
+    "SaveButtonText": "Lưu"
+  },
   "BootstrapBlazor.Components.Toast": {
     "SuccessTitle": "Thành công",
     "InformationTitle": "Thông báo",

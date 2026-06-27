@@ -122,8 +122,15 @@
             <div class="app-form-grid">
                 <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="_customerIdText" />
                 <ContactLookupSelect Label="Liên hệ" CustomerId="@_customerIdText" @bind-Value="_contactIdText" />
-                <AppFormField Label="Số báo giá" Required="true">
-                    <BootstrapInput @bind-Value="_model.QuotationNo" ShowLabel="false" IsDisabled="@(!_isCreate)" PlaceHolder="AUTO để tự sinh số" />
+                <AppFormField Label="Số báo giá">
+                    @if (_isCreate)
+                    {
+                        <BootstrapInput Value="@("(tự động)")" ShowLabel="false" IsDisabled="true" />
+                    }
+                    else
+                    {
+                        <BootstrapInput @bind-Value="_model.QuotationNo" ShowLabel="false" IsDisabled="true" />
+                    }
                 </AppFormField>
                 <AppFormField Label="Tiêu đề">
                     <BootstrapInput @bind-Value="_model.Subject" ShowLabel="false" />

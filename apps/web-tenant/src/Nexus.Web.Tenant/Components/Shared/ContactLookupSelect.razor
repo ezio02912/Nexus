@@ -1,7 +1,7 @@
 @inject CrmApiClient CrmApi
 @inject ToastService ToastService
 
-<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId" HasError="@HasError" ErrorText="@ErrorText">
     @if (!HasCustomer)
     {
         <div class="app-alert app-alert-compact">Chọn khách hàng trước khi chọn liên hệ.</div>
@@ -69,6 +69,8 @@
     [Parameter] public string? CustomerId { get; set; }
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+    [Parameter] public string? ErrorText { get; set; }
 
     private bool HasCustomer => Guid.TryParse(CustomerId, out _);
 

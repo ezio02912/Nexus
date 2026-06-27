@@ -50,7 +50,7 @@ app.MapPost("/api/numbering/next", async (NextNumberRequest input, NumberingDbCo
     var padding = input.Padding <= 0 ? 5 : input.Padding;
     var number = $"{input.Prefix}{next.ToString().PadLeft(padding, '0')}";
     return Results.Ok(new NextNumberResult(key, number, next));
-}).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Numbering.Generate));
+}).RequireAuthorization(); // Internal allocator: any authenticated caller (incl. tenant users) may draw a number.
 
 app.MapGet("/api/numbering/sequences", async (NumberingDbContext db, CancellationToken ct) =>
 {

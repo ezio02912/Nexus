@@ -1,0 +1,104 @@
+@page "/inventory/transfers"
+@attribute [TabItemOption(Text = "Chuyển kho", Icon = "fa-solid fa-right-left")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject SwalService SwalService
+@inject NavigationManager Navigation
+
+<PageTitle>Phiếu chuyển kho</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Kho</p>
+            <h1>Phiếu chuyển kho</h1>
+            <p>Danh sách phiếu luân chuyển hàng giữa các kho.</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("INVENTORY"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Kho.</div>
+    }
+    else if (!Session.IsGranted(NexusPermissions.Inventory.Stock.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem tồn kho.</div>
+    }
+    else
+    {
+        <Card HeaderText="Danh sách phiếu chuyển kho" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="StockTransferRecord" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="120"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewDetail(context.Id))" />
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.TransferNo" Text="Số phiếu" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewDetail(v.Row.Id))">
+                                    @v.Row.TransferNo
+                                </button>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.FromWarehouseCode" Text="Kho nguồn" Searchable="true" />
+                        <TableColumn @bind-Field="@context.ToWarehouseCode" Text="Kho đích" Searchable="true" />
+                        <TableColumn @bind-Field="@context.ProductCode" Text="Mã hàng" Searchable="true" />
+                        <TableColumn @bind-Field="@context.ProductName" Text="Tên hàng" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Quantity" Text="Số lượng">
+                            <Template Context="v">@v.Row.Quantity.ToString("N2")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.CreatedAt" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<StockTransferRecord>? _table;
+
+    private async Task<QueryData<StockTransferRecord>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("INVENTORY") || !Session.IsGranted(NexusPermissions.Inventory.Stock.View))
+        {
+            return new QueryData<StockTransferRecord> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var all = (await Api.GetStockTransfersAsync(tenantId, options.SearchText))?.ToList() ?? [];
+            var items = all.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+            return new QueryData<StockTransferRecord>
+            {
+                Items = items,
+                TotalCount = all.Count,
+                IsFiltered = !string.IsNullOrEmpty(options.SearchText),
+                IsSearch = !string.IsNullOrEmpty(options.SearchText)
+            };
+        }
+        catch (Exception ex)
+        {
+            await SwalService.Show(new SwalOption
+            {
+                Category = SwalCategory.Error,
+                Title = "Đã xảy ra lỗi",
+                Content = ex.Message,
+                CloseButtonText = "Đóng"
+            });
+            return new QueryData<StockTransferRecord> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private void ViewDetail(Guid id) => Navigation.NavigateTo($"inventory/transfers/{id}");
+}

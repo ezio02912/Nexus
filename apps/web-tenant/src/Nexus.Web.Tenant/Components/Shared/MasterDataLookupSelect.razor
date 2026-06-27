@@ -1,6 +1,6 @@
 @inject MasterDataApiClient MasterDataApi
 
-<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId" HasError="@HasError" ErrorText="@ErrorText">
     @if (_loading)
     {
         <div class="app-loading py-1">
@@ -38,6 +38,8 @@
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
     [Parameter] public bool StoreCode { get; set; }
+    [Parameter] public bool HasError { get; set; }
+    [Parameter] public string? ErrorText { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {

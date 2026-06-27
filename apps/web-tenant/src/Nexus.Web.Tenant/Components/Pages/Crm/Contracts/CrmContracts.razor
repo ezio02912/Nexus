@@ -137,8 +137,8 @@
             <div class="app-form-grid">
                 <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="_customerIdText" />
                 <ContactLookupSelect Label="Liên hệ" CustomerId="@_customerIdText" @bind-Value="_contactIdText" />
-                <AppFormField Label="Số hợp đồng" Required="true">
-                    <BootstrapInput @bind-Value="_model.ContractNo" ShowLabel="false" PlaceHolder="AUTO để tự sinh số" />
+                <AppFormField Label="Số hợp đồng">
+                    <BootstrapInput Value="@("(tự động)")" ShowLabel="false" IsDisabled="true" />
                 </AppFormField>
                 <AppFormField Label="Tiêu đề" Required="true">
                     <BootstrapInput @bind-Value="_model.Title" ShowLabel="false" />

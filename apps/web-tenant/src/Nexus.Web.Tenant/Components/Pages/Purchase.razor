@@ -4,6 +4,7 @@
 @inject TenantSessionService Session
 @inject SwalService SwalService
 @inject ToastService ToastService
+@inject FileApiClient FileApi
 
 <PageTitle>Đơn mua</PageTitle>
 
@@ -49,6 +50,11 @@
                                              IsDisabled="@(context.Status != "Draft")"
                                              OnClick="@(() => ApproveAsync(context.Id))" />
                         }
+                        @if (Session.IsGranted(NexusPermissions.Purchase.Orders.Approve) && context.Status == "Approved")
+                        {
+                            <TableCellButton Color="Color.Warning" Icon="fa-solid fa-rotate-left" Text="Huỷ duyệt"
+                                             OnClick="@(() => UnapproveAsync(context.Id))" />
+                        }
                         @if (Session.IsGranted(NexusPermissions.Purchase.Orders.Receive))
                         {
                             <TableCellButton Color="Color.Info" Icon="fa-solid fa-truck-ramp-box" Text="Nhận hàng"
@@ -57,6 +63,11 @@
                         }
                         <TableCellButton Color="Color.Secondary" Icon="fa-solid fa-paperclip" Text="Đính kèm"
                                          OnClick="@(() => OpenAttachmentsAsync(context))" />
+                        @if (context.Status == "Draft")
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                             OnClick="@(() => DeleteOrderAsync(context.Id))" />
+                        }
                     </RowButtonTemplate>
                     <TableColumns>
                         <TableColumn @bind-Field="@context.PurchaseOrderNo" Text="Số PO" Sortable="true" Searchable="true">
@@ -85,8 +96,8 @@
     <ModalDialog Title="Tạo đơn mua" Size="Size.Large" ShowCloseButton="true">
         <BodyTemplate>
             <div class="app-form-grid">
-                <AppFormField Label="Số PO" Required="true">
-                    <BootstrapInput @bind-Value="_purchaseOrderNo" ShowLabel="false" />
+                <AppFormField Label="Số PO">
+                    <BootstrapInput Value="@("(tự động)")" ShowLabel="false" IsDisabled="true" />
                 </AppFormField>
                 <AppFormField Label="Nhà cung cấp" Required="true">
                     <Select TValue="string" @bind-Value="_orderSupplierCode" Items="_supplierOptions"
@@ -138,8 +149,13 @@
             @if (_attachOrder is not null)
             {
                 <FileAttachmentPanel Module="PURCHASE" EntityType="PurchaseOrder" EntityId="@_attachOrder.Id.ToString()"
-                                     Title="Chứng từ đơn mua"
-                                     WarningText="Chưa có chứng từ đơn mua. Vui lòng tải lên hoá đơn/PO." />
+                                     Category="@DocumentFileCatalog.PurchaseReceipt"
+                                     Title="Phiếu nhập kho"
+                                     WarningText="Chưa có phiếu nhập kho. Bắt buộc đính kèm trước khi nhận hàng." />
+                <FileAttachmentPanel Module="PURCHASE" EntityType="PurchaseOrder" EntityId="@_attachOrder.Id.ToString()"
+                                     Category="@DocumentFileCatalog.PurchaseInvoice"
+                                     Title="Hoá đơn mua"
+                                     WarningText="Chưa có hoá đơn mua. Bắt buộc đính kèm trước khi nhận hàng." />
             }
         </BodyTemplate>
         <FooterTemplate>
@@ -216,7 +232,7 @@
 
     private async Task ShowCreateAsync(IEnumerable<PurchaseOrderRecord> _)
     {
-        _purchaseOrderNo = $"PO-{DateTime.Now:yyyyMMddHHmm}";
+        _purchaseOrderNo = "AUTO";
         _draftLines = [];
         _warehouseCode = "MAIN";
         _productCode = "";
@@ -319,13 +335,55 @@
     {
         try
         {
-            await Api.ReceivePurchaseOrderAsync(order.Id, new ReceivePurchaseOrderRequest($"GR-{order.PurchaseOrderNo}"));
+            // Require both the goods-receipt note and the purchase invoice before receiving stock.
+            var receipts = await FileApi.GetLinksAsync("PURCHASE", "PurchaseOrder", order.Id.ToString(), DocumentFileCatalog.PurchaseReceipt);
+            var invoices = await FileApi.GetLinksAsync("PURCHASE", "PurchaseOrder", order.Id.ToString(), DocumentFileCatalog.PurchaseInvoice);
+            if (receipts.Count == 0 || invoices.Count == 0)
+            {
+                await ShowErrorAsync(new InvalidOperationException("Vui lòng đính kèm phiếu nhập kho và hoá đơn mua (nút Đính kèm) trước khi nhận hàng."));
+                return;
+            }
+
+            await Api.ReceivePurchaseOrderAsync(order.Id, new ReceivePurchaseOrderRequest(null));
             await ToastService.Success("Thành công", "Đã nhận hàng và nhập kho.");
             await ReloadTableAsync();
         }
         catch (Exception ex)
         {
             await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task UnapproveAsync(Guid id)
+    {
+        try
+        {
+            await Api.UnapprovePurchaseOrderAsync(id);
+            await ToastService.Success("Thành công", "Đã huỷ duyệt đơn mua hàng.");
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task DeleteOrderAsync(Guid id)
+    {
+        if (!await ConfirmDeleteAsync())
+        {
+            return;
+        }
+
+        try
+        {
+            await Api.DeletePurchaseOrderAsync(id);
+            await ToastService.Success("Đã xoá", "Đơn mua hàng đã được xoá.");
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex, "Xoá thất bại");
         }
     }
 
@@ -369,12 +427,23 @@
         return string.Join(", ", order.Lines.Select(x => $"{x.WarehouseCode}/{x.ProductCode} x{x.Quantity:N0}"));
     }
 
-    private Task ShowErrorAsync(Exception ex) =>
+    private Task ShowErrorAsync(Exception ex) => ShowErrorAsync(ex, "Đã xảy ra lỗi");
+
+    private Task ShowErrorAsync(Exception ex, string title) =>
         SwalService.Show(new SwalOption
         {
             Category = SwalCategory.Error,
-            Title = "Đã xảy ra lỗi",
+            Title = title,
             Content = ex.Message,
+            CloseButtonText = "Đóng"
+        });
+
+    private Task<bool> ConfirmDeleteAsync() =>
+        SwalService.ShowModal(new SwalOption
+        {
+            Category = SwalCategory.Question,
+            Title = "Xác nhận xoá",
+            Content = "Bạn có chắc muốn xoá đơn mua hàng này?",
             CloseButtonText = "Đóng"
         });
 

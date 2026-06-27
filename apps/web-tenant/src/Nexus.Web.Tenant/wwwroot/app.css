@@ -1093,6 +1093,18 @@ h1:focus {
     margin-left: 0.15rem;
 }
 
+/* Validation error state for AppFormField: red border on the inner input + an error line. */
+.app-form-field-invalid :is(input, select, textarea, .form-control, .form-select, .dropdown-toggle) {
+    border-color: var(--app-danger) !important;
+    box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, 0.15);
+}
+
+.app-form-error {
+    color: var(--app-danger);
+    font-size: 0.78rem;
+    margin-top: 0.2rem;
+}
+
 .app-form-grid label {
     color: var(--app-text-muted);
     font-size: 0.82rem;

@@ -13,10 +13,15 @@ var connectionString = builder.Configuration.GetConnectionString("SalesDb")
     ?? "Host=localhost;Port=5432;Database=sales_db;Username=nexus;Password=nexus_dev_password";
 
 builder.Services.AddNexusWeb();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddNexusEfCore<SalesDbContext>(connectionString);
 builder.Services.AddHttpClient<InventoryClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["CoreServices:Inventory"] ?? "http://localhost:7210");
+});
+builder.Services.AddHttpClient<NumberingClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:Numbering"] ?? "http://localhost:7206");
 });
 
 var app = builder.Build();
@@ -65,9 +70,14 @@ app.MapGet("/api/sales/orders/{id:guid}", async (Guid id, SalesDbContext db, Gui
     return order is null ? Results.NotFound() : Results.Ok(order);
 });
 
-app.MapPost("/api/sales/orders", async (CreateSalesOrderDto input, SalesDbContext db, CancellationToken ct) =>
+app.MapPost("/api/sales/orders", async (CreateSalesOrderDto input, SalesDbContext db, NumberingClient numbering, CancellationToken ct) =>
 {
-    var orderNo = input.OrderNo.Trim().ToUpperInvariant();
+    var orderNo = (input.OrderNo ?? string.Empty).Trim().ToUpperInvariant();
+    if (string.IsNullOrWhiteSpace(orderNo) || orderNo == "AUTO")
+    {
+        orderNo = await numbering.GetNextNumberAsync(input.TenantId, "SALES", "ORDER", "SO-", ct);
+    }
+
     if (await db.SalesOrders.AnyAsync(x => x.TenantId == input.TenantId && x.OrderNo == orderNo, ct))
     {
         return Results.Conflict(new { Code = "Sales:OrderAlreadyExists", Message = "Sales order number already exists." });
@@ -145,6 +155,51 @@ app.MapPost("/api/sales/orders/{id:guid}/complete", async (Guid id, SalesDbConte
     return Results.Ok(order);
 });
 
+app.MapPost("/api/sales/orders/{id:guid}/unapprove", async (Guid id, SalesDbContext db, InventoryClient inventory, CancellationToken ct) =>
+{
+    var order = await db.SalesOrders
+        .Include(x => x.Lines)
+        .SingleOrDefaultAsync(x => x.Id == id, ct);
+    if (order is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!order.CanUnapprove)
+    {
+        return Results.Conflict(new { Code = "Sales:CannotUnapprove", Message = "Chỉ huỷ duyệt được đơn đã duyệt và chưa giao." });
+    }
+
+    // Release the held stock first; if the reservation is already shipped this fails and we keep the order approved.
+    var release = await inventory.ReleaseAsync(order, ct);
+    if (!release.Success)
+    {
+        return Results.Conflict(new { Code = release.Code, Message = release.Message });
+    }
+
+    order.Unapprove();
+    await db.SaveChangesAsync(ct);
+    return Results.Ok(order);
+});
+
+app.MapDelete("/api/sales/orders/{id:guid}", async (Guid id, SalesDbContext db, CancellationToken ct) =>
+{
+    var order = await db.SalesOrders.SingleOrDefaultAsync(x => x.Id == id, ct);
+    if (order is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!order.CanDelete)
+    {
+        return Results.Conflict(new { Code = "Sales:CannotDelete", Message = "Chỉ xoá được đơn ở trạng thái nháp." });
+    }
+
+    db.SalesOrders.Remove(order);
+    await db.SaveChangesAsync(ct);
+    return Results.NoContent();
+});
+
 app.MapPost("/api/sales/orders/{id:guid}/deliver", async (Guid id, SalesDbContext db, InventoryClient inventory, CancellationToken ct) =>
 {
     var order = await db.SalesOrders
@@ -204,6 +259,12 @@ public sealed class InventoryClient
         return PostAsync("/api/inventory/shipments", request, ct);
     }
 
+    public Task<InventoryCallResult> ReleaseAsync(SalesOrder order, CancellationToken ct)
+    {
+        var request = new InventoryShipRequest(order.TenantId, "SALES_ORDER", order.Id, order.OrderNo);
+        return PostAsync("/api/inventory/reservations/release", request, ct);
+    }
+
     private async Task<InventoryCallResult> PostAsync(string path, object request, CancellationToken ct)
     {
         try
@@ -237,6 +298,52 @@ public sealed class InventoryClient
             return InventoryCallResult.Failed("Inventory:InvalidErrorResponse", ex.Message);
         }
     }
+}
+
+public sealed class NumberingClient
+{
+    private readonly HttpClient _httpClient;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public NumberingClient(HttpClient httpClient, IHttpContextAccessor httpContextAccessor)
+    {
+        _httpClient = httpClient;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    // Allocates a guaranteed-unique number from the numbering-service. Forwards the caller's
+    // bearer token so the (authenticated) tenant user passes the numbering authorization.
+    public async Task<string> GetNextNumberAsync(Guid tenantId, string module, string documentType, string prefix, CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/numbering/next")
+            {
+                Content = JsonContent.Create(new { TenantId = tenantId, Module = module, DocumentType = documentType, Prefix = prefix, Padding = 5 })
+            };
+
+            var authorization = _httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+            if (!string.IsNullOrWhiteSpace(authorization))
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", authorization);
+            }
+
+            var response = await _httpClient.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<NextNumberResponse>(cancellationToken: ct);
+            return result?.Number ?? $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        }
+        catch
+        {
+            return $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        }
+    }
+
+    private sealed record NextNumberResponse(string SequenceKey, string Number, long Value);
 }
 
 public sealed record InventoryReserveRequest(Guid TenantId, string SourceType, Guid SourceId, string SourceNo, IReadOnlyCollection<InventoryLineRequest> Lines);

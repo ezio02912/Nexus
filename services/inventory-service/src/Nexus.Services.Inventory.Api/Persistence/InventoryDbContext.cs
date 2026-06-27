@@ -153,6 +153,14 @@ public sealed class StockBalance : NexusEntity<Guid>
         UpdatedAt = now;
     }
 
+    // Releases a previously reserved quantity back to available stock (e.g. when an order is un-approved).
+    public void ReleaseReserved(decimal quantity, DateTimeOffset now)
+    {
+        quantity = EnsurePositive(quantity, nameof(quantity));
+        ReservedQuantity = Math.Max(0, ReservedQuantity - quantity);
+        UpdatedAt = now;
+    }
+
     // Used by inter-warehouse transfer to remove quantity from the source warehouse.
     // Only the available (unreserved) quantity can be moved out.
     public void RemoveOnHand(decimal quantity, DateTimeOffset now)
@@ -254,6 +262,43 @@ public sealed class StockReservationLine : NexusEntity<Guid>
     public decimal Quantity { get; private set; }
 }
 
+public sealed class StockTransfer : NexusEntity<Guid>
+{
+    private StockTransfer()
+    {
+        TransferNo = string.Empty;
+        FromWarehouseCode = string.Empty;
+        ToWarehouseCode = string.Empty;
+        ProductCode = string.Empty;
+        ProductName = string.Empty;
+        Status = string.Empty;
+    }
+
+    public StockTransfer(Guid id, Guid tenantId, string transferNo, string fromWarehouseCode, string toWarehouseCode, string productCode, string productName, decimal quantity, DateTimeOffset createdAt)
+    {
+        Id = id;
+        TenantId = tenantId;
+        TransferNo = StockBalance.NormalizeCode(transferNo, 64);
+        FromWarehouseCode = StockBalance.NormalizeCode(fromWarehouseCode, 64);
+        ToWarehouseCode = StockBalance.NormalizeCode(toWarehouseCode, 64);
+        ProductCode = StockBalance.NormalizeCode(productCode, 64);
+        ProductName = productName.Trim();
+        Quantity = quantity;
+        Status = "Completed";
+        CreatedAt = createdAt;
+    }
+
+    public Guid TenantId { get; private set; }
+    public string TransferNo { get; private set; }
+    public string FromWarehouseCode { get; private set; }
+    public string ToWarehouseCode { get; private set; }
+    public string ProductCode { get; private set; }
+    public string ProductName { get; private set; }
+    public decimal Quantity { get; private set; }
+    public string Status { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+}
+
 public sealed class StockMovement : NexusEntity<Guid>
 {
     private StockMovement()
@@ -302,6 +347,7 @@ public sealed class InventoryDbContext : NexusDbContext
     public DbSet<StockReservation> StockReservations => Set<StockReservation>();
     public DbSet<StockReservationLine> StockReservationLines => Set<StockReservationLine>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -364,6 +410,21 @@ public sealed class InventoryDbContext : NexusDbContext
             builder.Property(x => x.Description).HasMaxLength(256).IsRequired();
             builder.Property(x => x.Quantity).HasPrecision(18, 2);
             builder.HasIndex(x => x.ReservationId);
+        });
+
+        modelBuilder.Entity<StockTransfer>(builder =>
+        {
+            builder.ToTable("stock_transfers");
+            builder.HasKey(x => x.Id);
+            builder.Property(x => x.TransferNo).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.FromWarehouseCode).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.ToWarehouseCode).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.ProductCode).HasMaxLength(64).IsRequired();
+            builder.Property(x => x.ProductName).HasMaxLength(256).IsRequired();
+            builder.Property(x => x.Quantity).HasPrecision(18, 2);
+            builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
+            builder.HasIndex(x => new { x.TenantId, x.TransferNo }).IsUnique();
+            builder.HasIndex(x => new { x.TenantId, x.CreatedAt });
         });
 
         modelBuilder.Entity<StockMovement>(builder =>

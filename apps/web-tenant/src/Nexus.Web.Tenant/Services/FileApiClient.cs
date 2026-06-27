@@ -54,23 +54,27 @@ public sealed class FileApiClient
         return await response.Content.ReadFromJsonAsync<FileDto>(JsonOptions);
     }
 
-    public async Task LinkAsync(Guid fileId, string module, string entityType, string entityId)
+    public async Task LinkAsync(Guid fileId, string module, string entityType, string entityId, string? category = null)
     {
         var client = CreateClient();
         var response = await client.PostAsJsonAsync(
             $"{BaseUrl}/api/file-links",
-            new CreateFileLinkRequest(fileId, module, entityType, entityId),
+            new CreateFileLinkRequest(fileId, module, entityType, entityId, category),
             JsonOptions);
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<IReadOnlyList<FileLinkRecord>> GetLinksAsync(string module, string entityType, string entityId)
+    public async Task<IReadOnlyList<FileLinkRecord>> GetLinksAsync(string module, string entityType, string entityId, string? category = null)
     {
         var client = CreateClient();
         var url = $"{BaseUrl}/api/file-links" +
                   $"?module={Uri.EscapeDataString(module)}" +
                   $"&entityType={Uri.EscapeDataString(entityType)}" +
                   $"&entityId={Uri.EscapeDataString(entityId)}";
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            url += $"&category={Uri.EscapeDataString(category)}";
+        }
 
         var result = await client.GetFromJsonAsync<IReadOnlyList<FileLinkRecord>>(url, JsonOptions);
         return result ?? [];
@@ -89,7 +93,7 @@ public sealed class FileApiClient
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task UploadAndLinkAsync(IEnumerable<PendingFileAttachment> files, string module, string entityType, string entityId)
+    public async Task UploadAndLinkAsync(IEnumerable<PendingFileAttachment> files, string module, string entityType, string entityId, string? category = null)
     {
         foreach (var attachment in files)
         {
@@ -97,7 +101,7 @@ public sealed class FileApiClient
             var uploaded = await UploadAsync(stream, attachment.FileName, attachment.ContentType);
             if (uploaded is not null)
             {
-                await LinkAsync(uploaded.Id, module, entityType, entityId);
+                await LinkAsync(uploaded.Id, module, entityType, entityId, category);
             }
         }
     }

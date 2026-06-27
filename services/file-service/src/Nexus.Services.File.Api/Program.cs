@@ -147,13 +147,20 @@ files.MapDelete("/{id:guid}", async (Guid id, FileDbContext db, IFileStorage sto
     return Results.NoContent();
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Files.Delete));
 
-app.MapGet("/api/file-links", async (FileDbContext db, string module, string entityType, string entityId, CancellationToken ct) =>
+app.MapGet("/api/file-links", async (FileDbContext db, string module, string entityType, string entityId, string? category, CancellationToken ct) =>
 {
-    var links = await db.FileLinks
-        .Where(x => x.Module == module && x.EntityType == entityType && x.EntityId == entityId)
+    var query = db.FileLinks
+        .Where(x => x.Module == module && x.EntityType == entityType && x.EntityId == entityId);
+
+    if (!string.IsNullOrWhiteSpace(category))
+    {
+        query = query.Where(x => x.Category == category);
+    }
+
+    var links = await query
         .OrderByDescending(link => link.CreatedAt)
         .Join(db.Files, link => link.FileId, file => file.Id, (link, file) => new FileLinkWithFileDto(
-            link.Id, link.FileId, link.Module, link.EntityType, link.EntityId, link.CreatedAt,
+            link.Id, link.FileId, link.Module, link.EntityType, link.EntityId, link.Category, link.CreatedAt,
             file.FileName, file.ContentType, file.Size))
         .ToArrayAsync(ct);
 
@@ -167,17 +174,17 @@ app.MapPost("/api/file-links", async (CreateFileLinkDto input, FileDbContext db,
         return Results.NotFound(new { Code = "File:NotFound", Message = "File was not found." });
     }
 
-    var link = new FileLink(Guid.NewGuid(), input.FileId, input.Module, input.EntityType, input.EntityId, DateTimeOffset.UtcNow);
+    var link = new FileLink(Guid.NewGuid(), input.FileId, input.Module, input.EntityType, input.EntityId, input.Category, DateTimeOffset.UtcNow);
     await db.FileLinks.AddAsync(link, ct);
     await db.SaveChangesAsync(ct);
-    return Results.Created($"/api/files/{input.FileId}", new FileLinkDto(link.Id, link.FileId, link.Module, link.EntityType, link.EntityId, link.CreatedAt));
+    return Results.Created($"/api/files/{input.FileId}", new FileLinkDto(link.Id, link.FileId, link.Module, link.EntityType, link.EntityId, link.Category, link.CreatedAt));
 }).RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Files.Upload));
 
 app.MapNexusObservability();
 app.Run();
 
 public sealed record CreateFileDto(Guid? TenantId, string FileName, string ContentType, long Size, string StoragePath);
-public sealed record CreateFileLinkDto(Guid FileId, string Module, string EntityType, string EntityId);
+public sealed record CreateFileLinkDto(Guid FileId, string Module, string EntityType, string EntityId, string? Category);
 public sealed record FileDto(Guid Id, Guid? TenantId, string FileName, string ContentType, long Size, string StoragePath, DateTimeOffset CreatedAt);
-public sealed record FileLinkDto(Guid Id, Guid FileId, string Module, string EntityType, string EntityId, DateTimeOffset CreatedAt);
-public sealed record FileLinkWithFileDto(Guid Id, Guid FileId, string Module, string EntityType, string EntityId, DateTimeOffset CreatedAt, string FileName, string ContentType, long Size);
+public sealed record FileLinkDto(Guid Id, Guid FileId, string Module, string EntityType, string EntityId, string? Category, DateTimeOffset CreatedAt);
+public sealed record FileLinkWithFileDto(Guid Id, Guid FileId, string Module, string EntityType, string EntityId, string? Category, DateTimeOffset CreatedAt, string FileName, string ContentType, long Size);

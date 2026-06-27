@@ -84,6 +84,21 @@ public sealed class SalesOrder : NexusEntity<Guid>
         ReservedAt = now;
     }
 
+    // Reverts an approved (but not yet delivered/completed) order back to Draft so it can be edited/cancelled.
+    public bool CanUnapprove => Status == "Approved" && DeliveryStatus != "Delivered" && Status != "Completed";
+
+    public void Unapprove()
+    {
+        Status = "Draft";
+        DeliveryStatus = "Pending";
+        InventoryReservationStatus = "Pending";
+        ApprovedAt = null;
+        ReservedAt = null;
+    }
+
+    // Only draft orders may be deleted.
+    public bool CanDelete => Status == "Draft";
+
     public void MarkDelivered(DateTimeOffset now)
     {
         DeliveryStatus = "Delivered";

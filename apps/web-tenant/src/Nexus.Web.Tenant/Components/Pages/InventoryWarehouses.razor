@@ -85,9 +85,12 @@
                 <AppFormField Label="Vị trí">
                     <BootstrapInput @bind-Value="_warehouseLocation" ShowLabel="false" />
                 </AppFormField>
-                <div class="app-form-field">
-                    <Checkbox @bind-Value="_warehouseIsActive" DisplayText="Đang hoạt động" />
-                </div>
+                <AppFormField Label="Trạng thái">
+                    <div class="app-form-check-row">
+                        <Checkbox @bind-Value="_warehouseIsActive" ShowLabel="false" />
+                        <span>Đang hoạt động</span>
+                    </div>
+                </AppFormField>
             </div>
         </BodyTemplate>
         <FooterTemplate>

@@ -13,10 +13,15 @@ var connectionString = builder.Configuration.GetConnectionString("PurchaseDb")
     ?? "Host=localhost;Port=5432;Database=purchase_db;Username=nexus;Password=nexus_dev_password";
 
 builder.Services.AddNexusWeb();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddNexusEfCore<PurchaseDbContext>(connectionString);
 builder.Services.AddHttpClient<InventoryClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["CoreServices:Inventory"] ?? "http://localhost:7210");
+});
+builder.Services.AddHttpClient<NumberingClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:Numbering"] ?? "http://localhost:7206");
 });
 
 var app = builder.Build();
@@ -86,9 +91,12 @@ app.MapGet("/api/purchase/orders", async (PurchaseDbContext db, Guid tenantId, s
     return Results.Ok(items);
 });
 
-app.MapPost("/api/purchase/orders", async (CreatePurchaseOrderDto input, PurchaseDbContext db, CancellationToken ct) =>
+app.MapPost("/api/purchase/orders", async (CreatePurchaseOrderDto input, PurchaseDbContext db, NumberingClient numbering, CancellationToken ct) =>
 {
-    var purchaseOrderNo = Supplier.NormalizeCode(input.PurchaseOrderNo, 64);
+    var rawNo = (input.PurchaseOrderNo ?? string.Empty).Trim();
+    var purchaseOrderNo = string.IsNullOrWhiteSpace(rawNo) || rawNo.Equals("AUTO", StringComparison.OrdinalIgnoreCase)
+        ? await numbering.GetNextNumberAsync(input.TenantId, "PURCHASE", "ORDER", "PO-", ct)
+        : Supplier.NormalizeCode(rawNo, 64);
     if (await db.PurchaseOrders.AnyAsync(x => x.TenantId == input.TenantId && x.PurchaseOrderNo == purchaseOrderNo, ct))
     {
         return Results.Conflict(new { Code = "Purchase:OrderAlreadyExists", Message = "Purchase order number already exists." });
@@ -127,7 +135,43 @@ app.MapPost("/api/purchase/orders/{id:guid}/approve", async (Guid id, PurchaseDb
     return Results.Ok(order);
 });
 
-app.MapPost("/api/purchase/orders/{id:guid}/receive", async (Guid id, ReceivePurchaseOrderDto input, PurchaseDbContext db, InventoryClient inventory, CancellationToken ct) =>
+app.MapPost("/api/purchase/orders/{id:guid}/unapprove", async (Guid id, PurchaseDbContext db, CancellationToken ct) =>
+{
+    var order = await db.PurchaseOrders.Include(x => x.Lines).SingleOrDefaultAsync(x => x.Id == id, ct);
+    if (order is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!order.CanUnapprove)
+    {
+        return Results.Conflict(new { Code = "Purchase:CannotUnapprove", Message = "Chỉ huỷ duyệt được đơn đã duyệt và chưa nhận hàng." });
+    }
+
+    order.Unapprove();
+    await db.SaveChangesAsync(ct);
+    return Results.Ok(order);
+});
+
+app.MapDelete("/api/purchase/orders/{id:guid}", async (Guid id, PurchaseDbContext db, CancellationToken ct) =>
+{
+    var order = await db.PurchaseOrders.SingleOrDefaultAsync(x => x.Id == id, ct);
+    if (order is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!order.CanDelete)
+    {
+        return Results.Conflict(new { Code = "Purchase:CannotDelete", Message = "Chỉ xoá được đơn ở trạng thái nháp." });
+    }
+
+    db.PurchaseOrders.Remove(order);
+    await db.SaveChangesAsync(ct);
+    return Results.NoContent();
+});
+
+app.MapPost("/api/purchase/orders/{id:guid}/receive", async (Guid id, ReceivePurchaseOrderDto input, PurchaseDbContext db, InventoryClient inventory, NumberingClient numbering, CancellationToken ct) =>
 {
     var order = await db.PurchaseOrders.Include(x => x.Lines).SingleOrDefaultAsync(x => x.Id == id, ct);
     if (order is null)
@@ -146,7 +190,7 @@ app.MapPost("/api/purchase/orders/{id:guid}/receive", async (Guid id, ReceivePur
     }
 
     var receiptNo = string.IsNullOrWhiteSpace(input.ReceiptNo)
-        ? $"GR-{order.PurchaseOrderNo}"
+        ? await numbering.GetNextNumberAsync(order.TenantId, "PURCHASE", "RECEIPT", "GR-", ct)
         : Supplier.NormalizeCode(input.ReceiptNo, 64);
     if (await db.GoodsReceipts.AnyAsync(x => x.TenantId == order.TenantId && x.ReceiptNo == receiptNo, ct))
     {
@@ -229,6 +273,51 @@ public sealed class InventoryClient
             return InventoryCallResult.Failed("Inventory:InvalidErrorResponse", ex.Message);
         }
     }
+}
+
+public sealed class NumberingClient
+{
+    private readonly HttpClient _httpClient;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public NumberingClient(HttpClient httpClient, IHttpContextAccessor httpContextAccessor)
+    {
+        _httpClient = httpClient;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    // Allocates a guaranteed-unique number from the numbering-service, forwarding the caller's bearer token.
+    public async Task<string> GetNextNumberAsync(Guid tenantId, string module, string documentType, string prefix, CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/numbering/next")
+            {
+                Content = JsonContent.Create(new { TenantId = tenantId, Module = module, DocumentType = documentType, Prefix = prefix, Padding = 5 })
+            };
+
+            var authorization = _httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+            if (!string.IsNullOrWhiteSpace(authorization))
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", authorization);
+            }
+
+            var response = await _httpClient.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<NextNumberResponse>(cancellationToken: ct);
+            return result?.Number ?? $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        }
+        catch
+        {
+            return $"{prefix}{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+        }
+    }
+
+    private sealed record NextNumberResponse(string SequenceKey, string Number, long Value);
 }
 
 public sealed record InventoryImportRequest(Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, string SourceType, Guid SourceId, string SourceNo);

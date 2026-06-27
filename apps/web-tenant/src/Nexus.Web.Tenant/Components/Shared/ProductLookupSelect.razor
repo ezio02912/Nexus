@@ -3,7 +3,7 @@
 
 @* Per-tenant product catalog lookup. Binds the product code and (optionally) reports
    the selected product so the parent can auto-fill name / price / unit. *@
-<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId" HasError="@HasError" ErrorText="@ErrorText">
     <Select TValue="string"
             Value="@Value"
             ValueChanged="OnValueChangedAsync"
@@ -25,6 +25,8 @@
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
     [Parameter] public EventCallback<InventoryProductRecord?> OnProductSelected { get; set; }
+    [Parameter] public bool HasError { get; set; }
+    [Parameter] public string? ErrorText { get; set; }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

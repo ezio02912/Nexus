@@ -40,7 +40,7 @@ public static class TenantModuleMenus
         ]),
         new("INVENTORY", "Kho", "fa-solid fa-boxes-stacked",
         [
-            Item("Tổng quan phân hệ", "inventory", "fa-solid fa-compass", ""),
+            Item("Tồn kho", "inventory", "fa-solid fa-boxes-stacked", NexusPermissions.Inventory.Stock.View),
         ]),
         new("ERP", "ERP", "fa-solid fa-industry",
         [

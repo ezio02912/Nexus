@@ -12,6 +12,11 @@ public partial class CrmLeadDetail
     private CustomerDto? _convertedCustomer;
     private OpportunityDto? _convertedOpportunity;
     private IReadOnlyList<ActivityDto> _activities = [];
+    private Modal? _editModal;
+    private LeadEditModel _editModel = new();
+    private string _leadStatusText = LeadStatus.New.ToString();
+    private List<SelectedItem> _leadStatusOptions = CrmLabels.LeadStatusOptions();
+    private Dictionary<string, (string Text, string BadgeClass)> _leadStatusMeta = CrmLabels.LeadStatusMeta();
     private Modal? _convertModal;
     private ConvertFormModel _convertModel = new();
     private string _customerTypeText = CustomerType.Company.ToString();
@@ -115,6 +120,72 @@ public partial class CrmLeadDetail
     private void OpenCustomer(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
     private void OpenOpportunity(Guid id) => Navigation.NavigateTo($"crm/opportunities/{id}");
 
+    private Task ShowEditModalAsync()
+    {
+        if (_lead is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _leadStatusText = _lead.Status.ToString();
+        _editModel = new LeadEditModel
+        {
+            FullName = _lead.FullName,
+            CompanyName = _lead.CompanyName,
+            Title = _lead.Title,
+            Email = _lead.Email,
+            Phone = _lead.Phone,
+            Source = _lead.Source,
+            LeadScore = _lead.LeadScore,
+            Description = _lead.Description
+        };
+        return _editModal!.Show();
+    }
+
+    private Task CloseEditModalAsync() => _editModal!.Close();
+
+    private async Task SaveEditAsync()
+    {
+        if (_lead is null || string.IsNullOrWhiteSpace(_editModel.FullName))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập họ tên lead."));
+            return;
+        }
+
+        if (!Enum.TryParse<LeadStatus>(_leadStatusText, out var status))
+        {
+            status = _lead.Status;
+        }
+
+        try
+        {
+            _lead = await CrmApi.UpdateLeadAsync(_lead.Id, new UpdateLeadRequest(
+                _editModel.FullName.Trim(),
+                _editModel.CompanyName,
+                _editModel.Title,
+                _editModel.Email,
+                _editModel.Phone,
+                _editModel.Source,
+                _editModel.LeadScore,
+                _lead.Rating,
+                status,
+                _lead.OwnerId,
+                _editModel.Description,
+                _lead.Address,
+                _lead.City,
+                _lead.Country,
+                _lead.LostReason));
+
+            await _editModal!.Close();
+            await ToastService.Success("Thành công", "Đã cập nhật lead.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
     private static string BuildDefaultCustomerCode(string fullName)
     {
         var prefix = new string(fullName.Where(char.IsLetterOrDigit).Take(6).ToArray()).ToUpperInvariant();
@@ -126,5 +197,17 @@ public partial class CrmLeadDetail
         public string CustomerCode { get; set; } = "";
         public string OpportunityName { get; set; } = "";
         public decimal OpportunityAmount { get; set; }
+    }
+
+    private sealed class LeadEditModel
+    {
+        public string FullName { get; set; } = "";
+        public string? CompanyName { get; set; }
+        public string? Title { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? Source { get; set; }
+        public int LeadScore { get; set; }
+        public string? Description { get; set; }
     }
 }

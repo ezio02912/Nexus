@@ -50,6 +50,7 @@ After migration and service startup, web tenant demo login is:
 - Workflow: `7207`
 - CRM: `7208`
 - Sales: `7209`
+- Inventory: `7210`
 - Notification: `7210`
 - Master Data: `7211`
 - Workers: no public port by default

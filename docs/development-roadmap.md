@@ -87,7 +87,12 @@ Tiến độ hiện tại:
 
 - CRM Quotation/Contract detail đã có nút tạo Sales Order và prefill Sales Order form qua web-tenant.
 - Sales Order backend đã có source document fields tối thiểu (`SourceType`, `SourceId`, `SourceNo`) để trace về Quotation/Contract.
-- Bước tiếp theo của Sales là detail page, nhiều dòng hàng, trạng thái giao hàng và nối Inventory reservation/delivery.
+- Sales Order đã có detail page, trạng thái giữ hàng/giao hàng và link ngược CRM.
+- Inventory Service đã có stock balance, manual import, reservation và shipment API.
+- Inventory Service đã có product catalog và warehouse catalog nền tảng, kèm UI tenant `/inventory`.
+- Sales Order approve gọi Inventory reservation; deliver/complete gọi Inventory shipment.
+- Sales Order đã có pricing/discount/tax trên line và tổng tiền, đồng thời form tạo đơn có thể chọn product từ Inventory catalog.
+- Bước tiếp theo của Phase 3 là nhiều dòng hàng trong Sales Order form, chọn warehouse trên từng dòng hàng và purchase goods receipt -> stock movement.
 
 ## Phase 4: Invoice + Accounting Core
 

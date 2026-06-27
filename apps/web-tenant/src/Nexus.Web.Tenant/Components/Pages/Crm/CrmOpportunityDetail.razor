@@ -16,6 +16,10 @@
             {
                 <Button Text="Tạo báo giá" Color="Color.Primary" Icon="fa-solid fa-file-invoice" IsAsync="true" OnClick="ShowCreateQuotationAsync" />
             }
+            @if (_item is not null)
+            {
+                <Button Text="Sửa" Color="Color.Primary" Icon="fa-solid fa-pen" IsAsync="true" OnClick="ShowEditModalAsync" />
+            }
             <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
         </div>
     </header>
@@ -137,6 +141,42 @@
         </div>
     }
 </section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="Sửa cơ hội" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <CustomerLookupSelect Label="Khách hàng" @bind-Value="_editCustomerIdText" />
+                <AppFormField Label="Tên cơ hội" Required="true">
+                    <BootstrapInput @bind-Value="_editModel.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá trị" @bind-Value="_editModel.Amount" DecimalPlaces="0" />
+                <AppFormField Label="Xác suất (%)">
+                    <BootstrapInputNumber @bind-Value="_editModel.Probability" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Tiền tệ">
+                    <BootstrapInput @bind-Value="_editModel.Currency" ShowLabel="false" />
+                </AppFormField>
+                <AppStatusSelect Label="Giai đoạn" @bind-Value="_editStageText"
+                                 Items="@_stageOptions" Meta="@_stageMeta" />
+                <AppFormField Label="Bước tiếp theo">
+                    <BootstrapInput @bind-Value="_editModel.NextStep" ShowLabel="false" />
+                </AppFormField>
+                <MasterDataLookupSelect Category="@MasterDataCategories.Source" Label="Nguồn" @bind-Value="_editModel.Source" />
+                <AppFormField Label="Đối thủ">
+                    <BootstrapInput @bind-Value="_editModel.Competitor" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Mô tả">
+                    <Textarea @bind-Value="_editModel.Description" ShowLabel="false" rows="3" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseEditModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveEditAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
 
 <Modal @ref="_quotationModal" IsBackdrop="true">
     <ModalDialog Title="Tạo báo giá từ cơ hội" Size="Size.Large" ShowCloseButton="false">

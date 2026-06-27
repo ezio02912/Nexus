@@ -38,7 +38,14 @@ public sealed record CreateUserRequest(Guid TenantId, string UserName, string Em
 public sealed record RolePermissionDto(string RoleName, IReadOnlyCollection<string> Permissions);
 public sealed record UpdateRolePermissionsRequest(IReadOnlyCollection<string> Permissions);
 
-public sealed record SalesOrderRecord(Guid Id, Guid TenantId, Guid CustomerId, string OrderNo, string? SourceType, Guid? SourceId, string? SourceNo, string Status, decimal TotalAmount, IReadOnlyList<SalesOrderLineRecord>? Lines, DateTimeOffset CreatedAt, DateTimeOffset? ApprovedAt, DateTimeOffset? CompletedAt);
-public sealed record SalesOrderLineRecord(Guid Id, string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal LineAmount);
+public sealed record SalesOrderRecord(Guid Id, Guid TenantId, Guid CustomerId, string OrderNo, string? SourceType, Guid? SourceId, string? SourceNo, string Status, string InventoryReservationStatus, string DeliveryStatus, decimal Subtotal, decimal DiscountAmount, decimal TaxAmount, decimal TotalAmount, IReadOnlyList<SalesOrderLineRecord>? Lines, DateTimeOffset CreatedAt, DateTimeOffset? ApprovedAt, DateTimeOffset? ReservedAt, DateTimeOffset? DeliveredAt, DateTimeOffset? CompletedAt);
+public sealed record SalesOrderLineRecord(Guid Id, string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal DiscountAmount, decimal TaxPercent, decimal TaxAmount, decimal Subtotal, decimal LineAmount);
 public sealed record CreateSalesOrderRequest(Guid TenantId, Guid CustomerId, string OrderNo, string? SourceType, Guid? SourceId, string? SourceNo, IReadOnlyCollection<CreateSalesOrderLineRequest> Lines);
-public sealed record CreateSalesOrderLineRequest(string ProductCode, string Description, decimal Quantity, decimal UnitPrice);
+public sealed record CreateSalesOrderLineRequest(string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal TaxPercent);
+
+public sealed record StockBalanceRecord(Guid Id, Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal OnHandQuantity, decimal ReservedQuantity, decimal AvailableQuantity, DateTimeOffset UpdatedAt);
+public sealed record ImportStockRequest(Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, string? SourceType, Guid? SourceId, string? SourceNo);
+public sealed record InventoryProductRecord(Guid Id, Guid TenantId, string ProductCode, string ProductName, string Unit, string Category, decimal Price, decimal TaxPercent, bool IsActive, DateTimeOffset UpdatedAt);
+public sealed record UpsertInventoryProductRequest(Guid TenantId, string ProductCode, string ProductName, string Unit, string? Category, decimal Price, decimal TaxPercent, bool IsActive);
+public sealed record WarehouseRecord(Guid Id, Guid TenantId, string WarehouseCode, string Name, string Location, bool IsActive, DateTimeOffset UpdatedAt);
+public sealed record UpsertWarehouseRequest(Guid TenantId, string WarehouseCode, string Name, string? Location, bool IsActive);

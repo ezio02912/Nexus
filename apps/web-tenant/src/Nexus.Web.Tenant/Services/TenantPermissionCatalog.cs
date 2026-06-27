@@ -71,6 +71,22 @@ public static class TenantPermissionCatalog
                 Action(NexusPermissions.Sales.Orders.Complete, "Hoàn thành")
             ])
         ]),
+        new("Kho", [
+            Menu("Tồn kho", [
+                Action(NexusPermissions.Inventory.Stock.View, "Xem"),
+                Action(NexusPermissions.Inventory.Stock.Import, "Nhập kho"),
+                Action(NexusPermissions.Inventory.Stock.Reserve, "Giữ hàng"),
+                Action(NexusPermissions.Inventory.Stock.Ship, "Xuất kho")
+            ]),
+            Menu("Sản phẩm", [
+                Action(NexusPermissions.Inventory.Products.View, "Xem"),
+                Action(NexusPermissions.Inventory.Products.Manage, "Quản lý")
+            ]),
+            Menu("Kho hàng", [
+                Action(NexusPermissions.Inventory.Warehouses.View, "Xem"),
+                Action(NexusPermissions.Inventory.Warehouses.Manage, "Quản lý")
+            ])
+        ]),
         new("Quy trình", [
             Menu("Quy trình phê duyệt", [
                 Action(NexusPermissions.Workflow.View, "Xem"),

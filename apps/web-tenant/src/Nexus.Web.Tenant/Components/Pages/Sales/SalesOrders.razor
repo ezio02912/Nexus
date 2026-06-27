@@ -50,6 +50,33 @@
                         <BootstrapInputNumber @bind-Value="quantity" ShowLabel="false" />
                     </AppFormField>
                     <AppMoneyInput Label="Đơn giá" @bind-Value="unitPrice" DecimalPlaces="0" />
+                    <AppFormField Label="Chiết khấu %">
+                        <BootstrapInputNumber @bind-Value="discountPercent" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Thuế %">
+                        <BootstrapInputNumber @bind-Value="taxPercent" ShowLabel="false" />
+                    </AppFormField>
+                </div>
+                @if (products.Count > 0)
+                {
+                    <div class="tenant-permission-catalog mt-3">
+                        @foreach (var product in products.Take(6))
+                        {
+                            <button class="tenant-permission-item app-table-link" type="button" @onclick="@(() => SelectProduct(product))">
+                                <span>
+                                    <strong>@product.ProductCode</strong>
+                                    <span>@product.ProductName</span>
+                                    <code>@product.Price.ToString("N0") / Thuế @product.TaxPercent.ToString("N2")%</code>
+                                </span>
+                            </button>
+                        }
+                    </div>
+                }
+                <div class="app-detail-grid mt-3">
+                    <div><span class="app-detail-label">Tạm tính</span><span>@LineSubtotal.ToString("N0")</span></div>
+                    <div><span class="app-detail-label">Chiết khấu</span><span>@LineDiscountAmount.ToString("N0")</span></div>
+                    <div><span class="app-detail-label">Thuế</span><span>@LineTaxAmount.ToString("N0")</span></div>
+                    <div><span class="app-detail-label">Thành tiền</span><span>@LineTotal.ToString("N0")</span></div>
                 </div>
                 <Button Text="Tạo đơn hàng" Color="Color.Primary" OnClick="CreateAsync" />
             </section>
@@ -72,12 +99,16 @@
                 else
                 {
                     <table class="app-table">
-                        <thead><tr><th>Số đơn</th><th>Nguồn</th><th>Khách hàng</th><th>Trạng thái</th><th>Tổng tiền</th><th>Dòng hàng</th><th></th></tr></thead>
+                        <thead><tr><th>Số đơn</th><th>Nguồn</th><th>Khách hàng</th><th>Trạng thái</th><th>Giữ hàng</th><th>Giao hàng</th><th>Tổng tiền</th><th>Dòng hàng</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var order in orders)
                             {
                                 <tr>
-                                    <td>@order.OrderNo</td>
+                                    <td>
+                                        <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => OpenOrder(order.Id))">
+                                            @order.OrderNo
+                                        </button>
+                                    </td>
                                     <td>
                                         @if (order.SourceId.HasValue && !string.IsNullOrWhiteSpace(order.SourceType))
                                         {
@@ -92,11 +123,18 @@
                                     </td>
                                     <td>@CustomerText(order.CustomerId)</td>
                                     <td><span class="@StatusCss(order.Status)">@order.Status</span></td>
-                                    <td>@order.TotalAmount.ToString("N2")</td>
+                                    <td><span class="@ReservationStatusCss(order.InventoryReservationStatus)">@ReservationStatusText(order.InventoryReservationStatus)</span></td>
+                                    <td><span class="@DeliveryStatusCss(order.DeliveryStatus)">@DeliveryStatusText(order.DeliveryStatus)</span></td>
+                                    <td>
+                                        <div>@order.TotalAmount.ToString("N2")</div>
+                                        <small class="text-muted">Thuế @order.TaxAmount.ToString("N0") / CK @order.DiscountAmount.ToString("N0")</small>
+                                    </td>
                                     <td>@LinesText(order)</td>
                                     <td>
                                         <div class="app-actions">
+                                            <Button Text="Chi tiết" Size="Size.ExtraSmall" Color="Color.Secondary" OnClick="@(() => OpenOrder(order.Id))" />
                                             <Button Text="Duyệt" Size="Size.ExtraSmall" Color="Color.Success" IsDisabled="@(order.Status != "Draft")" OnClick="@(() => ApproveAsync(order.Id))" />
+                                            <Button Text="Đã giao" Size="Size.ExtraSmall" Color="Color.Info" IsDisabled="@(order.Status == "Draft" || order.DeliveryStatus == "Delivered")" OnClick="@(() => DeliverAsync(order.Id))" />
                                             <Button Text="Hoàn tất" Size="Size.ExtraSmall" Color="Color.Primary" IsDisabled="@(order.Status != "Approved")" OnClick="@(() => CompleteAsync(order.Id))" />
                                         </div>
                                     </td>
@@ -113,6 +151,7 @@
 @code {
     private List<SalesOrderRecord> orders = [];
     private List<CustomerDto> customers = [];
+    private List<InventoryProductRecord> products = [];
     private bool isLoading;
     private string customerIdText = "";
     private string orderNo = "SO-0001";
@@ -121,12 +160,18 @@
     private string? searchText;
     private decimal quantity = 1;
     private decimal unitPrice = 100;
+    private decimal discountPercent;
+    private decimal taxPercent;
     private string message = "";
     private string messageCss = "app-alert";
     private string sourceType = "";
     private Guid? sourceId;
     private string sourceNo = "";
     private bool prefillApplied;
+    private decimal LineSubtotal => quantity * unitPrice;
+    private decimal LineDiscountAmount => decimal.Round(LineSubtotal * Math.Clamp(discountPercent, 0m, 100m) / 100m, 2, MidpointRounding.AwayFromZero);
+    private decimal LineTaxAmount => decimal.Round((LineSubtotal - LineDiscountAmount) * Math.Max(0m, taxPercent) / 100m, 2, MidpointRounding.AwayFromZero);
+    private decimal LineTotal => LineSubtotal - LineDiscountAmount + LineTaxAmount;
     private string sourceTypeText => sourceType switch
     {
         "quotation" => "báo giá",
@@ -146,8 +191,26 @@
         isLoading = true;
         orders = (await Api.GetSalesOrdersAsync(tenantId, searchText))?.Items.ToList() ?? [];
         customers = (await CrmApi.GetCustomersAsync(new CustomerListQuery { MaxResultCount = 500 }))?.Items.ToList() ?? [];
+        products = await LoadProductsAsync(tenantId);
         ApplyPrefillFromQuery();
         isLoading = false;
+    }
+
+    private async Task<List<InventoryProductRecord>> LoadProductsAsync(Guid tenantId)
+    {
+        if (!Session.HasModule("INVENTORY") || !Session.IsGranted(NexusPermissions.Inventory.Products.View))
+        {
+            return [];
+        }
+
+        try
+        {
+            return (await Api.GetInventoryProductsAsync(tenantId))?.Where(x => x.IsActive).ToList() ?? [];
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     private async Task CreateAsync()
@@ -158,7 +221,7 @@
             return;
         }
 
-        var lines = new[] { new CreateSalesOrderLineRequest(productCode, description, quantity, unitPrice) };
+        var lines = new[] { new CreateSalesOrderLineRequest(productCode, description, quantity, unitPrice, discountPercent, taxPercent) };
         await Api.CreateSalesOrderAsync(new CreateSalesOrderRequest(tenantId, customerId, orderNo, sourceType, sourceId, sourceNo, lines));
         ShowSuccess("Đã tạo đơn bán hàng.");
         sourceType = "";
@@ -222,6 +285,24 @@
         {
             unitPrice = parsedUnitPrice;
         }
+
+        if (query.TryGetValue("taxPercent", out var taxValue) && decimal.TryParse(taxValue, out var parsedTax))
+        {
+            taxPercent = parsedTax;
+        }
+
+        if (query.TryGetValue("discountPercent", out var discountValue) && decimal.TryParse(discountValue, out var parsedDiscount))
+        {
+            discountPercent = parsedDiscount;
+        }
+    }
+
+    private void SelectProduct(InventoryProductRecord product)
+    {
+        productCode = product.ProductCode;
+        description = product.ProductName;
+        unitPrice = product.Price;
+        taxPercent = product.TaxPercent;
     }
 
     private static Dictionary<string, string> ParseQuery(string query)
@@ -255,6 +336,13 @@
     {
         await Api.CompleteSalesOrderAsync(id);
         ShowSuccess("Đã hoàn tất đơn bán hàng.");
+        await LoadAsync();
+    }
+
+    private async Task DeliverAsync(Guid id)
+    {
+        await Api.DeliverSalesOrderAsync(id);
+        ShowSuccess("Đã cập nhật trạng thái giao hàng.");
         await LoadAsync();
     }
 
@@ -295,6 +383,8 @@
         }
     }
 
+    private void OpenOrder(Guid id) => Navigation.NavigateTo($"sales/orders/{id}");
+
     private static string SourceTypeText(string? value) => value switch
     {
         "quotation" => "Báo giá",
@@ -312,6 +402,32 @@
     {
         "Approved" => "app-status-badge app-status-active",
         "Completed" => "app-status-badge app-status-active",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private static string DeliveryStatusText(string? status) => status switch
+    {
+        "Delivered" => "Đã giao",
+        "Ready" => "Sẵn sàng giao",
+        _ => "Chờ giao"
+    };
+
+    private static string ReservationStatusText(string? status) => status switch
+    {
+        "Reserved" => "Đã giữ",
+        _ => "Chờ giữ"
+    };
+
+    private static string DeliveryStatusCss(string? status) => status switch
+    {
+        "Delivered" => "app-status-badge app-status-active",
+        "Ready" => "app-status-badge app-status-pending",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private static string ReservationStatusCss(string? status) => status switch
+    {
+        "Reserved" => "app-status-badge app-status-active",
         _ => "app-status-badge app-status-muted"
     };
 

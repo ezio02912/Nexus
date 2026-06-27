@@ -40,7 +40,12 @@
 - Sales Order backend lưu `SourceType`, `SourceId`, `SourceNo` để trace chính thức về chứng từ CRM nguồn.
 - Sales Orders list hiển thị nguồn và link ngược về Quotation hoặc Contract.
 - Sales Orders search dùng `lowercase + trim + contains` trên số đơn, nguồn, trạng thái, mã hàng và mô tả dòng hàng.
-- Bước tiếp theo: thêm Sales Order detail, nhiều dòng hàng, pricing/discount/tax và delivery status.
+- Sales Order detail hiển thị dòng hàng, chứng từ nguồn, trạng thái giữ hàng và trạng thái giao hàng.
+- Approve Sales Order gọi Inventory reservation; Deliver/Complete gọi Inventory shipment.
+- Inventory hiện có product/warehouse catalog nền tảng; Sales reservation vẫn dùng kho mặc định `MAIN`.
+- Sales Order line đã có pricing fields: subtotal, discount percent/amount, tax percent/amount và line total.
+- Sales Orders form có thể chọn nhanh product từ Inventory catalog để lấy mã hàng, tên hàng, giá và thuế.
+- Bước tiếp theo: chuyển warehouse từ mặc định `MAIN` sang lựa chọn kho trên từng dòng hàng và hỗ trợ nhiều dòng trong form.
 
 ## Events
 

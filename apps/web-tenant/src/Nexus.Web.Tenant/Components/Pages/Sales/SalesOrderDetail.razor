@@ -1,0 +1,225 @@
+@page "/sales/orders/{Id:guid}"
+@attribute [TabItemOption(Text = "Chi tiết đơn hàng", Icon = "fa-solid fa-receipt")]
+@inject TenantPortalApiClient Api
+@inject CrmApiClient CrmApi
+@inject TenantSessionService Session
+@inject NavigationManager Navigation
+
+<PageTitle>Chi tiết đơn hàng - Bán hàng</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Bán hàng / Đơn hàng</p>
+            <h1>@(_order?.OrderNo ?? "Chi tiết đơn hàng")</h1>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <Button Text="Quay lại" Color="Color.Secondary" Icon="fa-solid fa-arrow-left" OnClick="GoBack" />
+            @if (_order is not null)
+            {
+                <Button Text="Duyệt" Color="Color.Success" Icon="fa-solid fa-check" IsDisabled="@(_order.Status != "Draft")" IsAsync="true" OnClick="ApproveAsync" />
+                <Button Text="Đã giao" Color="Color.Info" Icon="fa-solid fa-truck" IsDisabled="@(_order.Status == "Draft" || _order.DeliveryStatus == "Delivered")" IsAsync="true" OnClick="DeliverAsync" />
+                <Button Text="Hoàn tất" Color="Color.Primary" Icon="fa-solid fa-circle-check" IsDisabled="@(_order.Status != "Approved")" IsAsync="true" OnClick="CompleteAsync" />
+            }
+            <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+        </div>
+    </header>
+
+    @if (!Session.HasModule("SALES"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Bán hàng.</div>
+    }
+    else if (_loading)
+    {
+        <div class="app-loading">Đang tải đơn hàng...</div>
+    }
+    else if (_order is null)
+    {
+        <div class="app-empty-state">Không tìm thấy đơn bán hàng.</div>
+    }
+    else
+    {
+        <section class="app-card app-card-wide mb-3">
+            <div class="app-detail-grid">
+                <div><span class="app-detail-label">Số đơn</span><span>@_order.OrderNo</span></div>
+                <div><span class="app-detail-label">Khách hàng</span><span>@CustomerText(_order.CustomerId)</span></div>
+                <div><span class="app-detail-label">Trạng thái</span><span class="@StatusCss(_order.Status)">@StatusText(_order.Status)</span></div>
+                <div><span class="app-detail-label">Giữ hàng</span><span class="@ReservationStatusCss(_order.InventoryReservationStatus)">@ReservationStatusText(_order.InventoryReservationStatus)</span></div>
+                <div><span class="app-detail-label">Giao hàng</span><span class="@DeliveryStatusCss(_order.DeliveryStatus)">@DeliveryStatusText(_order.DeliveryStatus)</span></div>
+                <div><span class="app-detail-label">Tạm tính</span><span>@_order.Subtotal.ToString("N0")</span></div>
+                <div><span class="app-detail-label">Chiết khấu</span><span>@_order.DiscountAmount.ToString("N0")</span></div>
+                <div><span class="app-detail-label">Thuế</span><span>@_order.TaxAmount.ToString("N0")</span></div>
+                <div><span class="app-detail-label">Tổng tiền</span><span>@_order.TotalAmount.ToString("N0")</span></div>
+                <div><span class="app-detail-label">Ngày tạo</span><span>@_order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span></div>
+                <div><span class="app-detail-label">Ngày duyệt</span><span>@(_order.ApprovedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</span></div>
+                <div><span class="app-detail-label">Ngày giữ hàng</span><span>@(_order.ReservedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</span></div>
+                <div><span class="app-detail-label">Ngày giao</span><span>@(_order.DeliveredAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</span></div>
+                <div><span class="app-detail-label">Ngày hoàn tất</span><span>@(_order.CompletedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</span></div>
+            </div>
+        </section>
+
+        <div class="crm-related-grid mb-3">
+            @if (_customer is not null)
+            {
+                <button class="app-card crm-related-summary" type="button" @onclick="@(() => Navigation.NavigateTo($"crm/customers/{_customer.Id}"))">
+                    <span class="app-detail-label">Khách hàng</span>
+                    <strong>@_customer.Code - @_customer.Name</strong>
+                    <span>@(_customer.Email ?? _customer.Phone ?? "Mở chi tiết khách hàng")</span>
+                </button>
+            }
+            @if (_order.SourceId.HasValue && !string.IsNullOrWhiteSpace(_order.SourceType))
+            {
+                <button class="app-card crm-related-summary" type="button" @onclick="OpenSource">
+                    <span class="app-detail-label">Chứng từ nguồn</span>
+                    <strong>@(_order.SourceNo ?? SourceTypeText(_order.SourceType))</strong>
+                    <span>@SourceTypeText(_order.SourceType)</span>
+                </button>
+            }
+        </div>
+
+        <section class="app-card app-card-wide">
+            <h2>Dòng hàng</h2>
+            @if (_order.Lines is null || _order.Lines.Count == 0)
+            {
+                <div class="app-empty-state">Chưa có dòng hàng.</div>
+            }
+            else
+            {
+                <table class="app-table">
+                    <thead>
+                        <tr><th>Mã hàng</th><th>Mô tả</th><th>Số lượng</th><th>Đơn giá</th><th>Tạm tính</th><th>CK</th><th>Thuế</th><th>Thành tiền</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in _order.Lines)
+                        {
+                            <tr>
+                                <td>@line.ProductCode</td>
+                                <td>@line.Description</td>
+                                <td>@line.Quantity.ToString("N2")</td>
+                                <td>@line.UnitPrice.ToString("N0")</td>
+                                <td>@line.Subtotal.ToString("N0")</td>
+                                <td>@line.DiscountAmount.ToString("N0") (@line.DiscountPercent.ToString("N2")%)</td>
+                                <td>@line.TaxAmount.ToString("N0") (@line.TaxPercent.ToString("N2")%)</td>
+                                <td>@line.LineAmount.ToString("N0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private SalesOrderRecord? _order;
+    private CustomerDto? _customer;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        _loading = true;
+        _order = await Api.GetSalesOrderAsync(tenantId, Id);
+        _customer = _order is null ? null : await CrmApi.GetCustomerAsync(_order.CustomerId);
+        _loading = false;
+    }
+
+    private async Task ApproveAsync()
+    {
+        await Api.ApproveSalesOrderAsync(Id);
+        await LoadAsync();
+    }
+
+    private async Task DeliverAsync()
+    {
+        await Api.DeliverSalesOrderAsync(Id);
+        await LoadAsync();
+    }
+
+    private async Task CompleteAsync()
+    {
+        await Api.CompleteSalesOrderAsync(Id);
+        await LoadAsync();
+    }
+
+    private void GoBack() => Navigation.NavigateTo("sales/orders");
+
+    private void OpenSource()
+    {
+        if (_order?.SourceId is not Guid sourceId || string.IsNullOrWhiteSpace(_order.SourceType))
+        {
+            return;
+        }
+
+        var route = _order.SourceType.Equals("contract", StringComparison.OrdinalIgnoreCase)
+            ? $"crm/contracts/{sourceId}"
+            : _order.SourceType.Equals("quotation", StringComparison.OrdinalIgnoreCase)
+                ? $"crm/quotations/{sourceId}"
+                : "";
+
+        if (!string.IsNullOrWhiteSpace(route))
+        {
+            Navigation.NavigateTo(route);
+        }
+    }
+
+    private string CustomerText(Guid customerId)
+    {
+        return _customer is null ? customerId.ToString("N") : $"{_customer.Code} - {_customer.Name}";
+    }
+
+    private static string StatusText(string status) => status switch
+    {
+        "Approved" => "Đã duyệt",
+        "Completed" => "Hoàn tất",
+        _ => "Nháp"
+    };
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Approved" => "app-status-badge app-status-active",
+        "Completed" => "app-status-badge app-status-active",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private static string DeliveryStatusText(string? status) => status switch
+    {
+        "Delivered" => "Đã giao",
+        "Ready" => "Sẵn sàng giao",
+        _ => "Chờ giao"
+    };
+
+    private static string ReservationStatusText(string? status) => status switch
+    {
+        "Reserved" => "Đã giữ",
+        _ => "Chờ giữ"
+    };
+
+    private static string DeliveryStatusCss(string? status) => status switch
+    {
+        "Delivered" => "app-status-badge app-status-active",
+        "Ready" => "app-status-badge app-status-pending",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private static string ReservationStatusCss(string? status) => status switch
+    {
+        "Reserved" => "app-status-badge app-status-active",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private static string SourceTypeText(string? value) => value switch
+    {
+        "quotation" => "Báo giá",
+        "contract" => "Hợp đồng",
+        _ => "Nguồn"
+    };
+}

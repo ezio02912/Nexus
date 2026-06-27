@@ -70,10 +70,10 @@
                             <Template Context="v">@(v.Row.OwnerId.HasValue ? v.Row.OwnerId.Value.ToString("N")[..8] : "—")</Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.IsPrimary" Text="Chính">
-                            <Template Context="v">@(v.Row.IsPrimary ? "Có" : "Không")</Template>
+                            <Template Context="v"><AppBooleanIcon Value="@v.Row.IsPrimary" TrueText="Liên hệ chính" FalseText="Không phải liên hệ chính" /></Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.IsDecisionMaker" Text="Ra quyết định">
-                            <Template Context="v">@(v.Row.IsDecisionMaker ? "Có" : "Không")</Template>
+                            <Template Context="v"><AppBooleanIcon Value="@v.Row.IsDecisionMaker" TrueText="Có quyền ra quyết định" FalseText="Không ra quyết định" /></Template>
                         </TableColumn>
                         <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
                             <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>

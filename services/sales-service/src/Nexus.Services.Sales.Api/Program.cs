@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Nexus.BuildingBlocks.EntityFrameworkCore.DependencyInjection;
 using Nexus.BuildingBlocks.Web.DependencyInjection;
 using Nexus.Services.Sales.Api.Persistence;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddNexusObservability("sales-service");
@@ -12,6 +14,10 @@ var connectionString = builder.Configuration.GetConnectionString("SalesDb")
 
 builder.Services.AddNexusWeb();
 builder.Services.AddNexusEfCore<SalesDbContext>(connectionString);
+builder.Services.AddHttpClient<InventoryClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["CoreServices:Inventory"] ?? "http://localhost:7210");
+});
 
 var app = builder.Build();
 
@@ -50,6 +56,15 @@ app.MapGet("/api/sales/orders", async (SalesDbContext db, Guid tenantId, string?
     return Results.Ok(new { TotalCount = total, Items = items });
 });
 
+app.MapGet("/api/sales/orders/{id:guid}", async (Guid id, SalesDbContext db, Guid tenantId, CancellationToken ct) =>
+{
+    var order = await db.SalesOrders
+        .Include(x => x.Lines)
+        .SingleOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId, ct);
+
+    return order is null ? Results.NotFound() : Results.Ok(order);
+});
+
 app.MapPost("/api/sales/orders", async (CreateSalesOrderDto input, SalesDbContext db, CancellationToken ct) =>
 {
     var orderNo = input.OrderNo.Trim().ToUpperInvariant();
@@ -58,7 +73,7 @@ app.MapPost("/api/sales/orders", async (CreateSalesOrderDto input, SalesDbContex
         return Results.Conflict(new { Code = "Sales:OrderAlreadyExists", Message = "Sales order number already exists." });
     }
 
-    var lines = input.Lines.Select(x => new SalesOrderLineDraft(x.ProductCode, x.Description, x.Quantity, x.UnitPrice)).ToArray();
+    var lines = input.Lines.Select(x => new SalesOrderLineDraft(x.ProductCode, x.Description, x.Quantity, x.UnitPrice, x.DiscountPercent, x.TaxPercent)).ToArray();
     var order = new SalesOrder(
         Guid.NewGuid(),
         input.TenantId,
@@ -74,28 +89,84 @@ app.MapPost("/api/sales/orders", async (CreateSalesOrderDto input, SalesDbContex
     return Results.Created($"/api/sales/orders/{order.Id}", order);
 });
 
-app.MapPost("/api/sales/orders/{id:guid}/approve", async (Guid id, SalesDbContext db, CancellationToken ct) =>
+app.MapPost("/api/sales/orders/{id:guid}/approve", async (Guid id, SalesDbContext db, InventoryClient inventory, CancellationToken ct) =>
 {
-    var order = await db.SalesOrders.FindAsync([id], ct);
+    var order = await db.SalesOrders
+        .Include(x => x.Lines)
+        .SingleOrDefaultAsync(x => x.Id == id, ct);
     if (order is null)
     {
         return Results.NotFound();
     }
 
-    order.Approve(DateTimeOffset.UtcNow);
+    var now = DateTimeOffset.UtcNow;
+    if (order.InventoryReservationStatus != "Reserved")
+    {
+        var reservation = await inventory.ReserveAsync(order, ct);
+        if (!reservation.Success)
+        {
+            return Results.Conflict(new { Code = reservation.Code, Message = reservation.Message });
+        }
+
+        order.MarkInventoryReserved(now);
+    }
+
+    order.Approve(now);
     await db.SaveChangesAsync(ct);
     return Results.Ok(order);
 });
 
-app.MapPost("/api/sales/orders/{id:guid}/complete", async (Guid id, SalesDbContext db, CancellationToken ct) =>
+app.MapPost("/api/sales/orders/{id:guid}/complete", async (Guid id, SalesDbContext db, InventoryClient inventory, CancellationToken ct) =>
 {
-    var order = await db.SalesOrders.FindAsync([id], ct);
+    var order = await db.SalesOrders
+        .Include(x => x.Lines)
+        .SingleOrDefaultAsync(x => x.Id == id, ct);
     if (order is null)
     {
         return Results.NotFound();
     }
 
+    if (order.DeliveryStatus != "Delivered")
+    {
+        if (order.InventoryReservationStatus != "Reserved")
+        {
+            return Results.Conflict(new { Code = "Sales:InventoryNotReserved", Message = "Đơn hàng chưa giữ tồn kho, không thể hoàn tất." });
+        }
+
+        var shipment = await inventory.ShipAsync(order, ct);
+        if (!shipment.Success)
+        {
+            return Results.Conflict(new { Code = shipment.Code, Message = shipment.Message });
+        }
+    }
+
     order.Complete(DateTimeOffset.UtcNow);
+    await db.SaveChangesAsync(ct);
+    return Results.Ok(order);
+});
+
+app.MapPost("/api/sales/orders/{id:guid}/deliver", async (Guid id, SalesDbContext db, InventoryClient inventory, CancellationToken ct) =>
+{
+    var order = await db.SalesOrders
+        .Include(x => x.Lines)
+        .SingleOrDefaultAsync(x => x.Id == id, ct);
+    if (order is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (order.InventoryReservationStatus != "Reserved")
+    {
+        return Results.Conflict(new { Code = "Sales:InventoryNotReserved", Message = "Đơn hàng chưa giữ tồn kho, không thể giao hàng." });
+    }
+
+    var shipment = await inventory.ShipAsync(order, ct);
+    if (!shipment.Success)
+    {
+        return Results.Conflict(new { Code = shipment.Code, Message = shipment.Message });
+    }
+
+    order.MarkDelivered(DateTimeOffset.UtcNow);
     await db.SaveChangesAsync(ct);
     return Results.Ok(order);
 });
@@ -104,4 +175,76 @@ app.MapNexusObservability();
 app.Run();
 
 public sealed record CreateSalesOrderDto(Guid TenantId, Guid CustomerId, string OrderNo, string? SourceType, Guid? SourceId, string? SourceNo, IReadOnlyCollection<CreateSalesOrderLineDto> Lines);
-public sealed record CreateSalesOrderLineDto(string ProductCode, string Description, decimal Quantity, decimal UnitPrice);
+public sealed record CreateSalesOrderLineDto(string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal TaxPercent);
+
+public sealed class InventoryClient
+{
+    private readonly HttpClient _httpClient;
+
+    public InventoryClient(HttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
+
+    public Task<InventoryCallResult> ReserveAsync(SalesOrder order, CancellationToken ct)
+    {
+        var request = new InventoryReserveRequest(
+            order.TenantId,
+            "SALES_ORDER",
+            order.Id,
+            order.OrderNo,
+            order.Lines.Select(x => new InventoryLineRequest(x.ProductCode, x.Description, x.Quantity)).ToArray());
+
+        return PostAsync("/api/inventory/reservations", request, ct);
+    }
+
+    public Task<InventoryCallResult> ShipAsync(SalesOrder order, CancellationToken ct)
+    {
+        var request = new InventoryShipRequest(order.TenantId, "SALES_ORDER", order.Id, order.OrderNo);
+        return PostAsync("/api/inventory/shipments", request, ct);
+    }
+
+    private async Task<InventoryCallResult> PostAsync(string path, object request, CancellationToken ct)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(path, request, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                return InventoryCallResult.Ok();
+            }
+
+            var error = await response.Content.ReadFromJsonAsync<InventoryErrorResponse>(cancellationToken: ct);
+            if (!string.IsNullOrWhiteSpace(error?.Code) || !string.IsNullOrWhiteSpace(error?.Message))
+            {
+                return InventoryCallResult.Failed(
+                    string.IsNullOrWhiteSpace(error?.Code) ? "Inventory:RequestFailed" : error!.Code!,
+                    string.IsNullOrWhiteSpace(error?.Message) ? "Inventory request failed." : error!.Message!);
+            }
+
+            return InventoryCallResult.Failed("Inventory:RequestFailed", "Inventory request failed.");
+        }
+        catch (HttpRequestException ex)
+        {
+            return InventoryCallResult.Failed("Inventory:Unavailable", ex.Message);
+        }
+        catch (NotSupportedException ex)
+        {
+            return InventoryCallResult.Failed("Inventory:InvalidErrorResponse", ex.Message);
+        }
+        catch (JsonException ex)
+        {
+            return InventoryCallResult.Failed("Inventory:InvalidErrorResponse", ex.Message);
+        }
+    }
+}
+
+public sealed record InventoryReserveRequest(Guid TenantId, string SourceType, Guid SourceId, string SourceNo, IReadOnlyCollection<InventoryLineRequest> Lines);
+public sealed record InventoryShipRequest(Guid TenantId, string SourceType, Guid SourceId, string SourceNo);
+public sealed record InventoryLineRequest(string ProductCode, string Description, decimal Quantity);
+public sealed record InventoryErrorResponse(string? Code, string? Message);
+public sealed record InventoryCallResult(bool Success, string Code, string Message)
+{
+    public static InventoryCallResult Ok() => new(true, string.Empty, string.Empty);
+    public static InventoryCallResult Failed(string code, string message) => new(false, code, message);
+}

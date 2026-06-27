@@ -12,6 +12,10 @@
         </div>
         <div class="d-flex gap-2">
             <Button Text="Quay lại" Color="Color.Secondary" Icon="fa-solid fa-arrow-left" OnClick="GoBack" />
+            @if (_customer is not null)
+            {
+                <Button Text="Sửa" Color="Color.Primary" Icon="fa-solid fa-pen" IsAsync="true" OnClick="ShowEditModalAsync" />
+            }
             <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
         </div>
     </header>
@@ -252,3 +256,45 @@
         </div>
     }
 </section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="Sửa khách hàng" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Tên khách hàng" Required="true">
+                    <BootstrapInput @bind-Value="_editModel.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Loại">
+                    <Select TValue="string" Items="@_customerTypeOptions" @bind-Value="_customerTypeText" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_editModel.Email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_editModel.Phone" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Mã số thuế">
+                    <BootstrapInput @bind-Value="_editModel.TaxCode" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Website">
+                    <BootstrapInput @bind-Value="_editModel.Website" ShowLabel="false" />
+                </AppFormField>
+                <MasterDataLookupSelect Category="@MasterDataCategories.Industry" Label="Ngành" @bind-Value="_editModel.Industry" />
+                <MasterDataLookupSelect Category="@MasterDataCategories.City" Label="Thành phố" @bind-Value="_editModel.City" />
+                <MasterDataLookupSelect Category="@MasterDataCategories.Source" Label="Nguồn" @bind-Value="_editModel.Source" />
+                <AppFormField Label="Địa chỉ">
+                    <BootstrapInput @bind-Value="_editModel.AddressLine1" ShowLabel="false" />
+                </AppFormField>
+                <AppStatusSelect Label="Trạng thái" @bind-Value="_customerStatusText"
+                                 Items="@_customerStatusOptions" Meta="@_customerStatusMeta" />
+                <AppFormField Label="Mô tả">
+                    <Textarea @bind-Value="_editModel.Description" ShowLabel="false" rows="3" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseEditModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveEditAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

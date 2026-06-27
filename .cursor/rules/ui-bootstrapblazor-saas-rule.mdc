@@ -78,6 +78,7 @@ Every feature must include:
 - Full list table columns for the important service fields, not only name/status/date.
 - Detail page or detail navigation when the entity has related records.
 - Create/update form fields for the primary writable business properties.
+- Boolean columns in tables must render compact status icons/badges with accessible title/label, not raw `true/false` or text-only `Có/Không`.
 - Permission checks consistent with the module permission catalog.
 - Loading, empty, error, and success feedback.
 - Tenant-safe API calls and no direct database access from UI.

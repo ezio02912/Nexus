@@ -1,0 +1,427 @@
+@page "/inventory"
+@attribute [TabItemOption(Text = "Tồn kho", Icon = "fa-solid fa-boxes-stacked")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+<PageTitle>Tồn kho</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Kho</p>
+            <h1>Tồn kho & danh mục</h1>
+            <p>Quản lý sản phẩm, kho, tồn hiện có, số lượng đã giữ và lượng khả dụng cho đơn bán.</p>
+        </div>
+        <Button Text="Tải lại" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+    </header>
+
+    @if (!Session.HasModule("INVENTORY"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Kho.</div>
+    }
+    else if (!Session.IsGranted(NexusPermissions.Inventory.Stock.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem tồn kho.</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <div class="@_messageCss">@_message</div>
+        }
+
+        <div class="app-actions app-actions-left mb-3">
+            <Button Text="Tồn kho" Color="@TabColor(BalancesTab)" OnClick="@(() => SelectTab(BalancesTab))" />
+            @if (Session.IsGranted(NexusPermissions.Inventory.Products.View))
+            {
+                <Button Text="Sản phẩm" Color="@TabColor(ProductsTab)" OnClick="@(() => SelectTab(ProductsTab))" />
+            }
+            @if (Session.IsGranted(NexusPermissions.Inventory.Warehouses.View))
+            {
+                <Button Text="Kho" Color="@TabColor(WarehousesTab)" OnClick="@(() => SelectTab(WarehousesTab))" />
+            }
+        </div>
+
+        @if (_activeTab == BalancesTab)
+        {
+            <div class="tenant-work-grid">
+                @if (Session.IsGranted(NexusPermissions.Inventory.Stock.Import))
+                {
+                    <section class="app-card">
+                        <h2>Nhập kho nhanh</h2>
+                        <div class="app-form-grid">
+                            <AppFormField Label="Kho" Required="true">
+                                <BootstrapInput @bind-Value="_warehouseCode" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Mã hàng" Required="true">
+                                <BootstrapInput @bind-Value="_productCode" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Tên hàng" Required="true">
+                                <BootstrapInput @bind-Value="_productName" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Số lượng" Required="true">
+                                <BootstrapInputNumber @bind-Value="_quantity" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Số chứng từ">
+                                <BootstrapInput @bind-Value="_sourceNo" ShowLabel="false" />
+                            </AppFormField>
+                        </div>
+                        <Button Text="Nhập kho" Color="Color.Primary" Icon="fa-solid fa-plus" IsAsync="true" OnClick="ImportAsync" />
+                    </section>
+                }
+
+                <section class="app-card app-card-wide">
+                    <h2>Số dư tồn kho</h2>
+                    <div class="app-list-toolbar">
+                        <BootstrapInput @bind-Value="_searchText" ShowLabel="false" PlaceHolder="Tìm kho, mã hàng, tên hàng..." />
+                        <Button Text="Tìm" Color="Color.Primary" IsAsync="true" OnClick="LoadAsync" />
+                        <Button Text="Xoá lọc" Color="Color.Secondary" IsAsync="true" OnClick="ClearSearchAsync" />
+                    </div>
+                    @if (_loading)
+                    {
+                        <div class="app-loading">Đang tải tồn kho...</div>
+                    }
+                    else if (_balances.Count == 0)
+                    {
+                        <div class="app-empty-state">Chưa có tồn kho.</div>
+                    }
+                    else
+                    {
+                        <table class="app-table">
+                            <thead>
+                                <tr><th>Kho</th><th>Mã hàng</th><th>Tên hàng</th><th>Tồn hiện có</th><th>Đã giữ</th><th>Khả dụng</th><th>Cập nhật</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in _balances)
+                                {
+                                    <tr>
+                                        <td>@item.WarehouseCode</td>
+                                        <td>
+                                            <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => FillImportFromBalance(item))">@item.ProductCode</button>
+                                        </td>
+                                        <td>@item.ProductName</td>
+                                        <td>@item.OnHandQuantity.ToString("N2")</td>
+                                        <td>@item.ReservedQuantity.ToString("N2")</td>
+                                        <td><span class="@AvailableCss(item.AvailableQuantity)">@item.AvailableQuantity.ToString("N2")</span></td>
+                                        <td>@item.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </section>
+            </div>
+        }
+        else if (_activeTab == ProductsTab)
+        {
+            <div class="tenant-work-grid">
+                @if (Session.IsGranted(NexusPermissions.Inventory.Products.Manage))
+                {
+                    <section class="app-card">
+                        <h2>Sản phẩm</h2>
+                        <div class="app-form-grid">
+                            <AppFormField Label="Mã hàng" Required="true">
+                                <BootstrapInput @bind-Value="_productFormCode" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Tên hàng" Required="true">
+                                <BootstrapInput @bind-Value="_productFormName" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Đơn vị">
+                                <BootstrapInput @bind-Value="_productUnit" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Nhóm hàng">
+                                <BootstrapInput @bind-Value="_productCategory" ShowLabel="false" />
+                            </AppFormField>
+                            <AppMoneyInput Label="Giá bán" @bind-Value="_productPrice" DecimalPlaces="0" />
+                            <AppFormField Label="Thuế %">
+                                <BootstrapInputNumber @bind-Value="_productTaxPercent" ShowLabel="false" />
+                            </AppFormField>
+                            <Checkbox @bind-Value="_productIsActive" DisplayText="Đang bán" />
+                        </div>
+                        <Button Text="Lưu sản phẩm" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="SaveProductAsync" />
+                    </section>
+                }
+
+                <section class="app-card app-card-wide">
+                    <h2>Danh mục sản phẩm</h2>
+                    @if (_products.Count == 0)
+                    {
+                        <div class="app-empty-state">Chưa có sản phẩm.</div>
+                    }
+                    else
+                    {
+                        <table class="app-table">
+                            <thead>
+                                <tr><th>Mã hàng</th><th>Tên hàng</th><th>Đơn vị</th><th>Nhóm</th><th>Giá</th><th>Thuế</th><th>Trạng thái</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in _products)
+                                {
+                                    <tr>
+                                        <td><span class="app-table-link-code">@item.ProductCode</span></td>
+                                        <td>@item.ProductName</td>
+                                        <td>@item.Unit</td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.Category) ? "—" : item.Category)</td>
+                                        <td>@item.Price.ToString("N0")</td>
+                                        <td>@item.TaxPercent.ToString("N2")%</td>
+                                        <td><span class="@ActiveCss(item.IsActive)">@(item.IsActive ? "Đang bán" : "Tạm ngưng")</span></td>
+                                        <td><Button Text="Chọn" Size="Size.ExtraSmall" Color="Color.Secondary" OnClick="@(() => FillProductForm(item))" /></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </section>
+            </div>
+        }
+        else
+        {
+            <div class="tenant-work-grid">
+                @if (Session.IsGranted(NexusPermissions.Inventory.Warehouses.Manage))
+                {
+                    <section class="app-card">
+                        <h2>Kho hàng</h2>
+                        <div class="app-form-grid">
+                            <AppFormField Label="Mã kho" Required="true">
+                                <BootstrapInput @bind-Value="_warehouseFormCode" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Tên kho" Required="true">
+                                <BootstrapInput @bind-Value="_warehouseName" ShowLabel="false" />
+                            </AppFormField>
+                            <AppFormField Label="Vị trí">
+                                <BootstrapInput @bind-Value="_warehouseLocation" ShowLabel="false" />
+                            </AppFormField>
+                            <Checkbox @bind-Value="_warehouseIsActive" DisplayText="Đang hoạt động" />
+                        </div>
+                        <Button Text="Lưu kho" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="SaveWarehouseAsync" />
+                    </section>
+                }
+
+                <section class="app-card app-card-wide">
+                    <h2>Danh mục kho</h2>
+                    @if (_warehouses.Count == 0)
+                    {
+                        <div class="app-empty-state">Chưa có kho.</div>
+                    }
+                    else
+                    {
+                        <table class="app-table">
+                            <thead>
+                                <tr><th>Mã kho</th><th>Tên kho</th><th>Vị trí</th><th>Trạng thái</th><th>Cập nhật</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in _warehouses)
+                                {
+                                    <tr>
+                                        <td><span class="app-table-link-code">@item.WarehouseCode</span></td>
+                                        <td>@item.Name</td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.Location) ? "—" : item.Location)</td>
+                                        <td><span class="@ActiveCss(item.IsActive)">@(item.IsActive ? "Hoạt động" : "Tạm ngưng")</span></td>
+                                        <td>@item.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td><Button Text="Chọn" Size="Size.ExtraSmall" Color="Color.Secondary" OnClick="@(() => FillWarehouseForm(item))" /></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </section>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private const string BalancesTab = "balances";
+    private const string ProductsTab = "products";
+    private const string WarehousesTab = "warehouses";
+
+    private List<StockBalanceRecord> _balances = [];
+    private List<InventoryProductRecord> _products = [];
+    private List<WarehouseRecord> _warehouses = [];
+    private bool _loading;
+    private string _activeTab = BalancesTab;
+    private string? _searchText;
+    private string _warehouseCode = "MAIN";
+    private string _productCode = "SKU-001";
+    private string _productName = "Hàng mẫu";
+    private string _sourceNo = "Opening balance";
+    private decimal _quantity = 100;
+    private string _productFormCode = "SKU-001";
+    private string _productFormName = "Hàng mẫu";
+    private string _productUnit = "EA";
+    private string _productCategory = "";
+    private decimal _productPrice;
+    private decimal _productTaxPercent;
+    private bool _productIsActive = true;
+    private string _warehouseFormCode = "MAIN";
+    private string _warehouseName = "Kho chính";
+    private string _warehouseLocation = "";
+    private bool _warehouseIsActive = true;
+    private string _message = "";
+    private string _messageCss = "app-alert";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("INVENTORY") || !Session.IsGranted(NexusPermissions.Inventory.Stock.View))
+        {
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            _balances = (await Api.GetStockBalancesAsync(tenantId, _searchText))?.ToList() ?? [];
+            _products = (await Api.GetInventoryProductsAsync(tenantId, _searchText))?.ToList() ?? [];
+            _warehouses = (await Api.GetWarehousesAsync(tenantId, _searchText))?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void SelectTab(string tab)
+    {
+        _activeTab = tab;
+        _message = "";
+    }
+
+    private Color TabColor(string tab) => _activeTab == tab ? Color.Primary : Color.Secondary;
+
+    private async Task ImportAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_warehouseCode) || string.IsNullOrWhiteSpace(_productCode) || string.IsNullOrWhiteSpace(_productName) || _quantity <= 0)
+        {
+            ShowError("Vui lòng nhập kho, mã hàng, tên hàng và số lượng hợp lệ.");
+            return;
+        }
+
+        try
+        {
+            await Api.ImportStockAsync(new ImportStockRequest(tenantId, _warehouseCode, _productCode, _productName, _quantity, "MANUAL", null, _sourceNo));
+            ShowSuccess("Đã nhập kho.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private async Task SaveProductAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_productFormCode) || string.IsNullOrWhiteSpace(_productFormName))
+        {
+            ShowError("Vui lòng nhập mã hàng và tên hàng.");
+            return;
+        }
+
+        try
+        {
+            await Api.UpsertInventoryProductAsync(new UpsertInventoryProductRequest(tenantId, _productFormCode, _productFormName, _productUnit, _productCategory, _productPrice, _productTaxPercent, _productIsActive));
+            _productCode = _productFormCode;
+            _productName = _productFormName;
+            ShowSuccess("Đã lưu sản phẩm.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private async Task SaveWarehouseAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_warehouseFormCode) || string.IsNullOrWhiteSpace(_warehouseName))
+        {
+            ShowError("Vui lòng nhập mã kho và tên kho.");
+            return;
+        }
+
+        try
+        {
+            await Api.UpsertWarehouseAsync(new UpsertWarehouseRequest(tenantId, _warehouseFormCode, _warehouseName, _warehouseLocation, _warehouseIsActive));
+            _warehouseCode = _warehouseFormCode;
+            ShowSuccess("Đã lưu kho.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        _searchText = null;
+        await LoadAsync();
+    }
+
+    private void FillImportFromBalance(StockBalanceRecord item)
+    {
+        _warehouseCode = item.WarehouseCode;
+        _productCode = item.ProductCode;
+        _productName = item.ProductName;
+    }
+
+    private void FillProductForm(InventoryProductRecord item)
+    {
+        _productFormCode = item.ProductCode;
+        _productFormName = item.ProductName;
+        _productUnit = item.Unit;
+        _productCategory = item.Category;
+        _productPrice = item.Price;
+        _productTaxPercent = item.TaxPercent;
+        _productIsActive = item.IsActive;
+        _productCode = item.ProductCode;
+        _productName = item.ProductName;
+    }
+
+    private void FillWarehouseForm(WarehouseRecord item)
+    {
+        _warehouseFormCode = item.WarehouseCode;
+        _warehouseName = item.Name;
+        _warehouseLocation = item.Location;
+        _warehouseIsActive = item.IsActive;
+        _warehouseCode = item.WarehouseCode;
+    }
+
+    private static string AvailableCss(decimal value) =>
+        value > 0 ? "app-status-badge app-status-active" : "app-status-badge app-status-danger";
+
+    private static string ActiveCss(bool value) =>
+        value ? "app-status-badge app-status-active" : "app-status-badge app-status-muted";
+
+    private void ShowSuccess(string text)
+    {
+        _message = text;
+        _messageCss = "app-alert";
+    }
+
+    private void ShowError(string text)
+    {
+        _message = text;
+        _messageCss = "app-alert app-alert-danger";
+    }
+}

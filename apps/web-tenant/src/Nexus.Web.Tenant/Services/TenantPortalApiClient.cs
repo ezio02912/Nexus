@@ -107,8 +107,52 @@ public sealed class TenantPortalApiClient
         return GetAsync<PagedResult<SalesOrderRecord>>(_options.Sales, path);
     }
     public Task<SalesOrderRecord?> CreateSalesOrderAsync(CreateSalesOrderRequest request) => PostAsync<SalesOrderRecord>(_options.Sales, "/api/sales/orders", request);
+    public Task<SalesOrderRecord?> GetSalesOrderAsync(Guid tenantId, Guid id) => GetAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}?tenantId={tenantId}");
     public Task<SalesOrderRecord?> ApproveSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/approve", new { });
+    public Task<SalesOrderRecord?> DeliverSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/deliver", new { });
     public Task<SalesOrderRecord?> CompleteSalesOrderAsync(Guid id) => PostAsync<SalesOrderRecord>(_options.Sales, $"/api/sales/orders/{id}/complete", new { });
+
+    public Task<IReadOnlyList<StockBalanceRecord>?> GetStockBalancesAsync(Guid tenantId, string? search = null)
+    {
+        var path = $"/api/inventory/balances?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            path += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        return GetAsync<IReadOnlyList<StockBalanceRecord>>(_options.Inventory, path);
+    }
+
+    public Task<StockBalanceRecord?> ImportStockAsync(ImportStockRequest request) =>
+        PostAsync<StockBalanceRecord>(_options.Inventory, "/api/inventory/stock/import", request);
+
+    public Task<IReadOnlyList<InventoryProductRecord>?> GetInventoryProductsAsync(Guid tenantId, string? search = null)
+    {
+        var path = $"/api/inventory/products?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            path += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        return GetAsync<IReadOnlyList<InventoryProductRecord>>(_options.Inventory, path);
+    }
+
+    public Task<InventoryProductRecord?> UpsertInventoryProductAsync(UpsertInventoryProductRequest request) =>
+        PostAsync<InventoryProductRecord>(_options.Inventory, "/api/inventory/products", request);
+
+    public Task<IReadOnlyList<WarehouseRecord>?> GetWarehousesAsync(Guid tenantId, string? search = null)
+    {
+        var path = $"/api/inventory/warehouses?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            path += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        return GetAsync<IReadOnlyList<WarehouseRecord>>(_options.Inventory, path);
+    }
+
+    public Task<WarehouseRecord?> UpsertWarehouseAsync(UpsertWarehouseRequest request) =>
+        PostAsync<WarehouseRecord>(_options.Inventory, "/api/inventory/warehouses", request);
 
     public Task<IReadOnlyList<SubscriptionPlanDto>?> GetSubscriptionPlansAsync() =>
         GetAsync<IReadOnlyList<SubscriptionPlanDto>>(_options.Tenant, "/api/subscription-plans/");

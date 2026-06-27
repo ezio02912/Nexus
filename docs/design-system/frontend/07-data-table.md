@@ -10,6 +10,7 @@
 - Sticky header and sticky action column for wide business tables.
 - Empty state, skeleton/loading state, and error feedback.
 - Row action buttons for view/edit/delete or workflow actions based on permission.
+- Boolean fields must render as compact icons/badges, not raw `true/false` or text-only `Có/Không`.
 
 ## Full-column rule
 
@@ -21,6 +22,7 @@ For wide entities:
 - Add business columns: amount, customer, source, rating, stage, tax, phone/email, etc.
 - Use compact templates, badges, column chooser, responsive hiding, or detail drawer instead of removing columns.
 - Entity code/name should be clickable when a detail page exists.
+- True/false business columns should use the shared boolean icon component with accessible label/title.
 
 ## Search implementation contract
 

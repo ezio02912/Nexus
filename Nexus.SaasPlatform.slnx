@@ -54,6 +54,9 @@
     <Project Path="services/identity-service/src/Nexus.Services.Identity.Domain/Nexus.Services.Identity.Domain.csproj" />
     <Project Path="services/identity-service/src/Nexus.Services.Identity.Infrastructure/Nexus.Services.Identity.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/services/identity-service/tests/">
+    <Project Path="services/identity-service/tests/Nexus.Services.Identity.Domain.Tests/Nexus.Services.Identity.Domain.Tests.csproj" />
+  </Folder>
   <Folder Name="/services/inventory-service/" />
   <Folder Name="/services/inventory-service/src/">
     <Project Path="services/inventory-service/src/Nexus.Services.Inventory.Api/Nexus.Services.Inventory.Api.csproj" />
@@ -101,6 +104,9 @@
     <Project Path="services/tenant-service/src/Nexus.Services.Tenant.Contracts/Nexus.Services.Tenant.Contracts.csproj" />
     <Project Path="services/tenant-service/src/Nexus.Services.Tenant.Domain/Nexus.Services.Tenant.Domain.csproj" />
     <Project Path="services/tenant-service/src/Nexus.Services.Tenant.Infrastructure/Nexus.Services.Tenant.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/services/tenant-service/tests/">
+    <Project Path="services/tenant-service/tests/Nexus.Services.Tenant.Domain.Tests/Nexus.Services.Tenant.Domain.Tests.csproj" />
   </Folder>
   <Folder Name="/services/workflow-service/" />
   <Folder Name="/services/workflow-service/src/">

@@ -177,6 +177,31 @@ public static class NexusPermissions
         }
     }
 
+    public static class Inventory
+    {
+        public const string Default = GroupName + ".Inventory";
+
+        public static class Stock
+        {
+            public const string View = Default + ".Stock.View";
+            public const string Import = Default + ".Stock.Import";
+            public const string Reserve = Default + ".Stock.Reserve";
+            public const string Ship = Default + ".Stock.Ship";
+        }
+
+        public static class Products
+        {
+            public const string View = Default + ".Products.View";
+            public const string Manage = Default + ".Products.Manage";
+        }
+
+        public static class Warehouses
+        {
+            public const string View = Default + ".Warehouses.View";
+            public const string Manage = Default + ".Warehouses.Manage";
+        }
+    }
+
     public static class TenantAdmin
     {
         public const string Default = GroupName + ".Tenant";
@@ -215,6 +240,9 @@ public static class NexusPermissions
         Crm.Contracts.View, Crm.Contracts.Create, Crm.Contracts.Edit, Crm.Contracts.Delete, Crm.Contracts.Sign,
         Crm.Activities.View, Crm.Activities.Create, Crm.Activities.Edit, Crm.Activities.Delete, Crm.Activities.Complete,
         Sales.Orders.View, Sales.Orders.Create, Sales.Orders.Edit, Sales.Orders.Delete, Sales.Orders.Approve, Sales.Orders.Complete,
+        Inventory.Stock.View, Inventory.Stock.Import, Inventory.Stock.Reserve, Inventory.Stock.Ship,
+        Inventory.Products.View, Inventory.Products.Manage,
+        Inventory.Warehouses.View, Inventory.Warehouses.Manage,
         Workflow.View, Workflow.Approve,
         TenantAdmin.Users.View, TenantAdmin.Users.Create, TenantAdmin.Users.Edit, TenantAdmin.Users.Delete,
         TenantAdmin.Permissions.View, TenantAdmin.Permissions.Manage,

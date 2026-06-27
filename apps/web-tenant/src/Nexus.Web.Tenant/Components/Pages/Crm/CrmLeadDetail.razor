@@ -12,6 +12,10 @@
         </div>
         <div class="d-flex gap-2">
             <Button Text="Quay lại" Color="Color.Secondary" Icon="fa-solid fa-arrow-left" OnClick="GoBack" />
+            @if (_lead is not null)
+            {
+                <Button Text="Sửa" Color="Color.Primary" Icon="fa-solid fa-pen" IsAsync="true" OnClick="ShowEditModalAsync" />
+            }
             @if (_lead is not null && _lead.Status != LeadStatus.Converted)
             {
                 <Button Text="Chuyển đổi" Color="Color.Success" Icon="fa-solid fa-right-left" IsAsync="true" OnClick="ShowConvertModalAsync" />
@@ -99,6 +103,43 @@
         </section>
     }
 </section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="Sửa lead" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Họ tên" Required="true">
+                    <BootstrapInput @bind-Value="_editModel.FullName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Công ty">
+                    <BootstrapInput @bind-Value="_editModel.CompanyName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Chức danh">
+                    <BootstrapInput @bind-Value="_editModel.Title" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_editModel.Email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_editModel.Phone" ShowLabel="false" />
+                </AppFormField>
+                <MasterDataLookupSelect Category="@MasterDataCategories.Source" Label="Nguồn" @bind-Value="_editModel.Source" />
+                <AppFormField Label="Điểm">
+                    <BootstrapInputNumber @bind-Value="_editModel.LeadScore" ShowLabel="false" />
+                </AppFormField>
+                <AppStatusSelect Label="Trạng thái" @bind-Value="_leadStatusText"
+                                 Items="@_leadStatusOptions" Meta="@_leadStatusMeta" />
+                <AppFormField Label="Mô tả">
+                    <Textarea @bind-Value="_editModel.Description" ShowLabel="false" rows="3" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseEditModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveEditAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
 
 <Modal @ref="_convertModal" IsBackdrop="true">
     <ModalDialog Title="Chuyển đổi lead" Size="Size.Large" ShowCloseButton="false">

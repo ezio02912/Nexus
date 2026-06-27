@@ -1,0 +1,19 @@
+<span class="@CssClass" title="@Title" aria-label="@Title">
+    <i class="@IconClass" aria-hidden="true"></i>
+    @if (ShowText)
+    {
+        <span>@Text</span>
+    }
+</span>
+
+@code {
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public string TrueText { get; set; } = "Có";
+    [Parameter] public string FalseText { get; set; } = "Không";
+    [Parameter] public bool ShowText { get; set; }
+
+    private string Text => Value ? TrueText : FalseText;
+    private string Title => Text;
+    private string CssClass => Value ? "app-bool-icon app-bool-icon-true" : "app-bool-icon app-bool-icon-false";
+    private string IconClass => Value ? "fa-solid fa-check" : "fa-solid fa-minus";
+}

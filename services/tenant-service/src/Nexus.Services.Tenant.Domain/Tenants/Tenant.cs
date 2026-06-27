@@ -72,7 +72,7 @@ public sealed class Tenant : FullAuditedAggregateRoot<Guid>
         Name = Check.Length(Check.NotNullOrWhiteSpace(name, nameof(name)), nameof(name), TenantConsts.NameMaxLength);
         Address = NormalizeOptional(address, TenantConsts.AddressMaxLength);
         Phone = NormalizeOptional(phone, TenantConsts.PhoneMaxLength);
-        RepresentativeName = Check.Length(Check.NotNullOrWhiteSpace(representativeName, nameof(representativeName)), nameof(representativeName), TenantConsts.RepresentativeNameMaxLength);
+        RepresentativeName = Check.Length(Check.NotNullOrWhiteSpace(representativeName, nameof(representativeName)).Trim(), nameof(representativeName), TenantConsts.RepresentativeNameMaxLength);
         ContactEmail = NormalizeContactEmail(contactEmail);
         SetModificationAudit(modifierId, now);
     }

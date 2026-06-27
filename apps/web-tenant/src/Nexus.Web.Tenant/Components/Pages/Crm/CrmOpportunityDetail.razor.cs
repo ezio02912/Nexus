@@ -14,6 +14,12 @@ public partial class CrmOpportunityDetail
     private IReadOnlyList<QuotationDto> _quotations = [];
     private IReadOnlyList<ContractDto> _contracts = [];
     private IReadOnlyList<ActivityDto> _activities = [];
+    private Modal? _editModal;
+    private OpportunityEditModel _editModel = new();
+    private string _editCustomerIdText = "";
+    private string _editStageText = OpportunityStage.Prospecting.ToString();
+    private List<SelectedItem> _stageOptions = CrmLabels.OpportunityStageOptions();
+    private Dictionary<string, (string Text, string BadgeClass)> _stageMeta = CrmLabels.OpportunityStageMeta();
     private Modal? _quotationModal;
     private QuickQuotationModel _quotationModel = new();
 
@@ -77,6 +83,73 @@ public partial class CrmOpportunityDetail
     private void OpenLead(Guid id) => Navigation.NavigateTo($"crm/leads/{id}");
     private void OpenQuotation(Guid id) => Navigation.NavigateTo($"crm/quotations/{id}");
     private void OpenContract(Guid id) => Navigation.NavigateTo($"crm/contracts/{id}");
+
+    private Task ShowEditModalAsync()
+    {
+        if (_item is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _editCustomerIdText = _item.CustomerId?.ToString() ?? "";
+        _editStageText = _item.Stage.ToString();
+        _editModel = new OpportunityEditModel
+        {
+            Name = _item.Name,
+            Amount = _item.Amount,
+            Probability = _item.Probability,
+            Currency = _item.Currency,
+            Description = _item.Description,
+            NextStep = _item.NextStep,
+            Source = _item.Source,
+            Competitor = _item.Competitor
+        };
+        return _editModal!.Show();
+    }
+
+    private Task CloseEditModalAsync() => _editModal!.Close();
+
+    private async Task SaveEditAsync()
+    {
+        if (_item is null || string.IsNullOrWhiteSpace(_editModel.Name))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập tên cơ hội."));
+            return;
+        }
+
+        Guid? customerId = Guid.TryParse(_editCustomerIdText, out var parsedCustomerId) ? parsedCustomerId : null;
+
+        try
+        {
+            _item = await CrmApi.UpdateOpportunityAsync(_item.Id, new UpdateOpportunityRequest(
+                customerId,
+                _item.ContactId,
+                _editModel.Name.Trim(),
+                _editModel.Amount,
+                _editModel.Probability,
+                string.IsNullOrWhiteSpace(_editModel.Currency) ? _item.Currency : _editModel.Currency.Trim(),
+                _item.ExpectedCloseDate,
+                _editModel.Description,
+                _editModel.NextStep,
+                _item.NextStepDate,
+                _editModel.Source,
+                _editModel.Competitor,
+                _item.OwnerId));
+
+            if (Enum.TryParse<OpportunityStage>(_editStageText, out var stage) && stage != _item.Stage)
+            {
+                _item = await CrmApi.ChangeOpportunityStageAsync(_item.Id, new ChangeOpportunityStageRequest(stage, _editModel.Probability, null, null));
+            }
+
+            await _editModal!.Close();
+            await ToastService.Success("Thành công", "Đã cập nhật cơ hội.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
 
     private Task ShowCreateQuotationAsync()
     {
@@ -153,5 +226,17 @@ public partial class CrmOpportunityDetail
         public string ProductName { get; set; } = "";
         public decimal Quantity { get; set; } = 1;
         public decimal UnitPrice { get; set; }
+    }
+
+    private sealed class OpportunityEditModel
+    {
+        public string Name { get; set; } = "";
+        public decimal Amount { get; set; }
+        public int Probability { get; set; } = 10;
+        public string Currency { get; set; } = "VND";
+        public string? Description { get; set; }
+        public string? NextStep { get; set; }
+        public string? Source { get; set; }
+        public string? Competitor { get; set; }
     }
 }

@@ -78,6 +78,6 @@ Build Tenant + Identity riêng:
 
 
 
-tools/scripts/run-core-services.zsh
+./tools/scripts/run-core-services.zsh
 dotnet run --project apps/web-admin/src/Nexus.Web.Admin/Nexus.Web.Admin.csproj --launch-profile http
 dotnet run --project apps/web-tenant/src/Nexus.Web.Tenant/Nexus.Web.Tenant.csproj --launch-profile http

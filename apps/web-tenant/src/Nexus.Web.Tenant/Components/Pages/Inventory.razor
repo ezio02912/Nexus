@@ -30,7 +30,10 @@
             <BodyTemplate>
                 <Table @ref="_table" TItem="StockBalanceRecord" OnQueryAsync="OnQueryAsync"
                        IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
-                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="false"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="140"
                        ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
                     <TableToolbarTemplate>
                         @if (Session.IsGranted(NexusPermissions.Inventory.Stock.Import))
@@ -38,7 +41,16 @@
                             <TableToolbarButton TItem="StockBalanceRecord" Color="Color.Primary" Icon="fa-solid fa-plus"
                                                 Text="Thêm mới" OnClickCallback="ShowImportAsync" />
                         }
+                        @if (Session.IsGranted(NexusPermissions.Inventory.Stock.Transfer))
+                        {
+                            <TableToolbarButton TItem="StockBalanceRecord" Color="Color.Info" Icon="fa-solid fa-right-left"
+                                                Text="Chuyển kho" OnClickCallback="ShowTransferAsync" />
+                        }
                     </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Secondary" Icon="fa-solid fa-clock-rotate-left" Text="Lịch sử"
+                                         OnClick="@(() => ShowHistoryAsync(context))" />
+                    </RowButtonTemplate>
                     <TableColumns>
                         <TableColumn @bind-Field="@context.WarehouseCode" Text="Kho" Sortable="true" Searchable="true" />
                         <TableColumn @bind-Field="@context.ProductCode" Text="Mã hàng" Sortable="true" Searchable="true">
@@ -90,6 +102,69 @@
     </ModalDialog>
 </Modal>
 
+<Modal @ref="_transferModal" IsBackdrop="true">
+    <ModalDialog Title="Chuyển kho" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <WarehouseLookupSelect Label="Kho nguồn" Required="true" @bind-Value="_transferFromWarehouse" />
+                <WarehouseLookupSelect Label="Kho đích" Required="true" @bind-Value="_transferToWarehouse" />
+                <ProductLookupSelect Label="Mã hàng" Required="true" @bind-Value="_transferProductCode" OnProductSelected="OnTransferProductSelected" />
+                <AppFormField Label="Tên hàng">
+                    <BootstrapInput @bind-Value="_transferProductName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Số lượng" Required="true">
+                    <BootstrapInputNumber @bind-Value="_transferQuantity" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Số chứng từ">
+                    <BootstrapInput @bind-Value="_transferSourceNo" ShowLabel="false" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseTransferAsync" />
+            <Button Text="Chuyển kho" Color="Color.Info" Icon="fa-solid fa-right-left" IsAsync="true" OnClick="TransferAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+<Modal @ref="_historyModal" IsBackdrop="true">
+    <ModalDialog Title="@_historyTitle" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            @if (_historyLoading)
+            {
+                <div class="app-loading">Đang tải lịch sử...</div>
+            }
+            else if (_movements.Count == 0)
+            {
+                <div class="app-empty-state">Chưa có lịch sử xuất/nhập cho mã hàng này.</div>
+            }
+            else
+            {
+                <table class="app-table">
+                    <thead>
+                        <tr><th>Thời điểm</th><th>Kho</th><th>Loại</th><th>Số lượng</th><th>Chứng từ</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in _movements)
+                        {
+                            <tr>
+                                <td>@m.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@m.WarehouseCode</td>
+                                <td><span class="@MovementCss(m.MovementType)">@MovementText(m.MovementType)</span></td>
+                                <td>@m.Quantity.ToString("N2")</td>
+                                <td>@m.SourceNo</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Đóng" Color="Color.Secondary" OnClick="CloseHistoryAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
 @code {
     private static readonly int[] PageItems = [10, 20, 50];
     private Table<StockBalanceRecord>? _table;
@@ -99,6 +174,19 @@
     private string _productName = "";
     private string _sourceNo = "Opening balance";
     private decimal _quantity = 100;
+
+    private Modal? _transferModal;
+    private string _transferFromWarehouse = "MAIN";
+    private string _transferToWarehouse = "";
+    private string _transferProductCode = "";
+    private string _transferProductName = "";
+    private decimal _transferQuantity = 1;
+    private string _transferSourceNo = "";
+
+    private Modal? _historyModal;
+    private string _historyTitle = "Lịch sử xuất/nhập";
+    private bool _historyLoading;
+    private List<StockMovementRecord> _movements = [];
 
     private async Task<QueryData<StockBalanceRecord>> OnQueryAsync(QueryPageOptions options)
     {
@@ -187,6 +275,104 @@
             await _table.QueryAsync();
         }
     }
+
+    private Task ShowTransferAsync(IEnumerable<StockBalanceRecord> _)
+    {
+        _transferFromWarehouse = "MAIN";
+        _transferToWarehouse = "";
+        _transferProductCode = "";
+        _transferProductName = "";
+        _transferQuantity = 1;
+        _transferSourceNo = "";
+        return _transferModal!.Show();
+    }
+
+    private Task CloseTransferAsync() => _transferModal!.Close();
+
+    private void OnTransferProductSelected(InventoryProductRecord? product)
+    {
+        if (product is not null)
+        {
+            _transferProductName = product.ProductName;
+        }
+    }
+
+    private async Task TransferAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_transferFromWarehouse) || string.IsNullOrWhiteSpace(_transferToWarehouse)
+            || string.IsNullOrWhiteSpace(_transferProductCode) || _transferQuantity <= 0)
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng chọn kho nguồn, kho đích, mã hàng và số lượng hợp lệ."));
+            return;
+        }
+
+        if (string.Equals(_transferFromWarehouse, _transferToWarehouse, StringComparison.OrdinalIgnoreCase))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Kho nguồn và kho đích phải khác nhau."));
+            return;
+        }
+
+        try
+        {
+            await Api.TransferStockAsync(new TransferStockRequest(tenantId, _transferFromWarehouse, _transferToWarehouse, _transferProductCode, _transferProductName, _transferQuantity, _transferSourceNo));
+            await ToastService.Success("Thành công", "Đã chuyển kho.");
+            await _transferModal!.Close();
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task ShowHistoryAsync(StockBalanceRecord item)
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        _historyTitle = $"Lịch sử xuất/nhập - {item.ProductCode} ({item.WarehouseCode})";
+        _movements = [];
+        _historyLoading = true;
+        await _historyModal!.Show();
+
+        try
+        {
+            _movements = (await Api.GetStockMovementsAsync(tenantId, item.ProductCode, item.WarehouseCode))?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+        finally
+        {
+            _historyLoading = false;
+        }
+    }
+
+    private Task CloseHistoryAsync() => _historyModal!.Close();
+
+    private static string MovementText(string type) => type switch
+    {
+        "IN" => "Nhập",
+        "OUT" => "Xuất",
+        "TRANSFER_IN" => "Chuyển đến",
+        "TRANSFER_OUT" => "Chuyển đi",
+        _ => type
+    };
+
+    private static string MovementCss(string type) => type switch
+    {
+        "IN" or "TRANSFER_IN" => "app-status-badge app-status-active",
+        "OUT" or "TRANSFER_OUT" => "app-status-badge app-status-danger",
+        _ => "app-status-badge app-status-muted"
+    };
 
     private static string AvailableCss(decimal value) =>
         value > 0 ? "app-status-badge app-status-active" : "app-status-badge app-status-danger";

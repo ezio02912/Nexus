@@ -58,6 +58,20 @@ public sealed record StockBalanceRecord
     public DateTimeOffset UpdatedAt { get; set; }
 }
 public sealed record ImportStockRequest(Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, string? SourceType, Guid? SourceId, string? SourceNo);
+public sealed record TransferStockRequest(Guid TenantId, string FromWarehouseCode, string ToWarehouseCode, string ProductCode, string? ProductName, decimal Quantity, string? SourceNo);
+public sealed record StockMovementRecord
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string WarehouseCode { get; set; } = "";
+    public string ProductCode { get; set; } = "";
+    public string MovementType { get; set; } = "";
+    public decimal Quantity { get; set; }
+    public string SourceType { get; set; } = "";
+    public Guid SourceId { get; set; }
+    public string SourceNo { get; set; } = "";
+    public DateTimeOffset OccurredAt { get; set; }
+}
 public sealed record InventoryProductRecord
 {
     public Guid Id { get; set; }

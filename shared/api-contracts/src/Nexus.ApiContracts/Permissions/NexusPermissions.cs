@@ -187,6 +187,7 @@ public static class NexusPermissions
             public const string Import = Default + ".Stock.Import";
             public const string Reserve = Default + ".Stock.Reserve";
             public const string Ship = Default + ".Stock.Ship";
+            public const string Transfer = Default + ".Stock.Transfer";
         }
 
         public static class Products
@@ -261,7 +262,7 @@ public static class NexusPermissions
         Sales.Orders.View, Sales.Orders.Create, Sales.Orders.Edit, Sales.Orders.Delete, Sales.Orders.Approve, Sales.Orders.Complete,
         Purchase.Suppliers.View, Purchase.Suppliers.Manage,
         Purchase.Orders.View, Purchase.Orders.Create, Purchase.Orders.Approve, Purchase.Orders.Receive,
-        Inventory.Stock.View, Inventory.Stock.Import, Inventory.Stock.Reserve, Inventory.Stock.Ship,
+        Inventory.Stock.View, Inventory.Stock.Import, Inventory.Stock.Reserve, Inventory.Stock.Ship, Inventory.Stock.Transfer,
         Inventory.Products.View, Inventory.Products.Manage,
         Inventory.Warehouses.View, Inventory.Warehouses.Manage,
         Files.View, Files.Upload, Files.Delete,

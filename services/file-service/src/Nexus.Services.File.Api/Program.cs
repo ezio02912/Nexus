@@ -151,10 +151,10 @@ app.MapGet("/api/file-links", async (FileDbContext db, string module, string ent
 {
     var links = await db.FileLinks
         .Where(x => x.Module == module && x.EntityType == entityType && x.EntityId == entityId)
+        .OrderByDescending(link => link.CreatedAt)
         .Join(db.Files, link => link.FileId, file => file.Id, (link, file) => new FileLinkWithFileDto(
             link.Id, link.FileId, link.Module, link.EntityType, link.EntityId, link.CreatedAt,
             file.FileName, file.ContentType, file.Size))
-        .OrderByDescending(x => x.CreatedAt)
         .ToArrayAsync(ct);
 
     return Results.Ok(links);

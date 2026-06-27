@@ -153,6 +153,20 @@ public sealed class StockBalance : NexusEntity<Guid>
         UpdatedAt = now;
     }
 
+    // Used by inter-warehouse transfer to remove quantity from the source warehouse.
+    // Only the available (unreserved) quantity can be moved out.
+    public void RemoveOnHand(decimal quantity, DateTimeOffset now)
+    {
+        quantity = EnsurePositive(quantity, nameof(quantity));
+        if (AvailableQuantity < quantity)
+        {
+            throw new InvalidOperationException($"Insufficient stock for product {ProductCode}.");
+        }
+
+        OnHandQuantity -= quantity;
+        UpdatedAt = now;
+    }
+
     public static string NormalizeCode(string value, int maxLength)
     {
         var normalized = value.Trim().ToUpperInvariant();

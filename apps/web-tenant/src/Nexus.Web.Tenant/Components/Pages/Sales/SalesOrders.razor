@@ -126,6 +126,10 @@
                 </AppFormField>
             </div>
             <div class="app-detail-grid mt-3">
+                <div>
+                    <span class="app-detail-label">Tồn khả dụng (@warehouseCode/@productCode)</span>
+                    <span class="@(CurrentAvailable >= quantity ? "app-status-badge app-status-active" : "app-status-badge app-status-danger")">@CurrentAvailable.ToString("N2")</span>
+                </div>
                 <div><span class="app-detail-label">Tạm tính</span><span>@LineSubtotal.ToString("N0")</span></div>
                 <div><span class="app-detail-label">Chiết khấu</span><span>@LineDiscountAmount.ToString("N0")</span></div>
                 <div><span class="app-detail-label">Thuế</span><span>@LineTaxAmount.ToString("N0")</span></div>
@@ -168,6 +172,7 @@
     private List<CustomerDto> customers = [];
     private List<InventoryProductRecord> products = [];
     private List<WarehouseRecord> warehouses = [];
+    private List<StockBalanceRecord> balances = [];
     private List<SalesOrderLineDraftModel> draftLines = [];
     private Modal? createModal;
     private bool isLoading;
@@ -216,9 +221,44 @@
         customers = (await CrmApi.GetCustomersAsync(new CustomerListQuery { MaxResultCount = 500 }))?.Items.ToList() ?? [];
         products = await LoadProductsAsync(tenantId);
         warehouses = await LoadWarehousesAsync(tenantId);
+        balances = await LoadBalancesAsync(tenantId);
         ApplyPrefillFromQuery();
         isLoading = false;
     }
+
+    private async Task<List<StockBalanceRecord>> LoadBalancesAsync(Guid tenantId)
+    {
+        if (!Session.HasModule("INVENTORY") || !Session.IsGranted(NexusPermissions.Inventory.Stock.View))
+        {
+            return [];
+        }
+
+        try
+        {
+            return (await Api.GetStockBalancesAsync(tenantId))?.ToList() ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    // Available quantity in the selected warehouse for a product, minus what is already
+    // staged in the current draft lines for the same warehouse + product.
+    private decimal AvailableFor(string warehouse, string product)
+    {
+        var normalizedWarehouse = (string.IsNullOrWhiteSpace(warehouse) ? "MAIN" : warehouse).Trim().ToUpperInvariant();
+        var normalizedProduct = (product ?? "").Trim().ToUpperInvariant();
+        var onHand = balances
+            .Where(x => x.WarehouseCode == normalizedWarehouse && x.ProductCode == normalizedProduct)
+            .Sum(x => x.AvailableQuantity);
+        var staged = draftLines
+            .Where(x => x.WarehouseCode == normalizedWarehouse && x.ProductCode == normalizedProduct)
+            .Sum(x => x.Quantity);
+        return onHand - staged;
+    }
+
+    private decimal CurrentAvailable => AvailableFor(warehouseCode, productCode);
 
     private async Task<List<InventoryProductRecord>> LoadProductsAsync(Guid tenantId)
     {
@@ -265,6 +305,29 @@
         var lines = draftLines.Count > 0
             ? draftLines.Select(x => new CreateSalesOrderLineRequest(x.WarehouseCode, x.ProductCode, x.Description, x.Quantity, x.UnitPrice, x.DiscountPercent, x.TaxPercent)).ToArray()
             : new[] { CurrentLineRequest() };
+
+        if (HasStockData)
+        {
+            // Aggregate requested quantity per warehouse + product and compare to on-hand availability.
+            var shortage = lines
+                .GroupBy(x => (Warehouse: (string.IsNullOrWhiteSpace(x.WarehouseCode) ? "MAIN" : x.WarehouseCode).Trim().ToUpperInvariant(),
+                               Product: x.ProductCode.Trim().ToUpperInvariant()))
+                .Select(g => new
+                {
+                    g.Key.Warehouse,
+                    g.Key.Product,
+                    Requested = g.Sum(x => x.Quantity),
+                    Available = balances.Where(b => b.WarehouseCode == g.Key.Warehouse && b.ProductCode == g.Key.Product).Sum(b => b.AvailableQuantity)
+                })
+                .FirstOrDefault(x => x.Requested > x.Available);
+
+            if (shortage is not null)
+            {
+                ShowError($"Không đủ tồn kho cho {shortage.Warehouse}/{shortage.Product}. Khả dụng {shortage.Available:N2}, cần {shortage.Requested:N2}.");
+                return;
+            }
+        }
+
         await Api.CreateSalesOrderAsync(new CreateSalesOrderRequest(tenantId, customerId, orderNo, sourceType, sourceId, sourceNo, lines));
         ShowSuccess("Đã tạo đơn bán hàng.");
         draftLines.Clear();
@@ -381,9 +444,18 @@
             return;
         }
 
+        if (HasStockData && CurrentAvailable < quantity)
+        {
+            ShowError($"Không đủ tồn kho cho {warehouseCode}/{productCode}. Khả dụng {CurrentAvailable:N2}, cần {quantity:N2}.");
+            return;
+        }
+
         draftLines.Add(SalesOrderLineDraftModel.FromRequest(CurrentLineRequest()));
         ShowSuccess($"Đã thêm dòng hàng. Tổng tạm tạo: {DraftTotal.ToString("N0")}");
     }
+
+    // Only enforce the client-side block when we actually loaded stock data for this tenant.
+    private bool HasStockData => balances.Count > 0;
 
     private void RemoveLine(Guid id)
     {

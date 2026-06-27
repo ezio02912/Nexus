@@ -126,6 +126,25 @@ public sealed class TenantPortalApiClient
     public Task<StockBalanceRecord?> ImportStockAsync(ImportStockRequest request) =>
         PostAsync<StockBalanceRecord>(_options.Inventory, "/api/inventory/stock/import", request);
 
+    public Task<StockBalanceRecord?> TransferStockAsync(TransferStockRequest request) =>
+        PostAsync<StockBalanceRecord>(_options.Inventory, "/api/inventory/transfers", request);
+
+    public Task<IReadOnlyList<StockMovementRecord>?> GetStockMovementsAsync(Guid tenantId, string? productCode = null, string? warehouseCode = null)
+    {
+        var path = $"/api/inventory/movements?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(productCode))
+        {
+            path += $"&productCode={Uri.EscapeDataString(productCode)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(warehouseCode))
+        {
+            path += $"&warehouseCode={Uri.EscapeDataString(warehouseCode)}";
+        }
+
+        return GetAsync<IReadOnlyList<StockMovementRecord>>(_options.Inventory, path);
+    }
+
     public Task<IReadOnlyList<InventoryProductRecord>?> GetInventoryProductsAsync(Guid tenantId, string? search = null)
     {
         var path = $"/api/inventory/products?tenantId={tenantId}";

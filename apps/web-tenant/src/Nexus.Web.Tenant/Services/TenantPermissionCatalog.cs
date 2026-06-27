@@ -88,7 +88,8 @@ public static class TenantPermissionCatalog
                 Action(NexusPermissions.Inventory.Stock.View, "Xem"),
                 Action(NexusPermissions.Inventory.Stock.Import, "Nhập kho"),
                 Action(NexusPermissions.Inventory.Stock.Reserve, "Giữ hàng"),
-                Action(NexusPermissions.Inventory.Stock.Ship, "Xuất kho")
+                Action(NexusPermissions.Inventory.Stock.Ship, "Xuất kho"),
+                Action(NexusPermissions.Inventory.Stock.Transfer, "Chuyển kho")
             ]),
             Menu("Sản phẩm", [
                 Action(NexusPermissions.Inventory.Products.View, "Xem"),

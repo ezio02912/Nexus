@@ -161,6 +161,102 @@ app.MapPost("/api/inventory/stock/import", async (ImportStockDto input, Inventor
     return Results.Ok(new StockBalanceDto(balance.Id, balance.TenantId, balance.WarehouseCode, balance.ProductCode, balance.ProductName, balance.OnHandQuantity, balance.ReservedQuantity, balance.AvailableQuantity, balance.UpdatedAt));
 });
 
+app.MapGet("/api/inventory/movements", async (InventoryDbContext db, Guid tenantId, string? productCode = null, string? warehouseCode = null, DateTimeOffset? from = null, DateTimeOffset? to = null, int maxResultCount = 200, CancellationToken ct = default) =>
+{
+    var query = db.StockMovements.Where(x => x.TenantId == tenantId);
+    if (!string.IsNullOrWhiteSpace(productCode))
+    {
+        var normalizedProduct = StockBalance.NormalizeCode(productCode, 64);
+        query = query.Where(x => x.ProductCode == normalizedProduct);
+    }
+
+    if (!string.IsNullOrWhiteSpace(warehouseCode))
+    {
+        var normalizedWarehouse = StockBalance.NormalizeCode(warehouseCode, 64);
+        query = query.Where(x => x.WarehouseCode == normalizedWarehouse);
+    }
+
+    if (from.HasValue)
+    {
+        query = query.Where(x => x.OccurredAt >= from.Value);
+    }
+
+    if (to.HasValue)
+    {
+        query = query.Where(x => x.OccurredAt <= to.Value);
+    }
+
+    var items = await query
+        .OrderByDescending(x => x.OccurredAt)
+        .Take(Math.Clamp(maxResultCount, 1, 1000))
+        .Select(x => new StockMovementDto(
+            x.Id,
+            x.TenantId,
+            x.WarehouseCode,
+            x.ProductCode,
+            x.MovementType,
+            x.Quantity,
+            x.SourceType,
+            x.SourceId,
+            x.SourceNo,
+            x.OccurredAt))
+        .ToArrayAsync(ct);
+
+    return Results.Ok(items);
+});
+
+app.MapPost("/api/inventory/transfers", async (TransferStockDto input, InventoryDbContext db, CancellationToken ct) =>
+{
+    var fromWarehouse = StockBalance.NormalizeCode(string.IsNullOrWhiteSpace(input.FromWarehouseCode) ? "MAIN" : input.FromWarehouseCode, 64);
+    var toWarehouse = StockBalance.NormalizeCode(string.IsNullOrWhiteSpace(input.ToWarehouseCode) ? "MAIN" : input.ToWarehouseCode, 64);
+    var productCode = StockBalance.NormalizeCode(input.ProductCode, 64);
+
+    if (input.Quantity <= 0)
+    {
+        return Results.Conflict(new { Code = "Inventory:InvalidQuantity", Message = "Số lượng chuyển phải lớn hơn 0." });
+    }
+
+    if (fromWarehouse == toWarehouse)
+    {
+        return Results.Conflict(new { Code = "Inventory:SameWarehouse", Message = "Kho nguồn và kho đích phải khác nhau." });
+    }
+
+    var source = await FindBalanceAsync(db, input.TenantId, fromWarehouse, productCode, ct);
+    if (source is null || source.AvailableQuantity < input.Quantity)
+    {
+        var available = source?.AvailableQuantity ?? 0;
+        return Results.Conflict(new
+        {
+            Code = "Inventory:InsufficientStock",
+            Message = $"Không đủ tồn kho tại {fromWarehouse}/{productCode}. Khả dụng {available:N2}, cần {input.Quantity:N2}."
+        });
+    }
+
+    var now = DateTimeOffset.UtcNow;
+    var productName = string.IsNullOrWhiteSpace(input.ProductName) ? source.ProductName : input.ProductName;
+    var sourceNo = string.IsNullOrWhiteSpace(input.SourceNo) ? $"Chuyển kho {fromWarehouse} -> {toWarehouse}" : input.SourceNo!;
+
+    source.RemoveOnHand(input.Quantity, now);
+
+    var destination = await FindBalanceAsync(db, input.TenantId, toWarehouse, productCode, ct);
+    if (destination is null)
+    {
+        destination = new StockBalance(Guid.NewGuid(), input.TenantId, toWarehouse, productCode, productName);
+        await db.StockBalances.AddAsync(destination, ct);
+    }
+
+    destination.Import(input.Quantity, now);
+
+    await db.StockMovements.AddAsync(new StockMovement(
+        Guid.NewGuid(), input.TenantId, fromWarehouse, productCode, "TRANSFER_OUT", input.Quantity, "TRANSFER", Guid.Empty, sourceNo, now), ct);
+    await db.StockMovements.AddAsync(new StockMovement(
+        Guid.NewGuid(), input.TenantId, toWarehouse, productCode, "TRANSFER_IN", input.Quantity, "TRANSFER", Guid.Empty, sourceNo, now), ct);
+
+    await db.SaveChangesAsync(ct);
+
+    return Results.Ok(new StockBalanceDto(source.Id, source.TenantId, source.WarehouseCode, source.ProductCode, source.ProductName, source.OnHandQuantity, source.ReservedQuantity, source.AvailableQuantity, source.UpdatedAt));
+});
+
 app.MapPost("/api/inventory/reservations", async (ReserveStockDto input, InventoryDbContext db, CancellationToken ct) =>
 {
     var sourceType = StockBalance.NormalizeCode(input.SourceType, 32);
@@ -319,6 +415,8 @@ static StockReservationDto ToReservationDto(StockReservation reservation)
 }
 
 public sealed record StockBalanceDto(Guid Id, Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal OnHandQuantity, decimal ReservedQuantity, decimal AvailableQuantity, DateTimeOffset UpdatedAt);
+public sealed record StockMovementDto(Guid Id, Guid TenantId, string WarehouseCode, string ProductCode, string MovementType, decimal Quantity, string SourceType, Guid SourceId, string SourceNo, DateTimeOffset OccurredAt);
+public sealed record TransferStockDto(Guid TenantId, string FromWarehouseCode, string ToWarehouseCode, string ProductCode, string? ProductName, decimal Quantity, string? SourceNo);
 public sealed record ImportStockDto(Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, string? SourceType, Guid? SourceId, string? SourceNo);
 public sealed record ProductDto(Guid Id, Guid TenantId, string ProductCode, string ProductName, string Unit, string Category, decimal Price, decimal TaxPercent, bool IsActive, string Attributes, string Variants, DateTimeOffset UpdatedAt);
 public sealed record UpsertProductDto(Guid TenantId, string ProductCode, string ProductName, string Unit, string? Category, decimal Price, decimal TaxPercent, bool IsActive, string? Attributes, string? Variants);

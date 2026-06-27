@@ -2,7 +2,22 @@
 -- Migrates from MVP schema (created_at) to FullAudited schema (creation_time + audit columns)
 
 -- Customers expansion
-ALTER TABLE customers RENAME COLUMN created_at TO creation_time;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'created_at'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'creation_time'
+    ) THEN
+        ALTER TABLE customers RENAME COLUMN created_at TO creation_time;
+    END IF;
+END $$;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS creation_time timestamptz NOT NULL DEFAULT now();
+ALTER TABLE customers ALTER COLUMN creation_time SET DEFAULT now();
+UPDATE customers SET creation_time = now() WHERE creation_time IS NULL;
+ALTER TABLE customers ALTER COLUMN creation_time SET NOT NULL;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_type varchar(32) NOT NULL DEFAULT 'Company';
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_code varchar(32) NULL;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS website varchar(256) NULL;
@@ -28,7 +43,22 @@ CREATE INDEX IF NOT EXISTS ix_customers_tenant_tax_code ON customers (tenant_id,
 CREATE INDEX IF NOT EXISTS ix_customers_tenant_owner ON customers (tenant_id, owner_id) WHERE owner_id IS NOT NULL;
 
 -- Contacts expansion
-ALTER TABLE contacts RENAME COLUMN created_at TO creation_time;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'contacts' AND column_name = 'created_at'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'contacts' AND column_name = 'creation_time'
+    ) THEN
+        ALTER TABLE contacts RENAME COLUMN created_at TO creation_time;
+    END IF;
+END $$;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS creation_time timestamptz NOT NULL DEFAULT now();
+ALTER TABLE contacts ALTER COLUMN creation_time SET DEFAULT now();
+UPDATE contacts SET creation_time = now() WHERE creation_time IS NULL;
+ALTER TABLE contacts ALTER COLUMN creation_time SET NOT NULL;
 ALTER TABLE contacts ADD COLUMN IF NOT EXISTS mobile varchar(64) NULL;
 ALTER TABLE contacts ADD COLUMN IF NOT EXISTS department varchar(128) NULL;
 ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_primary boolean NOT NULL DEFAULT false;
@@ -45,7 +75,22 @@ ALTER TABLE contacts ADD COLUMN IF NOT EXISTS deleter_id uuid NULL;
 ALTER TABLE contacts ADD COLUMN IF NOT EXISTS concurrency_stamp varchar(64) NOT NULL DEFAULT '';
 
 -- Leads expansion
-ALTER TABLE leads RENAME COLUMN created_at TO creation_time;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'leads' AND column_name = 'created_at'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'leads' AND column_name = 'creation_time'
+    ) THEN
+        ALTER TABLE leads RENAME COLUMN created_at TO creation_time;
+    END IF;
+END $$;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS creation_time timestamptz NOT NULL DEFAULT now();
+ALTER TABLE leads ALTER COLUMN creation_time SET DEFAULT now();
+UPDATE leads SET creation_time = now() WHERE creation_time IS NULL;
+ALTER TABLE leads ALTER COLUMN creation_time SET NOT NULL;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS title varchar(128) NULL;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_score int NOT NULL DEFAULT 0;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS rating varchar(16) NULL;
@@ -68,7 +113,22 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS deleter_id uuid NULL;
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS concurrency_stamp varchar(64) NOT NULL DEFAULT '';
 
 -- Opportunities expansion
-ALTER TABLE opportunities RENAME COLUMN created_at TO creation_time;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'opportunities' AND column_name = 'created_at'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'opportunities' AND column_name = 'creation_time'
+    ) THEN
+        ALTER TABLE opportunities RENAME COLUMN created_at TO creation_time;
+    END IF;
+END $$;
+ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS creation_time timestamptz NOT NULL DEFAULT now();
+ALTER TABLE opportunities ALTER COLUMN creation_time SET DEFAULT now();
+UPDATE opportunities SET creation_time = now() WHERE creation_time IS NULL;
+ALTER TABLE opportunities ALTER COLUMN creation_time SET NOT NULL;
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS lead_id uuid NULL;
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS contact_id uuid NULL;
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS owner_id uuid NULL;
@@ -91,7 +151,22 @@ ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS deleter_id uuid NULL;
 ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS concurrency_stamp varchar(64) NOT NULL DEFAULT '';
 
 -- Quotations expansion
-ALTER TABLE quotations RENAME COLUMN created_at TO creation_time;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'quotations' AND column_name = 'created_at'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'quotations' AND column_name = 'creation_time'
+    ) THEN
+        ALTER TABLE quotations RENAME COLUMN created_at TO creation_time;
+    END IF;
+END $$;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS creation_time timestamptz NOT NULL DEFAULT now();
+ALTER TABLE quotations ALTER COLUMN creation_time SET DEFAULT now();
+UPDATE quotations SET creation_time = now() WHERE creation_time IS NULL;
+ALTER TABLE quotations ALTER COLUMN creation_time SET NOT NULL;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS opportunity_id uuid NULL;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS contact_id uuid NULL;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS owner_id uuid NULL;
@@ -135,7 +210,22 @@ CREATE TABLE IF NOT EXISTS quotation_lines (
 CREATE INDEX IF NOT EXISTS ix_quotation_lines_quotation ON quotation_lines (quotation_id);
 
 -- Contracts expansion
-ALTER TABLE contracts RENAME COLUMN created_at TO creation_time;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'contracts' AND column_name = 'created_at'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'contracts' AND column_name = 'creation_time'
+    ) THEN
+        ALTER TABLE contracts RENAME COLUMN created_at TO creation_time;
+    END IF;
+END $$;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS creation_time timestamptz NOT NULL DEFAULT now();
+ALTER TABLE contracts ALTER COLUMN creation_time SET DEFAULT now();
+UPDATE contracts SET creation_time = now() WHERE creation_time IS NULL;
+ALTER TABLE contracts ALTER COLUMN creation_time SET NOT NULL;
 ALTER TABLE contracts ADD COLUMN IF NOT EXISTS quotation_id uuid NULL;
 ALTER TABLE contracts ADD COLUMN IF NOT EXISTS opportunity_id uuid NULL;
 ALTER TABLE contracts ADD COLUMN IF NOT EXISTS contact_id uuid NULL;

@@ -486,6 +486,14 @@ public sealed record CreateContractRequest(
     Guid? OpportunityId,
     Guid? ContactId,
     decimal ContractValue,
+    string Currency,
+    DateOnly? StartDate,
+    DateOnly? EndDate,
+    DateOnly? RenewalDate,
+    string? PaymentTerms,
+    string? Notes,
+    string? Terms,
+    Guid? FileId,
     Guid? OwnerId,
     IReadOnlyList<CreateContractLineRequest> Lines);
 

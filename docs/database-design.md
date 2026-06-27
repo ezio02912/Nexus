@@ -44,5 +44,16 @@ cd /Users/user/Documents/Nexus
 
 Script hiện apply:
 
-- `services/tenant-service/migrations/*.sql` vào `tenant_db`
-- `services/identity-service/migrations/*.sql` vào `identity_db`
+- EF migrations cho Identity, Tenant, Permission, Audit, File, Notification, Workflow và Numbering.
+- `services/crm-service/migrations/*.sql` vào `crm_db`
+- `services/sales-service/migrations/*.sql` vào `sales_db`
+- `services/inventory-service/migrations/*.sql` vào `inventory_db`
+- `services/purchase-service/migrations/*.sql` vào `purchase_db`
+
+## Business data boundaries
+
+- CRM giữ customer/contact/lead/opportunity/quotation/contract.
+- Sales snapshot customer id và source document info từ CRM, không đọc trực tiếp database CRM.
+- Inventory giữ product/warehouse/stock balance/reservation/movement. Sales và Purchase cập nhật tồn qua API Inventory.
+- Purchase giữ supplier/PO/goods receipt. Khi receive PO, Purchase gọi Inventory import với source `PURCHASE_RECEIPT`.
+- Accounting/Invoice giai đoạn sau sẽ đọc theo event/API source document, không join trực tiếp database Sales/Purchase.

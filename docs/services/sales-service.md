@@ -6,10 +6,15 @@
 - Chính sách giá, chiết khấu.
 - Giao hàng và trạng thái hoàn tất đơn.
 
-## Data dự kiến
+## Data hiện tại
 
 - SalesOrders
 - SalesOrderLines
+- Source trace fields
+- Delivery and inventory reservation status fields
+
+## Data dự kiến
+
 - PricePolicies
 - Discounts
 - Deliveries
@@ -17,13 +22,21 @@
 ## API hiện tại
 
 - `GET /api/sales/orders?tenantId={tenantId}&search={search}`
+- `GET /api/sales/orders/{id}?tenantId={tenantId}`
 - `POST /api/sales/orders`
 - `POST /api/sales/orders/{id}/approve`
+- `POST /api/sales/orders/{id}/deliver`
 - `POST /api/sales/orders/{id}/complete`
 
 ## Migration
 
-- SQL migration: `services/sales-service/migrations/001_create_sales_core.sql`
+- SQL migrations:
+  - `services/sales-service/migrations/001_create_sales_core.sql`
+  - `services/sales-service/migrations/002_add_sales_order_source_trace.sql`
+  - `services/sales-service/migrations/003_add_sales_order_delivery_status.sql`
+  - `services/sales-service/migrations/004_add_sales_order_inventory_reservation.sql`
+  - `services/sales-service/migrations/005_add_sales_order_pricing_fields.sql`
+  - `services/sales-service/migrations/006_add_sales_order_line_warehouse.sql`
 - Database: `sales_db`
 - Local port: `http://localhost:7209`
 - Runtime persistence: PostgreSQL via EF Core `SalesDbContext`
@@ -42,10 +55,11 @@
 - Sales Orders search dùng `lowercase + trim + contains` trên số đơn, nguồn, trạng thái, mã hàng và mô tả dòng hàng.
 - Sales Order detail hiển thị dòng hàng, chứng từ nguồn, trạng thái giữ hàng và trạng thái giao hàng.
 - Approve Sales Order gọi Inventory reservation; Deliver/Complete gọi Inventory shipment.
-- Inventory hiện có product/warehouse catalog nền tảng; Sales reservation vẫn dùng kho mặc định `MAIN`.
+- Sales reservation truyền warehouse theo từng dòng hàng; nếu request cũ không có kho thì fallback về `MAIN`.
 - Sales Order line đã có pricing fields: subtotal, discount percent/amount, tax percent/amount và line total.
 - Sales Orders form có thể chọn nhanh product từ Inventory catalog để lấy mã hàng, tên hàng, giá và thuế.
-- Bước tiếp theo: chuyển warehouse từ mặc định `MAIN` sang lựa chọn kho trên từng dòng hàng và hỗ trợ nhiều dòng trong form.
+- Sales Orders form hỗ trợ thêm nhiều dòng hàng trước khi tạo đơn, mỗi dòng có warehouse riêng.
+- Bước tiếp theo: invoice từ Sales Order và receivable/payment ở Accounting.
 
 ## Events
 

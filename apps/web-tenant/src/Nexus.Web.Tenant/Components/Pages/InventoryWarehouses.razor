@@ -1,0 +1,203 @@
+@page "/inventory/warehouses"
+@attribute [TabItemOption(Text = "Kho hàng", Icon = "fa-solid fa-warehouse")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject SwalService SwalService
+@inject ToastService ToastService
+
+<PageTitle>Kho hàng</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Kho</p>
+            <h1>Kho hàng</h1>
+            <p>Quản lý danh mục kho theo tenant.</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("INVENTORY"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Kho.</div>
+    }
+    else if (!Session.IsGranted(NexusPermissions.Inventory.Warehouses.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem kho hàng.</div>
+    }
+    else
+    {
+        <Card HeaderText="Danh mục kho" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="WarehouseRecord" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="120"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        @if (Session.IsGranted(NexusPermissions.Inventory.Warehouses.Manage))
+                        {
+                            <TableToolbarButton TItem="WarehouseRecord" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                                Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        @if (Session.IsGranted(NexusPermissions.Inventory.Warehouses.Manage))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                             OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.WarehouseCode" Text="Mã kho" Sortable="true" Searchable="true">
+                            <Template Context="v"><span class="app-table-link-code">@v.Row.WarehouseCode</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Name" Text="Tên kho" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Location" Text="Vị trí" Searchable="true">
+                            <Template Context="v">@(string.IsNullOrWhiteSpace(v.Row.Location) ? "-" : v.Row.Location)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.IsActive" Text="Trạng thái">
+                            <Template Context="v">
+                                <span class="@ActiveCss(v.Row.IsActive)">@(v.Row.IsActive ? "Hoạt động" : "Tạm ngưng")</span>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.UpdatedAt" Text="Cập nhật" Sortable="true">
+                            <Template Context="v">@v.Row.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_dialogTitle" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Mã kho" Required="true">
+                    <BootstrapInput @bind-Value="_warehouseFormCode" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Tên kho" Required="true">
+                    <BootstrapInput @bind-Value="_warehouseName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Vị trí">
+                    <BootstrapInput @bind-Value="_warehouseLocation" ShowLabel="false" />
+                </AppFormField>
+                <div class="app-form-field">
+                    <Checkbox @bind-Value="_warehouseIsActive" DisplayText="Đang hoạt động" />
+                </div>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu kho" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="SaveWarehouseAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<WarehouseRecord>? _table;
+    private Modal? _editModal;
+    private string _dialogTitle = "Thêm kho";
+    private string _warehouseFormCode = "";
+    private string _warehouseName = "";
+    private string _warehouseLocation = "";
+    private bool _warehouseIsActive = true;
+
+    private async Task<QueryData<WarehouseRecord>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("INVENTORY") || !Session.IsGranted(NexusPermissions.Inventory.Warehouses.View))
+        {
+            return new QueryData<WarehouseRecord> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var all = (await Api.GetWarehousesAsync(tenantId, options.SearchText))?.ToList() ?? [];
+            var items = all.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+            return new QueryData<WarehouseRecord>
+            {
+                Items = items,
+                TotalCount = all.Count,
+                IsFiltered = !string.IsNullOrEmpty(options.SearchText),
+                IsSearch = !string.IsNullOrEmpty(options.SearchText)
+            };
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            return new QueryData<WarehouseRecord> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private Task ShowCreateAsync(IEnumerable<WarehouseRecord> _)
+    {
+        _dialogTitle = "Thêm kho";
+        _warehouseFormCode = "";
+        _warehouseName = "";
+        _warehouseLocation = "";
+        _warehouseIsActive = true;
+        return _editModal!.Show();
+    }
+
+    private Task ShowEditAsync(WarehouseRecord item)
+    {
+        _dialogTitle = $"Sửa kho {item.WarehouseCode}";
+        _warehouseFormCode = item.WarehouseCode;
+        _warehouseName = item.Name;
+        _warehouseLocation = item.Location;
+        _warehouseIsActive = item.IsActive;
+        return _editModal!.Show();
+    }
+
+    private Task CloseModalAsync() => _editModal!.Close();
+
+    private async Task SaveWarehouseAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_warehouseFormCode) || string.IsNullOrWhiteSpace(_warehouseName))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập mã kho và tên kho."));
+            return;
+        }
+
+        try
+        {
+            await Api.UpsertWarehouseAsync(new UpsertWarehouseRequest(tenantId, _warehouseFormCode, _warehouseName, _warehouseLocation, _warehouseIsActive));
+            await ToastService.Success("Thành công", "Đã lưu kho.");
+            await _editModal!.Close();
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task ReloadTableAsync()
+    {
+        if (_table is not null)
+        {
+            await _table.QueryAsync();
+        }
+    }
+
+    private static string ActiveCss(bool value) =>
+        value ? "app-status-badge app-status-active" : "app-status-badge app-status-muted";
+
+    private Task ShowErrorAsync(Exception ex) =>
+        SwalService.Show(new SwalOption
+        {
+            Category = SwalCategory.Error,
+            Title = "Đã xảy ra lỗi",
+            Content = ex.Message,
+            CloseButtonText = "Đóng"
+        });
+}

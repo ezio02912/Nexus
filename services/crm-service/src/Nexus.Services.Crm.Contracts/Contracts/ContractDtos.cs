@@ -19,6 +19,14 @@ public sealed class CreateContractDto
     public Guid? OpportunityId { get; init; }
     public Guid? ContactId { get; init; }
     public decimal ContractValue { get; init; }
+    public string Currency { get; init; } = "VND";
+    public DateOnly? StartDate { get; init; }
+    public DateOnly? EndDate { get; init; }
+    public DateOnly? RenewalDate { get; init; }
+    public string? PaymentTerms { get; init; }
+    public string? Notes { get; init; }
+    public string? Terms { get; init; }
+    public Guid? FileId { get; init; }
     public Guid? OwnerId { get; init; }
     public IReadOnlyList<CreateContractLineDto> Lines { get; init; } = [];
 }

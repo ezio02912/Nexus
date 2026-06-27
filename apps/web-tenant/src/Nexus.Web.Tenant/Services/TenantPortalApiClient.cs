@@ -154,6 +154,43 @@ public sealed class TenantPortalApiClient
     public Task<WarehouseRecord?> UpsertWarehouseAsync(UpsertWarehouseRequest request) =>
         PostAsync<WarehouseRecord>(_options.Inventory, "/api/inventory/warehouses", request);
 
+    public Task<IReadOnlyList<SupplierRecord>?> GetSuppliersAsync(Guid tenantId, string? search = null)
+    {
+        var path = $"/api/purchase/suppliers?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            path += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        return GetAsync<IReadOnlyList<SupplierRecord>>(_options.Purchase, path);
+    }
+
+    public Task<SupplierRecord?> UpsertSupplierAsync(UpsertSupplierRequest request) =>
+        PostAsync<SupplierRecord>(_options.Purchase, "/api/purchase/suppliers", request);
+
+    public Task<IReadOnlyList<PurchaseOrderRecord>?> GetPurchaseOrdersAsync(Guid tenantId, string? search = null)
+    {
+        var path = $"/api/purchase/orders?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            path += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        return GetAsync<IReadOnlyList<PurchaseOrderRecord>>(_options.Purchase, path);
+    }
+
+    public Task<PurchaseOrderRecord?> CreatePurchaseOrderAsync(CreatePurchaseOrderRequest request) =>
+        PostAsync<PurchaseOrderRecord>(_options.Purchase, "/api/purchase/orders", request);
+
+    public Task<PurchaseOrderRecord?> ApprovePurchaseOrderAsync(Guid id) =>
+        PostAsync<PurchaseOrderRecord>(_options.Purchase, $"/api/purchase/orders/{id}/approve", new { });
+
+    public Task<PurchaseOrderRecord?> ReceivePurchaseOrderAsync(Guid id, ReceivePurchaseOrderRequest request) =>
+        PostAsync<PurchaseOrderRecord>(_options.Purchase, $"/api/purchase/orders/{id}/receive", request);
+
+    public Task<IReadOnlyList<GoodsReceiptRecord>?> GetGoodsReceiptsAsync(Guid tenantId) =>
+        GetAsync<IReadOnlyList<GoodsReceiptRecord>>(_options.Purchase, $"/api/purchase/goods-receipts?tenantId={tenantId}");
+
     public Task<IReadOnlyList<SubscriptionPlanDto>?> GetSubscriptionPlansAsync() =>
         GetAsync<IReadOnlyList<SubscriptionPlanDto>>(_options.Tenant, "/api/subscription-plans/");
 
@@ -217,7 +254,7 @@ public sealed class TenantPortalApiClient
             return default;
         }
 
-        if (response.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Conflict)
+        if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(await ReadErrorMessageAsync(response));
         }
@@ -246,7 +283,7 @@ public sealed class TenantPortalApiClient
             // Fall through to the generic message when the body is not JSON.
         }
 
-        return "Yêu cầu không thực hiện được. Vui lòng thử lại.";
+        return $"Yêu cầu không thực hiện được ({(int)response.StatusCode} {response.StatusCode}). Vui lòng kiểm tra service/API gateway.";
     }
 
     private static string? TranslateErrorCode(string code) => code switch

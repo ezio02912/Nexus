@@ -18,14 +18,18 @@
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Bảng điều khiển</NavLink>
         </div>
 
-        @foreach (var module in TenantModuleMenus.GetEnabledModules(Session.HasModule, Session.IsGranted))
+        @foreach (var group in TenantModuleMenus.GetEnabledGroups(Session.HasModule, Session.IsGranted))
         {
-            <div class="nav-section">@module.Title</div>
-            @foreach (var item in module.Items)
+            <div class="nav-section">@group.Title</div>
+            @foreach (var module in group.Modules)
             {
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="@item.Url">@item.Text</NavLink>
-                </div>
+                <div class="nav-subsection px-3"><i class="@module.Icon me-2"></i>@module.Title</div>
+                @foreach (var item in module.Items)
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="@item.Url">@item.Text</NavLink>
+                    </div>
+                }
             }
         }
 

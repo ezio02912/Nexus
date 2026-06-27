@@ -95,9 +95,14 @@ masterData.MapGet("/admin/items", async (string? category, MasterDataDbContext d
 
 masterData.MapPost("/admin/items", async (CreateLookupItemDto input, MasterDataDbContext db, CancellationToken ct) =>
 {
+    if (string.IsNullOrWhiteSpace(input.Category) || string.IsNullOrWhiteSpace(input.Code) || string.IsNullOrWhiteSpace(input.Name))
+    {
+        return Results.BadRequest(new { Message = "Vui lòng nhập danh mục, mã và tên hiển thị." });
+    }
+
     if (!MasterDataCategories.IsValid(input.Category))
     {
-        return Results.BadRequest(new { Message = "Danh mục không hợp lệ." });
+        return Results.BadRequest(new { Message = $"Danh mục '{input.Category}' không hợp lệ. Hãy restart MasterData service nếu vừa thêm danh mục mới." });
     }
 
     var code = input.Code.Trim().ToUpperInvariant();
@@ -115,6 +120,11 @@ masterData.MapPost("/admin/items", async (CreateLookupItemDto input, MasterDataD
 
 masterData.MapPut("/admin/items/{id:guid}", async (Guid id, UpdateLookupItemDto input, MasterDataDbContext db, CancellationToken ct) =>
 {
+    if (string.IsNullOrWhiteSpace(input.Code) || string.IsNullOrWhiteSpace(input.Name))
+    {
+        return Results.BadRequest(new { Message = "Vui lòng nhập mã và tên hiển thị." });
+    }
+
     var item = await db.LookupItems.FirstOrDefaultAsync(x => x.Id == id, ct);
     if (item is null)
     {
@@ -150,11 +160,6 @@ app.Run();
 
 static async Task SeedLookupItemsAsync(MasterDataDbContext db)
 {
-    if (await db.LookupItems.AnyAsync())
-    {
-        return;
-    }
-
     var seeds = new List<LookupItem>
     {
         new(Guid.NewGuid(), MasterDataCategories.Industry, "IT", "Công nghệ thông tin", 1, true),
@@ -169,9 +174,42 @@ static async Task SeedLookupItemsAsync(MasterDataDbContext db)
         new(Guid.NewGuid(), MasterDataCategories.Source, "REF", "Giới thiệu", 2, true),
         new(Guid.NewGuid(), MasterDataCategories.Source, "ADS", "Quảng cáo", 3, true),
         new(Guid.NewGuid(), MasterDataCategories.Source, "EVT", "Sự kiện", 4, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "EA", "Cái", 1, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "BOX", "Hộp", 2, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "CTN", "Thùng", 3, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "SET", "Bộ", 4, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "KG", "Kilogram", 5, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "G", "Gram", 6, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "L", "Lít", 7, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "M", "Mét", 8, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "M2", "Mét vuông", 9, true),
+        new(Guid.NewGuid(), MasterDataCategories.Unit, "PAIR", "Đôi", 10, true),
+        new(Guid.NewGuid(), MasterDataCategories.ProductType, "GOODS", "Hàng hoá", 1, true),
+        new(Guid.NewGuid(), MasterDataCategories.ProductType, "SERVICE", "Dịch vụ", 2, true),
+        new(Guid.NewGuid(), MasterDataCategories.ProductType, "COMBO", "Combo/Bộ sản phẩm", 3, true),
+        new(Guid.NewGuid(), MasterDataCategories.ProductType, "MATERIAL", "Nguyên vật liệu", 4, true),
+        new(Guid.NewGuid(), MasterDataCategories.ProductType, "ASSET", "Tài sản", 5, true),
     };
 
-    await db.LookupItems.AddRangeAsync(seeds);
+    // Idempotent seed: only insert items whose (Category, Code) is not present yet,
+    // so new categories (e.g. Unit) are added even when the table already has data.
+    var existing = await db.LookupItems
+        .Select(x => new { x.Category, x.Code })
+        .ToListAsync();
+    var existingKeys = existing
+        .Select(x => $"{x.Category}|{x.Code}")
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    var missing = seeds
+        .Where(x => existingKeys.Add($"{x.Category}|{x.Code}"))
+        .ToList();
+
+    if (missing.Count == 0)
+    {
+        return;
+    }
+
+    await db.LookupItems.AddRangeAsync(missing);
     await db.SaveChangesAsync();
 }
 

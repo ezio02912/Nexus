@@ -11,7 +11,13 @@
             <h1>Người dùng</h1>
             <p>Tạo và quản lý người dùng trong tenant hiện tại.</p>
         </div>
-        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+        <div class="app-actions">
+            @if (Session.IsGranted(NexusPermissions.TenantAdmin.Users.Create))
+            {
+                <Button Text="Thêm người dùng" Color="Color.Primary" Icon="fa-solid fa-plus" OnClick="ShowCreateAsync" />
+            }
+            <Button Text="Tải lại" Color="Color.Secondary" Icon="fa-solid fa-rotate" OnClick="LoadAsync" />
+        </div>
     </header>
 
     @if (!Session.IsAuthenticated)
@@ -29,33 +35,7 @@
             <div class="@messageCss">@message</div>
         }
 
-        <div class="tenant-work-grid">
-            @if (Session.IsGranted(NexusPermissions.TenantAdmin.Users.Create))
-            {
-                <section class="app-card">
-                    <h2>Tạo người dùng</h2>
-                <div class="app-form-grid">
-                    <div>
-                        <label>Tên đăng nhập *</label>
-                        <input class="form-control" @bind="userName" />
-                    </div>
-                    <div>
-                        <label>Email *</label>
-                        <input class="form-control" @bind="email" />
-                    </div>
-                    <div>
-                        <label>Mật khẩu *</label>
-                        <input class="form-control" type="password" @bind="password" />
-                    </div>
-                    <div>
-                        <label>Vai trò</label>
-                        <input class="form-control" @bind="rolesText" />
-                    </div>
-                </div>
-                <Button Text="Tạo người dùng" Color="Color.Primary" OnClick="CreateAsync" />
-                </section>
-            }
-
+        <div class="tenant-work-grid tenant-work-grid-single">
             <section class="app-card app-card-wide">
                 <h2>Người dùng</h2>
                 @if (CurrentTenantUsers.Count == 0)
@@ -84,8 +64,34 @@
     }
 </section>
 
+<Modal @ref="_createModal" IsBackdrop="true">
+    <ModalDialog Title="Tạo người dùng" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Tên đăng nhập" Required="true">
+                    <BootstrapInput @bind-Value="userName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email" Required="true">
+                    <BootstrapInput @bind-Value="email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Mật khẩu" Required="true">
+                    <BootstrapPassword @bind-Value="password" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Vai trò">
+                    <BootstrapInput @bind-Value="rolesText" ShowLabel="false" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseCreateAsync" />
+            <Button Text="Tạo người dùng" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="CreateAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
 @code {
     private List<UserDto> users = [];
+    private Modal? _createModal;
     private string userName = "";
     private string email = "";
     private string password = "Password@123";
@@ -98,6 +104,17 @@
         : [];
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private Task ShowCreateAsync()
+    {
+        userName = "";
+        email = "";
+        password = "Password@123";
+        rolesText = "TenantAdmin";
+        return _createModal!.Show();
+    }
+
+    private Task CloseCreateAsync() => _createModal!.Close();
 
     private async Task LoadAsync()
     {
@@ -123,6 +140,7 @@
         userName = "";
         email = "";
         ShowSuccess("Đã tạo người dùng tenant.");
+        await _createModal!.Close();
         await LoadAsync();
     }
 

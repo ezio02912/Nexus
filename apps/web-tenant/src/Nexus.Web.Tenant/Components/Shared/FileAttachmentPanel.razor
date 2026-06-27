@@ -1,0 +1,260 @@
+@using Nexus.ApiContracts.Permissions
+@implements IAsyncDisposable
+@inject FileApiClient FileApi
+@inject TenantSessionService Session
+@inject ToastService ToastService
+@inject IJSRuntime JS
+
+@* Reusable document/attachment panel backed by the file-service generic file-links
+   (Module / EntityType / EntityId). Shows a warning when nothing is attached yet. *@
+<section class="app-card app-card-wide">
+    <div class="file-attachment-header">
+        <h3>@Title</h3>
+        @if (CanUpload)
+        {
+            <label class="btn btn-primary btn-sm file-attachment-upload @(_uploading ? "disabled" : "")">
+                <i class="fa-solid fa-upload"></i>
+                <span>@(_uploading ? "Đang tải lên..." : "Tải tài liệu")</span>
+                <InputFile OnChange="OnFileSelectedAsync" disabled="@_uploading" hidden multiple="false" />
+            </label>
+        }
+    </div>
+
+    @if (_loading)
+    {
+        <div class="app-loading"><Spinner Size="Size.Small" Color="Color.Primary" /><span class="app-loading-text">Đang tải...</span></div>
+    }
+    else if (_links.Count == 0)
+    {
+        <div class="app-alert app-alert-danger">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            @WarningText
+        </div>
+    }
+    else
+    {
+        <table class="app-table mt-2">
+            <thead><tr><th>Tên tệp</th><th>Loại</th><th>Kích thước</th><th>Ngày tải</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var link in _links)
+                {
+                    var current = link;
+                    <tr>
+                        <td>
+                            @if (IsImage(current.ContentType))
+                            {
+                                <button class="file-preview-button" type="button" @onclick="@(() => PreviewAsync(current))">
+                                    <i class="fa-solid fa-image"></i>
+                                    @current.FileName
+                                </button>
+                            }
+                            else
+                            {
+                                @current.FileName
+                            }
+                        </td>
+                        <td>@current.ContentType</td>
+                        <td>@FormatSize(current.Size)</td>
+                        <td>@current.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>
+                            <Button Text="Tải về" Size="Size.ExtraSmall" Color="Color.Secondary"
+                                    Icon="fa-solid fa-download" IsAsync="true"
+                                    OnClick="@(() => DownloadAsync(current))" />
+                            @if (CanDelete)
+                            {
+                                <Button Text="Xoá" Size="Size.ExtraSmall" Color="Color.Danger"
+                                        Icon="fa-solid fa-trash" IsAsync="true"
+                                        OnClick="@(() => DeleteAsync(current))" />
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<Modal @ref="_previewModal" IsBackdrop="true">
+    <ModalDialog Title="@(_previewFileName ?? "Xem trước ảnh")" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            @if (!string.IsNullOrWhiteSpace(_previewDataUrl))
+            {
+                <img class="file-image-preview" src="@_previewDataUrl" alt="@_previewFileName" />
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Đóng" Color="Color.Secondary" OnClick="ClosePreviewAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+@code {
+    private const long MaxFileSize = 20 * 1024 * 1024; // 20 MB
+
+    private List<FileLinkRecord> _links = [];
+    private bool _loading = true;
+    private bool _uploading;
+    private string? _loadedKey;
+    private IJSObjectReference? _module;
+    private Modal? _previewModal;
+    private string? _previewDataUrl;
+    private string? _previewFileName;
+
+    [Parameter, EditorRequired] public string Module { get; set; } = "";
+    [Parameter, EditorRequired] public string EntityType { get; set; } = "";
+    [Parameter, EditorRequired] public string EntityId { get; set; } = "";
+    [Parameter] public string Title { get; set; } = "Chứng từ đính kèm";
+    [Parameter] public string WarningText { get; set; } = "Chưa có chứng từ đính kèm. Vui lòng tải lên tài liệu liên quan.";
+
+    private bool CanView => Session.IsGranted(NexusPermissions.Files.View);
+    private bool CanUpload => Session.IsGranted(NexusPermissions.Files.Upload);
+    private bool CanDelete => Session.IsGranted(NexusPermissions.Files.Delete);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{Module}|{EntityType}|{EntityId}";
+        if (string.IsNullOrWhiteSpace(EntityId) || key == _loadedKey)
+        {
+            return;
+        }
+
+        _loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (!CanView || string.IsNullOrWhiteSpace(EntityId))
+        {
+            _links = [];
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            _links = (await FileApi.GetLinksAsync(Module, EntityType, EntityId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", $"Không tải được danh sách tệp: {ex.Message}");
+            _links = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null || string.IsNullOrWhiteSpace(EntityId))
+        {
+            return;
+        }
+
+        _uploading = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxFileSize);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+
+            var uploaded = await FileApi.UploadAsync(buffer, file.Name, file.ContentType);
+            if (uploaded is not null)
+            {
+                await FileApi.LinkAsync(uploaded.Id, Module, EntityType, EntityId);
+                await ToastService.Success("Thành công", "Đã tải lên tài liệu.");
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", $"Tải lên thất bại: {ex.Message}");
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task DownloadAsync(FileLinkRecord link)
+    {
+        try
+        {
+            var bytes = await FileApi.DownloadAsync(link.FileId);
+            _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/file-download.js");
+            await _module.InvokeVoidAsync("download", link.FileName, link.ContentType, Convert.ToBase64String(bytes));
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", $"Tải về thất bại: {ex.Message}");
+        }
+    }
+
+    private async Task PreviewAsync(FileLinkRecord link)
+    {
+        try
+        {
+            var bytes = await FileApi.DownloadAsync(link.FileId);
+            _previewDataUrl = $"data:{link.ContentType};base64,{Convert.ToBase64String(bytes)}";
+            _previewFileName = link.FileName;
+            await _previewModal!.Show();
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", $"Không xem trước được ảnh: {ex.Message}");
+        }
+    }
+
+    private Task ClosePreviewAsync() => _previewModal!.Close();
+
+    private async Task DeleteAsync(FileLinkRecord link)
+    {
+        try
+        {
+            await FileApi.DeleteAsync(link.FileId);
+            await ToastService.Success("Đã xoá", "Tệp đính kèm đã được xoá.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ToastService.Error("Lỗi", $"Xoá tệp thất bại: {ex.Message}");
+        }
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        double size = bytes;
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return $"{size:0.#} {units[unit]}";
+    }
+
+    private static bool IsImage(string? contentType) =>
+        contentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null)
+            {
+                await _module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit already gone.
+        }
+    }
+}

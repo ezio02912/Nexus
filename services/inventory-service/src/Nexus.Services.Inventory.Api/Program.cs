@@ -62,12 +62,14 @@ app.MapGet("/api/inventory/products", async (InventoryDbContext db, Guid tenantI
             x.ProductCode.ToLower().Contains(term)
             || x.ProductName.ToLower().Contains(term)
             || x.Category.ToLower().Contains(term)
-            || x.Unit.ToLower().Contains(term));
+            || x.Unit.ToLower().Contains(term)
+            || x.Attributes.ToLower().Contains(term)
+            || x.Variants.ToLower().Contains(term));
     }
 
     var items = await query
         .OrderBy(x => x.ProductCode)
-        .Select(x => new ProductDto(x.Id, x.TenantId, x.ProductCode, x.ProductName, x.Unit, x.Category, x.Price, x.TaxPercent, x.IsActive, x.UpdatedAt))
+        .Select(x => new ProductDto(x.Id, x.TenantId, x.ProductCode, x.ProductName, x.Unit, x.Category, x.Price, x.TaxPercent, x.IsActive, x.Attributes, x.Variants, x.UpdatedAt))
         .ToArrayAsync(ct);
 
     return Results.Ok(items);
@@ -80,16 +82,16 @@ app.MapPost("/api/inventory/products", async (UpsertProductDto input, InventoryD
     var product = await db.Products.SingleOrDefaultAsync(x => x.TenantId == input.TenantId && x.ProductCode == productCode, ct);
     if (product is null)
     {
-        product = new InventoryProduct(Guid.NewGuid(), input.TenantId, productCode, input.ProductName, input.Unit, input.Category, input.Price, input.TaxPercent, input.IsActive, now);
+        product = new InventoryProduct(Guid.NewGuid(), input.TenantId, productCode, input.ProductName, input.Unit, input.Category, input.Price, input.TaxPercent, input.IsActive, input.Attributes, input.Variants, now);
         await db.Products.AddAsync(product, ct);
     }
     else
     {
-        product.Update(input.ProductName, input.Unit, input.Category, input.Price, input.TaxPercent, input.IsActive, now);
+        product.Update(input.ProductName, input.Unit, input.Category, input.Price, input.TaxPercent, input.IsActive, input.Attributes, input.Variants, now);
     }
 
     await db.SaveChangesAsync(ct);
-    return Results.Ok(new ProductDto(product.Id, product.TenantId, product.ProductCode, product.ProductName, product.Unit, product.Category, product.Price, product.TaxPercent, product.IsActive, product.UpdatedAt));
+    return Results.Ok(ToProductDto(product));
 });
 
 app.MapGet("/api/inventory/warehouses", async (InventoryDbContext db, Guid tenantId, string? search = null, CancellationToken ct = default) =>
@@ -173,14 +175,14 @@ app.MapPost("/api/inventory/reservations", async (ReserveStockDto input, Invento
 
     foreach (var line in input.Lines)
     {
-        var balance = await FindBalanceAsync(db, input.TenantId, "MAIN", line.ProductCode, ct);
+        var balance = await FindBalanceAsync(db, input.TenantId, line.WarehouseCode, line.ProductCode, ct);
         if (balance is null || !balance.CanReserve(line.Quantity))
         {
             var available = balance?.AvailableQuantity ?? 0;
             return Results.Conflict(new
             {
                 Code = "Inventory:InsufficientStock",
-                Message = $"Không đủ tồn kho cho {line.ProductCode}. Khả dụng {available:N2}, cần {line.Quantity:N2}."
+                Message = $"Không đủ tồn kho cho {line.WarehouseCode}/{line.ProductCode}. Khả dụng {available:N2}, cần {line.Quantity:N2}."
             });
         }
     }
@@ -188,7 +190,7 @@ app.MapPost("/api/inventory/reservations", async (ReserveStockDto input, Invento
     var now = DateTimeOffset.UtcNow;
     foreach (var line in input.Lines)
     {
-        var balance = await FindBalanceAsync(db, input.TenantId, "MAIN", line.ProductCode, ct);
+        var balance = await FindBalanceAsync(db, input.TenantId, line.WarehouseCode, line.ProductCode, ct);
         balance!.Reserve(line.Quantity, now);
     }
 
@@ -248,7 +250,7 @@ app.Run();
 
 static Task<StockBalance?> FindBalanceAsync(InventoryDbContext db, Guid tenantId, string warehouseCode, string productCode, CancellationToken ct)
 {
-    var normalizedWarehouse = StockBalance.NormalizeCode(warehouseCode, 64);
+    var normalizedWarehouse = StockBalance.NormalizeCode(string.IsNullOrWhiteSpace(warehouseCode) ? "MAIN" : warehouseCode, 64);
     var normalizedProduct = StockBalance.NormalizeCode(productCode, 64);
     return db.StockBalances.SingleOrDefaultAsync(x => x.TenantId == tenantId && x.WarehouseCode == normalizedWarehouse && x.ProductCode == normalizedProduct, ct);
 }
@@ -268,6 +270,8 @@ static async Task EnsureCatalogAsync(InventoryDbContext db, ImportStockDto input
             0,
             0,
             true,
+            string.Empty,
+            string.Empty,
             now), ct);
     }
 
@@ -285,6 +289,21 @@ static async Task EnsureCatalogAsync(InventoryDbContext db, ImportStockDto input
     }
 }
 
+static ProductDto ToProductDto(InventoryProduct product) =>
+    new(
+        product.Id,
+        product.TenantId,
+        product.ProductCode,
+        product.ProductName,
+        product.Unit,
+        product.Category,
+        product.Price,
+        product.TaxPercent,
+        product.IsActive,
+        product.Attributes,
+        product.Variants,
+        product.UpdatedAt);
+
 static StockReservationDto ToReservationDto(StockReservation reservation)
 {
     return new StockReservationDto(
@@ -294,18 +313,18 @@ static StockReservationDto ToReservationDto(StockReservation reservation)
         reservation.SourceId,
         reservation.SourceNo,
         reservation.Status,
-        reservation.Lines.Select(x => new StockReservationLineDto(x.ProductCode, x.Description, x.Quantity)).ToArray(),
+        reservation.Lines.Select(x => new StockReservationLineDto(x.WarehouseCode, x.ProductCode, x.Description, x.Quantity)).ToArray(),
         reservation.CreatedAt,
         reservation.ShippedAt);
 }
 
 public sealed record StockBalanceDto(Guid Id, Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal OnHandQuantity, decimal ReservedQuantity, decimal AvailableQuantity, DateTimeOffset UpdatedAt);
 public sealed record ImportStockDto(Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, string? SourceType, Guid? SourceId, string? SourceNo);
-public sealed record ProductDto(Guid Id, Guid TenantId, string ProductCode, string ProductName, string Unit, string Category, decimal Price, decimal TaxPercent, bool IsActive, DateTimeOffset UpdatedAt);
-public sealed record UpsertProductDto(Guid TenantId, string ProductCode, string ProductName, string Unit, string? Category, decimal Price, decimal TaxPercent, bool IsActive);
+public sealed record ProductDto(Guid Id, Guid TenantId, string ProductCode, string ProductName, string Unit, string Category, decimal Price, decimal TaxPercent, bool IsActive, string Attributes, string Variants, DateTimeOffset UpdatedAt);
+public sealed record UpsertProductDto(Guid TenantId, string ProductCode, string ProductName, string Unit, string? Category, decimal Price, decimal TaxPercent, bool IsActive, string? Attributes, string? Variants);
 public sealed record WarehouseDto(Guid Id, Guid TenantId, string WarehouseCode, string Name, string Location, bool IsActive, DateTimeOffset UpdatedAt);
 public sealed record UpsertWarehouseDto(Guid TenantId, string WarehouseCode, string Name, string? Location, bool IsActive);
 public sealed record ReserveStockDto(Guid TenantId, string SourceType, Guid SourceId, string SourceNo, IReadOnlyCollection<ReserveStockLineDto> Lines);
 public sealed record ShipStockDto(Guid TenantId, string SourceType, Guid SourceId, string SourceNo);
 public sealed record StockReservationDto(Guid Id, Guid TenantId, string SourceType, Guid SourceId, string SourceNo, string Status, IReadOnlyCollection<StockReservationLineDto> Lines, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt);
-public sealed record StockReservationLineDto(string ProductCode, string Description, decimal Quantity);
+public sealed record StockReservationLineDto(string WarehouseCode, string ProductCode, string Description, decimal Quantity);

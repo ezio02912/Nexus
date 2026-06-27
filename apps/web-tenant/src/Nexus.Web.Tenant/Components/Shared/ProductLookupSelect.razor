@@ -1,0 +1,80 @@
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+@* Per-tenant product catalog lookup. Binds the product code and (optionally) reports
+   the selected product so the parent can auto-fill name / price / unit. *@
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+    <Select TValue="string"
+            Value="@Value"
+            ValueChanged="OnValueChangedAsync"
+            Items="@_options"
+            ShowLabel="false"
+            ShowSearch="true"
+            IsPopover="true"
+            PlaceHolder="@PlaceHolder" />
+</AppFormField>
+
+@code {
+    private readonly string _selectId = $"product-lookup-{Guid.NewGuid():N}";
+    private readonly Dictionary<string, InventoryProductRecord> _byCode = new(StringComparer.OrdinalIgnoreCase);
+    private List<SelectedItem> _options = [];
+
+    [Parameter] public string Label { get; set; } = "Mã hàng";
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string PlaceHolder { get; set; } = "Chọn mã hàng...";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public EventCallback<InventoryProductRecord?> OnProductSelected { get; set; }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override void OnParametersSet() => EnsureSelectedOption();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            _options = [new SelectedItem("", PlaceHolder)];
+            return;
+        }
+
+        try
+        {
+            var products = await Api.GetInventoryProductsAsync(tenantId) ?? [];
+            _byCode.Clear();
+            var items = new List<SelectedItem> { new("", PlaceHolder) };
+            foreach (var p in products.Where(x => x.IsActive))
+            {
+                _byCode[p.ProductCode] = p;
+                items.Add(new SelectedItem(p.ProductCode, $"{p.ProductCode} — {p.ProductName}"));
+            }
+
+            _options = items;
+            EnsureSelectedOption();
+        }
+        catch
+        {
+            _options = [new SelectedItem("", PlaceHolder)];
+        }
+    }
+
+    private void EnsureSelectedOption()
+    {
+        if (!string.IsNullOrWhiteSpace(Value) && _options.All(x => !string.Equals(x.Value, Value, StringComparison.Ordinal)))
+        {
+            _options = [.. _options, new SelectedItem(Value, Value)];
+        }
+    }
+
+    private async Task OnValueChangedAsync(string? value)
+    {
+        var stored = string.IsNullOrWhiteSpace(value) ? null : value;
+        await ValueChanged.InvokeAsync(stored);
+
+        if (OnProductSelected.HasDelegate)
+        {
+            _byCode.TryGetValue(value ?? "", out var product);
+            await OnProductSelected.InvokeAsync(product);
+        }
+    }
+}

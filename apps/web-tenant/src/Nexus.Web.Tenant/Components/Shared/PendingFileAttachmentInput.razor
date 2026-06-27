@@ -1,0 +1,98 @@
+@using Nexus.Web.Tenant.Services
+
+<div class="app-form-field app-form-field-full pending-files">
+    <label class="app-form-label">@Label</label>
+    <label class="btn btn-primary pending-files-picker">
+        <i class="fa-solid fa-paperclip"></i>
+        <span>Chọn tệp</span>
+        <InputFile OnChange="OnFilesSelectedAsync" multiple="@Multiple" hidden />
+    </label>
+
+    @if (Files.Count == 0)
+    {
+        <div class="app-empty-state pending-files-empty">Chưa chọn tệp đính kèm.</div>
+    }
+    else
+    {
+        <table class="app-table mt-2">
+            <thead>
+                <tr><th>Tên tệp</th><th>Loại</th><th>Kích thước</th><th></th></tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < Files.Count; i++)
+                {
+                    var index = i;
+                    var file = Files[index];
+                    <tr>
+                        <td>
+                            @if (IsImage(file.ContentType))
+                            {
+                                <span class="pending-file-preview-badge"><i class="fa-solid fa-image"></i> Ảnh</span>
+                            }
+                            @file.FileName
+                        </td>
+                        <td>@file.ContentType</td>
+                        <td>@FormatSize(file.Size)</td>
+                        <td>
+                            <Button Text="Xoá" Size="Size.ExtraSmall" Color="Color.Danger"
+                                    Icon="fa-solid fa-trash" OnClick="@(() => RemoveFileAsync(index))" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private const long MaxFileSize = 20 * 1024 * 1024;
+
+    [Parameter] public string Label { get; set; } = "Tệp đính kèm";
+    [Parameter] public bool Multiple { get; set; } = true;
+    [Parameter] public List<PendingFileAttachment> Files { get; set; } = [];
+    [Parameter] public EventCallback<List<PendingFileAttachment>> FilesChanged { get; set; }
+
+    private async Task OnFilesSelectedAsync(InputFileChangeEventArgs e)
+    {
+        // Read the bytes immediately: the IBrowserFile reference is only valid for the
+        // current render of the InputFile, so a deferred read (on save) throws
+        // "There is no file with ID N" after the dialog re-renders.
+        foreach (var file in e.GetMultipleFiles())
+        {
+            await using var stream = file.OpenReadStream(MaxFileSize);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            Files.Add(new PendingFileAttachment(file.Name, file.ContentType, buffer.ToArray()));
+        }
+
+        await FilesChanged.InvokeAsync(Files);
+    }
+
+    private async Task RemoveFileAsync(int index)
+    {
+        if (index < 0 || index >= Files.Count)
+        {
+            return;
+        }
+
+        Files.RemoveAt(index);
+        await FilesChanged.InvokeAsync(Files);
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        double size = bytes;
+        var unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return $"{size:0.#} {units[unit]}";
+    }
+
+    private static bool IsImage(string? contentType) =>
+        contentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
+}

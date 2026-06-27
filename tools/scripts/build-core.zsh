@@ -34,6 +34,8 @@ projects=(
   "services/workflow-service/src/Nexus.Services.Workflow.Api/Nexus.Services.Workflow.Api.csproj"
   "services/crm-service/src/Nexus.Services.Crm.Api/Nexus.Services.Crm.Api.csproj"
   "services/sales-service/src/Nexus.Services.Sales.Api/Nexus.Services.Sales.Api.csproj"
+  "services/inventory-service/src/Nexus.Services.Inventory.Api/Nexus.Services.Inventory.Api.csproj"
+  "services/purchase-service/src/Nexus.Services.Purchase.Api/Nexus.Services.Purchase.Api.csproj"
   "workers/background-worker/src/Nexus.Worker.Host/Nexus.Worker.Host.csproj"
 )
 

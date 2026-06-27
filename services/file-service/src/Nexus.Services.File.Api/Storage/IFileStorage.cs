@@ -9,6 +9,8 @@ public interface IFileStorage
     Task<string> SaveAsync(Guid fileId, string fileName, Stream content, CancellationToken cancellationToken = default);
 
     Task<Stream?> OpenAsync(string storagePath, CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(string storagePath, CancellationToken cancellationToken = default);
 }
 
 public sealed class FileSystemFileStorage : IFileStorage
@@ -42,5 +44,16 @@ public sealed class FileSystemFileStorage : IFileStorage
         }
 
         return Task.FromResult<Stream?>(System.IO.File.OpenRead(fullPath));
+    }
+
+    public Task DeleteAsync(string storagePath, CancellationToken cancellationToken = default)
+    {
+        var fullPath = Path.Combine(_root, storagePath);
+        if (System.IO.File.Exists(fullPath))
+        {
+            System.IO.File.Delete(fullPath);
+        }
+
+        return Task.CompletedTask;
     }
 }

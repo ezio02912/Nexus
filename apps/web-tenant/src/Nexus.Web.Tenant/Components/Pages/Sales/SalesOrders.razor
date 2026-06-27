@@ -14,7 +14,10 @@
             <h1>Đơn bán hàng</h1>
             <p>Tạo, duyệt và hoàn tất đơn bán hàng của tenant.</p>
         </div>
-        <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+        <div class="app-actions">
+            <Button Text="Tạo đơn hàng" Color="Color.Primary" Icon="fa-solid fa-plus" OnClick="ShowCreateDialogAsync" />
+            <Button Text="Tải lại" Color="Color.Secondary" OnClick="LoadAsync" />
+        </div>
     </header>
 
     @if (!Session.HasModule("SALES"))
@@ -27,59 +30,6 @@
         {
             <div class="@messageCss">@message</div>
         }
-
-        <div class="tenant-work-grid">
-            <section class="app-card">
-                <h2>Tạo đơn hàng</h2>
-                @if (!string.IsNullOrWhiteSpace(sourceNo))
-                {
-                    <div class="app-alert app-alert-compact">Đang tạo đơn hàng từ @sourceTypeText: @sourceNo</div>
-                }
-                <div class="app-form-grid">
-                    <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="customerIdText" />
-                    <AppFormField Label="Số đơn" Required="true">
-                        <BootstrapInput @bind-Value="orderNo" ShowLabel="false" />
-                    </AppFormField>
-                    <AppFormField Label="Mã hàng">
-                        <BootstrapInput @bind-Value="productCode" ShowLabel="false" />
-                    </AppFormField>
-                    <AppFormField Label="Mô tả">
-                        <BootstrapInput @bind-Value="description" ShowLabel="false" />
-                    </AppFormField>
-                    <AppFormField Label="Số lượng">
-                        <BootstrapInputNumber @bind-Value="quantity" ShowLabel="false" />
-                    </AppFormField>
-                    <AppMoneyInput Label="Đơn giá" @bind-Value="unitPrice" DecimalPlaces="0" />
-                    <AppFormField Label="Chiết khấu %">
-                        <BootstrapInputNumber @bind-Value="discountPercent" ShowLabel="false" />
-                    </AppFormField>
-                    <AppFormField Label="Thuế %">
-                        <BootstrapInputNumber @bind-Value="taxPercent" ShowLabel="false" />
-                    </AppFormField>
-                </div>
-                @if (products.Count > 0)
-                {
-                    <div class="tenant-permission-catalog mt-3">
-                        @foreach (var product in products.Take(6))
-                        {
-                            <button class="tenant-permission-item app-table-link" type="button" @onclick="@(() => SelectProduct(product))">
-                                <span>
-                                    <strong>@product.ProductCode</strong>
-                                    <span>@product.ProductName</span>
-                                    <code>@product.Price.ToString("N0") / Thuế @product.TaxPercent.ToString("N2")%</code>
-                                </span>
-                            </button>
-                        }
-                    </div>
-                }
-                <div class="app-detail-grid mt-3">
-                    <div><span class="app-detail-label">Tạm tính</span><span>@LineSubtotal.ToString("N0")</span></div>
-                    <div><span class="app-detail-label">Chiết khấu</span><span>@LineDiscountAmount.ToString("N0")</span></div>
-                    <div><span class="app-detail-label">Thuế</span><span>@LineTaxAmount.ToString("N0")</span></div>
-                    <div><span class="app-detail-label">Thành tiền</span><span>@LineTotal.ToString("N0")</span></div>
-                </div>
-                <Button Text="Tạo đơn hàng" Color="Color.Primary" OnClick="CreateAsync" />
-            </section>
 
             <section class="app-card app-card-wide">
                 <h2>Danh sách đơn hàng</h2>
@@ -144,17 +94,86 @@
                     </table>
                 }
             </section>
-        </div>
     }
 </section>
+
+<Modal @ref="createModal" IsBackdrop="true">
+    <ModalDialog Title="Tạo đơn bán hàng" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            @if (!string.IsNullOrWhiteSpace(sourceNo))
+            {
+                <div class="app-alert app-alert-compact">Đang tạo đơn hàng từ @sourceTypeText: @sourceNo</div>
+            }
+            <div class="app-form-grid">
+                <CustomerLookupSelect Label="Khách hàng" Required="true" @bind-Value="customerIdText" />
+                <AppFormField Label="Số đơn" Required="true">
+                    <BootstrapInput @bind-Value="orderNo" ShowLabel="false" />
+                </AppFormField>
+                <WarehouseLookupSelect Label="Kho" @bind-Value="warehouseCode" />
+                <ProductLookupSelect Label="Mã hàng" @bind-Value="productCode" OnProductSelected="OnProductSelected" />
+                <AppFormField Label="Mô tả">
+                    <BootstrapInput @bind-Value="description" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Số lượng">
+                    <BootstrapInputNumber @bind-Value="quantity" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Đơn giá" @bind-Value="unitPrice" DecimalPlaces="0" />
+                <AppFormField Label="Chiết khấu %">
+                    <BootstrapInputNumber @bind-Value="discountPercent" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Thuế %">
+                    <BootstrapInputNumber @bind-Value="taxPercent" ShowLabel="false" />
+                </AppFormField>
+            </div>
+            <div class="app-detail-grid mt-3">
+                <div><span class="app-detail-label">Tạm tính</span><span>@LineSubtotal.ToString("N0")</span></div>
+                <div><span class="app-detail-label">Chiết khấu</span><span>@LineDiscountAmount.ToString("N0")</span></div>
+                <div><span class="app-detail-label">Thuế</span><span>@LineTaxAmount.ToString("N0")</span></div>
+                <div><span class="app-detail-label">Thành tiền</span><span>@LineTotal.ToString("N0")</span></div>
+            </div>
+            <div class="app-actions mt-3">
+                <Button Text="Thêm dòng" Color="Color.Secondary" OnClick="AddLine" />
+            </div>
+            @if (draftLines.Count > 0)
+            {
+                <table class="app-table mt-3">
+                    <thead><tr><th>Kho</th><th>Mã hàng</th><th>Số lượng</th><th>Đơn giá</th><th>CK</th><th>Thuế</th><th>Thành tiền</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var line in draftLines)
+                        {
+                            <tr>
+                                <td>@line.WarehouseCode</td>
+                                <td>@line.ProductCode</td>
+                                <td>@line.Quantity.ToString("N2")</td>
+                                <td>@line.UnitPrice.ToString("N0")</td>
+                                <td>@line.DiscountAmount.ToString("N0")</td>
+                                <td>@line.TaxAmount.ToString("N0")</td>
+                                <td>@line.LineAmount.ToString("N0")</td>
+                                <td><Button Text="Xoá" Size="Size.ExtraSmall" Color="Color.Danger" OnClick="@(() => RemoveLine(line.Id))" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseCreateDialogAsync" />
+            <Button Text="Tạo đơn hàng" Color="Color.Primary" IsAsync="true" OnClick="CreateAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
 
 @code {
     private List<SalesOrderRecord> orders = [];
     private List<CustomerDto> customers = [];
     private List<InventoryProductRecord> products = [];
+    private List<WarehouseRecord> warehouses = [];
+    private List<SalesOrderLineDraftModel> draftLines = [];
+    private Modal? createModal;
     private bool isLoading;
     private string customerIdText = "";
     private string orderNo = "SO-0001";
+    private string warehouseCode = "MAIN";
     private string productCode = "SKU-001";
     private string description = "Hàng mẫu";
     private string? searchText;
@@ -172,6 +191,7 @@
     private decimal LineDiscountAmount => decimal.Round(LineSubtotal * Math.Clamp(discountPercent, 0m, 100m) / 100m, 2, MidpointRounding.AwayFromZero);
     private decimal LineTaxAmount => decimal.Round((LineSubtotal - LineDiscountAmount) * Math.Max(0m, taxPercent) / 100m, 2, MidpointRounding.AwayFromZero);
     private decimal LineTotal => LineSubtotal - LineDiscountAmount + LineTaxAmount;
+    private decimal DraftTotal => draftLines.Sum(x => x.LineAmount);
     private string sourceTypeText => sourceType switch
     {
         "quotation" => "báo giá",
@@ -180,6 +200,9 @@
     };
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private Task ShowCreateDialogAsync() => createModal!.Show();
+    private Task CloseCreateDialogAsync() => createModal!.Close();
 
     private async Task LoadAsync()
     {
@@ -192,6 +215,7 @@
         orders = (await Api.GetSalesOrdersAsync(tenantId, searchText))?.Items.ToList() ?? [];
         customers = (await CrmApi.GetCustomersAsync(new CustomerListQuery { MaxResultCount = 500 }))?.Items.ToList() ?? [];
         products = await LoadProductsAsync(tenantId);
+        warehouses = await LoadWarehousesAsync(tenantId);
         ApplyPrefillFromQuery();
         isLoading = false;
     }
@@ -213,6 +237,23 @@
         }
     }
 
+    private async Task<List<WarehouseRecord>> LoadWarehousesAsync(Guid tenantId)
+    {
+        if (!Session.HasModule("INVENTORY") || !Session.IsGranted(NexusPermissions.Inventory.Warehouses.View))
+        {
+            return [];
+        }
+
+        try
+        {
+            return (await Api.GetWarehousesAsync(tenantId))?.Where(x => x.IsActive).ToList() ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
     private async Task CreateAsync()
     {
         if (Session.TenantId is not Guid tenantId || !Guid.TryParse(customerIdText, out var customerId) || string.IsNullOrWhiteSpace(orderNo))
@@ -221,12 +262,16 @@
             return;
         }
 
-        var lines = new[] { new CreateSalesOrderLineRequest(productCode, description, quantity, unitPrice, discountPercent, taxPercent) };
+        var lines = draftLines.Count > 0
+            ? draftLines.Select(x => new CreateSalesOrderLineRequest(x.WarehouseCode, x.ProductCode, x.Description, x.Quantity, x.UnitPrice, x.DiscountPercent, x.TaxPercent)).ToArray()
+            : new[] { CurrentLineRequest() };
         await Api.CreateSalesOrderAsync(new CreateSalesOrderRequest(tenantId, customerId, orderNo, sourceType, sourceId, sourceNo, lines));
         ShowSuccess("Đã tạo đơn bán hàng.");
+        draftLines.Clear();
         sourceType = "";
         sourceId = null;
         sourceNo = "";
+        await createModal!.Close();
         await LoadAsync();
     }
 
@@ -271,6 +316,11 @@
             productCode = productCodeValue;
         }
 
+        if (query.TryGetValue("warehouseCode", out var warehouseValue))
+        {
+            warehouseCode = warehouseValue;
+        }
+
         if (query.TryGetValue("description", out var descriptionValue))
         {
             description = descriptionValue;
@@ -303,6 +353,46 @@
         description = product.ProductName;
         unitPrice = product.Price;
         taxPercent = product.TaxPercent;
+    }
+
+    // Auto-fill from the product lookup; ProductLookupSelect already updates productCode.
+    private void OnProductSelected(InventoryProductRecord? product)
+    {
+        if (product is null)
+        {
+            return;
+        }
+
+        description = product.ProductName;
+        unitPrice = product.Price;
+        taxPercent = product.TaxPercent;
+    }
+
+    private void SelectWarehouse(WarehouseRecord warehouse)
+    {
+        warehouseCode = warehouse.WarehouseCode;
+    }
+
+    private void AddLine()
+    {
+        if (string.IsNullOrWhiteSpace(productCode) || quantity <= 0)
+        {
+            ShowError("Vui lòng nhập mã hàng và số lượng lớn hơn 0.");
+            return;
+        }
+
+        draftLines.Add(SalesOrderLineDraftModel.FromRequest(CurrentLineRequest()));
+        ShowSuccess($"Đã thêm dòng hàng. Tổng tạm tạo: {DraftTotal.ToString("N0")}");
+    }
+
+    private void RemoveLine(Guid id)
+    {
+        draftLines.RemoveAll(x => x.Id == id);
+    }
+
+    private CreateSalesOrderLineRequest CurrentLineRequest()
+    {
+        return new CreateSalesOrderLineRequest(warehouseCode, productCode, description, quantity, unitPrice, discountPercent, taxPercent);
     }
 
     private static Dictionary<string, string> ParseQuery(string query)
@@ -359,7 +449,7 @@
             return "-";
         }
 
-        return string.Join(", ", order.Lines.Select(x => $"{x.ProductCode} x{x.Quantity:N0}"));
+        return string.Join(", ", order.Lines.Select(x => $"{x.WarehouseCode}/{x.ProductCode} x{x.Quantity:N0}"));
     }
 
     private static string CustomerOption(CustomerDto customer) => $"{customer.Code} - {customer.Name}";
@@ -441,5 +531,42 @@
     {
         message = text;
         messageCss = "app-alert app-alert-danger";
+    }
+
+    private sealed record SalesOrderLineDraftModel(
+        Guid Id,
+        string WarehouseCode,
+        string ProductCode,
+        string Description,
+        decimal Quantity,
+        decimal UnitPrice,
+        decimal DiscountPercent,
+        decimal DiscountAmount,
+        decimal TaxPercent,
+        decimal TaxAmount,
+        decimal Subtotal,
+        decimal LineAmount)
+    {
+        public static SalesOrderLineDraftModel FromRequest(CreateSalesOrderLineRequest request)
+        {
+            var subtotal = request.Quantity * request.UnitPrice;
+            var discountPercent = Math.Clamp(request.DiscountPercent, 0m, 100m);
+            var discountAmount = decimal.Round(subtotal * discountPercent / 100m, 2, MidpointRounding.AwayFromZero);
+            var taxPercent = Math.Max(0m, request.TaxPercent);
+            var taxAmount = decimal.Round((subtotal - discountAmount) * taxPercent / 100m, 2, MidpointRounding.AwayFromZero);
+            return new SalesOrderLineDraftModel(
+                Guid.NewGuid(),
+                string.IsNullOrWhiteSpace(request.WarehouseCode) ? "MAIN" : request.WarehouseCode.Trim().ToUpperInvariant(),
+                request.ProductCode.Trim().ToUpperInvariant(),
+                request.Description.Trim(),
+                request.Quantity,
+                request.UnitPrice,
+                discountPercent,
+                discountAmount,
+                taxPercent,
+                taxAmount,
+                subtotal,
+                subtotal - discountAmount + taxAmount);
+        }
     }
 }

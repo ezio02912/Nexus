@@ -1,0 +1,7 @@
+ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS attributes varchar(2048) NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS variants varchar(2048) NOT NULL DEFAULT '';
+
+ALTER TABLE products
+    ALTER COLUMN attributes DROP DEFAULT,
+    ALTER COLUMN variants DROP DEFAULT;

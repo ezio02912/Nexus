@@ -5,12 +5,17 @@
 - Sản phẩm, kho, nhập/xuất/chuyển kho.
 - Tồn kho và kiểm kê.
 
-## Data dự kiến
+## Data hiện tại
 
 - Products
 - Warehouses
 - StockMovements
 - StockBalances
+- StockReservations
+
+## Data dự kiến
+
+- StockTransfers
 - InventoryAdjustments
 
 ## API hiện tại
@@ -29,15 +34,30 @@
 - Sales Order approve gọi Inventory reservation theo source `SALES_ORDER`.
 - Sales Order deliver gọi Inventory shipment, trừ `ReservedQuantity` và `OnHandQuantity`.
 - Reservation/shipment idempotent theo `TenantId + SourceType + SourceId`.
-- Kho mặc định cho Sales reservation hiện là `MAIN`; Inventory UI đã có danh mục kho để chuẩn bị chọn kho trên từng dòng hàng.
+- Reservation line nhận `WarehouseCode`, `ProductCode`, mô tả và số lượng để giữ/xuất tồn theo đúng kho trên từng dòng Sales Order.
+- Request cũ không truyền `WarehouseCode` vẫn fallback về kho `MAIN`.
+
+## Purchase integration
+
+- Purchase Order receive tạo Goods Receipt trong Purchase Service.
+- Purchase Service gọi Inventory stock import với source `PURCHASE_RECEIPT`.
+- Inventory tạo movement `IN` và tăng `OnHandQuantity` theo warehouse/product của từng dòng receipt.
 
 ## Tenant Web
 
-- `/inventory` có tab Tồn kho, Sản phẩm và Kho.
+- `/inventory` là page riêng cho tồn kho và nhập kho nhanh.
+- `/inventory/products` là page riêng cho mã hàng hoá/catalog.
+- `/inventory/warehouses` là page riêng cho danh mục kho.
 - Tồn kho hiển thị On hand, Reserved, Available.
 - Nhập kho nhanh tự tạo product/warehouse catalog nếu chưa có.
-- Product catalog có SKU, đơn vị, nhóm hàng, giá, thuế, active state.
+- Product catalog có SKU, đơn vị tính lookup từ Master Data `Unit`, loại hàng hoá lookup từ Master Data `ProductType`, ảnh/tệp qua File Service, thuộc tính, biến thể, giá, thuế, active state.
 - Warehouse catalog có mã kho, tên kho, vị trí, active state.
+- Stock balances phản ánh cả nhập kho thủ công và nhập kho từ Purchase Goods Receipt.
+
+## Migration
+
+- SQL migration: `services/inventory-service/migrations/003_add_product_catalog_metadata.sql`
+- Chạy thủ công bằng `./tools/scripts/apply-core-migrations.zsh` hoặc apply riêng folder `services/inventory-service/migrations` vào `inventory_db`.
 
 ## Events
 

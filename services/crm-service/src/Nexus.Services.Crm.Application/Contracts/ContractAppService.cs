@@ -101,6 +101,25 @@ public sealed class ContractAppService : CrmAppServiceBase, IContractAppService
             contract.SetLines(lines, CurrentUser.Id, now);
         }
 
+        contract.UpdateHeader(
+            input.CustomerId,
+            input.QuotationId,
+            input.OpportunityId,
+            input.ContactId,
+            input.Title,
+            lines.Count > 0 ? contract.ContractValue : input.ContractValue,
+            string.IsNullOrWhiteSpace(input.Currency) ? "VND" : input.Currency,
+            input.StartDate,
+            input.EndDate,
+            input.RenewalDate,
+            input.PaymentTerms,
+            input.Notes,
+            input.Terms,
+            input.FileId,
+            input.OwnerId,
+            CurrentUser.Id,
+            now);
+
         await _contractRepository.InsertAsync(contract, cancellationToken);
         return MapToDto(contract);
     }

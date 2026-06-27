@@ -1,0 +1,301 @@
+@page "/inventory/products"
+@attribute [TabItemOption(Text = "Mã hàng hoá", Icon = "fa-solid fa-box")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject FileApiClient FileApi
+@inject SwalService SwalService
+@inject ToastService ToastService
+
+<PageTitle>Mã hàng hoá</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Kho</p>
+            <h1>Mã hàng hoá</h1>
+            <p>Quản lý catalog hàng hoá, đơn vị tính, loại hàng, ảnh, thuộc tính và biến thể.</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("INVENTORY"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Kho.</div>
+    }
+    else if (!Session.IsGranted(NexusPermissions.Inventory.Products.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem mã hàng hoá.</div>
+    }
+    else
+    {
+        <Card HeaderText="Danh mục hàng hoá" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="InventoryProductRecord" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="120"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        @if (Session.IsGranted(NexusPermissions.Inventory.Products.Manage))
+                        {
+                            <TableToolbarButton TItem="InventoryProductRecord" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                                Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        @if (Session.IsGranted(NexusPermissions.Inventory.Products.Manage))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                             OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.ProductCode" Text="Mã hàng" Sortable="true" Searchable="true">
+                            <Template Context="v"><span class="app-table-link-code">@v.Row.ProductCode</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.ProductName" Text="Tên hàng" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Unit" Text="Đơn vị" />
+                        <TableColumn @bind-Field="@context.Category" Text="Loại" Searchable="true">
+                            <Template Context="v">@(string.IsNullOrWhiteSpace(v.Row.Category) ? "-" : v.Row.Category)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Price" Text="Giá" Sortable="true">
+                            <Template Context="v">@v.Row.Price.ToString("N0")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.TaxPercent" Text="Thuế">
+                            <Template Context="v">@v.Row.TaxPercent.ToString("N2")%</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.IsActive" Text="Trạng thái">
+                            <Template Context="v"><span class="@ActiveCss(v.Row.IsActive)">@(v.Row.IsActive ? "Đang bán" : "Tạm ngưng")</span></Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+
+        @if (_selectedProduct is not null)
+        {
+            <FileAttachmentPanel Module="INVENTORY" EntityType="Product" EntityId="@_selectedProduct.Id.ToString()"
+                                 Title="@($"Ảnh/tệp hàng hoá {_selectedProduct.ProductCode}")"
+                                 WarningText="Chưa có ảnh hoặc tệp cho mã hàng này." />
+        }
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_dialogTitle" Size="Size.ExtraLarge" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="product-form-dialog">
+                <section class="product-form-section">
+                    <h3>Thông tin hàng hoá</h3>
+                    <div class="app-form-grid">
+                        <AppFormField Label="Mã hàng" Required="true">
+                            <BootstrapInput @bind-Value="_productFormCode" ShowLabel="false" />
+                        </AppFormField>
+                        <AppFormField Label="Tên hàng" Required="true">
+                            <BootstrapInput @bind-Value="_productFormName" ShowLabel="false" />
+                        </AppFormField>
+                        <MasterDataLookupSelect Category="@MasterDataCategories.Unit" Label="Đơn vị tính"
+                                                Value="@_productUnit" ValueChanged="OnProductUnitChanged"
+                                                PlaceHolder="Chọn đơn vị..." StoreCode="true" />
+                        <MasterDataLookupSelect Category="@MasterDataCategories.ProductType" Label="Loại hàng hoá"
+                                                Value="@_productCategory" ValueChanged="OnProductCategoryChanged"
+                                                PlaceHolder="Chọn loại hàng..." StoreCode="true" />
+                    </div>
+                </section>
+
+                <section class="product-form-section">
+                    <h3>Giá & trạng thái</h3>
+                    <div class="app-form-grid">
+                        <AppMoneyInput Label="Giá bán" @bind-Value="_productPrice" DecimalPlaces="0" />
+                        <AppFormField Label="Thuế %">
+                            <BootstrapInputNumber @bind-Value="_productTaxPercent" ShowLabel="false" />
+                        </AppFormField>
+                        <div class="app-form-field product-active-field">
+                            <Checkbox @bind-Value="_productIsActive" DisplayText="Đang bán" />
+                        </div>
+                    </div>
+                </section>
+
+                <section class="product-form-section">
+                    <h3>Ảnh hàng hoá</h3>
+                    <PendingFileAttachmentInput Label="Ảnh hàng hoá" Multiple="false" @bind-Files="_productImages" />
+                </section>
+
+                <section class="product-form-section">
+                    <h3>Thuộc tính & biến thể</h3>
+                    <div class="app-form-grid">
+                        <AppFormField Label="Thuộc tính" Class="app-form-field-full">
+                            <Textarea @bind-Value="_productAttributes" ShowLabel="false" rows="4" PlaceHolder="Ví dụ: màu sắc, kích thước, chất liệu..." />
+                        </AppFormField>
+                        <AppFormField Label="Biến thể" Class="app-form-field-full">
+                            <Textarea @bind-Value="_productVariants" ShowLabel="false" rows="4" PlaceHolder="Ví dụ: Đỏ/S, Đỏ/M, Xanh/L..." />
+                        </AppFormField>
+                    </div>
+                </section>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu hàng hoá" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="SaveProductAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<InventoryProductRecord>? _table;
+    private List<PendingFileAttachment> _productImages = [];
+    private InventoryProductRecord? _selectedProduct;
+    private Modal? _editModal;
+    private string _dialogTitle = "Thêm hàng hoá";
+    private string _productFormCode = "SKU-001";
+    private string _productFormName = "Hàng mẫu";
+    private string _productUnit = "EA";
+    private string _productCategory = "GOODS";
+    private string _productAttributes = "";
+    private string _productVariants = "";
+    private decimal _productPrice;
+    private decimal _productTaxPercent;
+    private bool _productIsActive = true;
+
+    private async Task<QueryData<InventoryProductRecord>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("INVENTORY") || !Session.IsGranted(NexusPermissions.Inventory.Products.View))
+        {
+            return new QueryData<InventoryProductRecord> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var all = (await Api.GetInventoryProductsAsync(tenantId, options.SearchText))?.ToList() ?? [];
+            var items = all.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+            return new QueryData<InventoryProductRecord>
+            {
+                Items = items,
+                TotalCount = all.Count,
+                IsFiltered = !string.IsNullOrEmpty(options.SearchText),
+                IsSearch = !string.IsNullOrEmpty(options.SearchText)
+            };
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            return new QueryData<InventoryProductRecord> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private Task ShowCreateAsync(IEnumerable<InventoryProductRecord> _)
+    {
+        _dialogTitle = "Thêm hàng hoá";
+        _selectedProduct = null;
+        _productFormCode = $"SKU-{DateTime.Now:MMddHHmm}";
+        _productFormName = "";
+        _productUnit = "EA";
+        _productCategory = "GOODS";
+        _productAttributes = "";
+        _productVariants = "";
+        _productPrice = 0;
+        _productTaxPercent = 0;
+        _productIsActive = true;
+        _productImages = [];
+        return _editModal!.Show();
+    }
+
+    private Task ShowEditAsync(InventoryProductRecord item)
+    {
+        FillProductForm(item);
+        _dialogTitle = $"Sửa hàng hoá {item.ProductCode}";
+        return _editModal!.Show();
+    }
+
+    private Task CloseModalAsync() => _editModal!.Close();
+
+    private async Task SaveProductAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_productFormCode) || string.IsNullOrWhiteSpace(_productFormName))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập mã hàng và tên hàng."));
+            return;
+        }
+
+        try
+        {
+            var product = await Api.UpsertInventoryProductAsync(new UpsertInventoryProductRequest(
+                tenantId,
+                _productFormCode,
+                _productFormName,
+                _productUnit,
+                _productCategory,
+                _productPrice,
+                _productTaxPercent,
+                _productIsActive,
+                _productAttributes,
+                _productVariants));
+
+            if (product is not null)
+            {
+                _selectedProduct = product;
+                if (_productImages.Count > 0)
+                {
+                    await FileApi.UploadAndLinkAsync(_productImages, "INVENTORY", "Product", product.Id.ToString());
+                    _productImages = [];
+                }
+            }
+
+            await ToastService.Success("Thành công", "Đã lưu hàng hoá.");
+            await _editModal!.Close();
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private void OnProductUnitChanged(string? value) =>
+        _productUnit = string.IsNullOrWhiteSpace(value) ? "EA" : value;
+
+    private void OnProductCategoryChanged(string? value) =>
+        _productCategory = string.IsNullOrWhiteSpace(value) ? "GOODS" : value;
+
+    private void FillProductForm(InventoryProductRecord item)
+    {
+        _selectedProduct = item;
+        _productFormCode = item.ProductCode;
+        _productFormName = item.ProductName;
+        _productUnit = item.Unit;
+        _productCategory = item.Category;
+        _productPrice = item.Price;
+        _productTaxPercent = item.TaxPercent;
+        _productIsActive = item.IsActive;
+        _productAttributes = item.Attributes;
+        _productVariants = item.Variants;
+        _productImages = [];
+    }
+
+    private async Task ReloadTableAsync()
+    {
+        if (_table is not null)
+        {
+            await _table.QueryAsync();
+        }
+    }
+
+    private static string ActiveCss(bool value) =>
+        value ? "app-status-badge app-status-active" : "app-status-badge app-status-muted";
+
+    private Task ShowErrorAsync(Exception ex) =>
+        SwalService.Show(new SwalOption
+        {
+            Category = SwalCategory.Error,
+            Title = "Đã xảy ra lỗi",
+            Content = ex.Message,
+            CloseButtonText = "Đóng"
+        });
+}

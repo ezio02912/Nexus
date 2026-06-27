@@ -13,7 +13,7 @@ builder.Services.AddSingleton<ServiceTokenProvider>();
 builder.Services.AddTransient<ServiceTokenHandler>();
 
 var auditUrl = builder.Configuration["Services:Audit"] ?? "http://localhost:7204";
-var notificationUrl = builder.Configuration["Services:Notification"] ?? "http://localhost:7210";
+var notificationUrl = builder.Configuration["Services:Notification"] ?? "http://localhost:7213";
 
 builder.Services.AddHttpClient<AuditApiClient>(client => client.BaseAddress = new Uri(auditUrl))
     .AddHttpMessageHandler<ServiceTokenHandler>();

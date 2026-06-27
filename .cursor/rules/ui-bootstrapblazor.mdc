@@ -13,6 +13,13 @@ usage and demos at https://www.blazor.zone/introduction.
 ## Rules
 
 - Prefer BootstrapBlazor components over raw HTML/Bootstrap markup.
+- Do not use native/raw form controls (`input`, `select`, `textarea`, raw file/date
+  inputs) when BootstrapBlazor has an equivalent component. Use `DateTimePicker`
+  for dates, `Select` for option sets, `BootstrapInput` / `BootstrapInputNumber`
+  for text/number, `Checkbox` for boolean flags, and BootstrapBlazor upload/file
+  components or existing shared wrappers for file flows.
+- Raw HTML is allowed only for semantic layout or when BootstrapBlazor has no
+  suitable component; document the reason when it is not obvious.
 - Data lists MUST use `<Table>` with built-in pagination (`IsPagination="true"`,
   `PageItemsSource`) instead of hand-rolled tables/paging.
 - Dropdowns MUST use `<Select>` / `<SelectGeneric>` (not raw `<select>` or free-text

@@ -3,3 +3,11 @@
 - Không gọi API trực tiếp trong Razor
 - DI cho services
 - Reuse component.
+- Ưu tiên component từ `external/bootstrap-blazor` cho mọi control UI trong Blazor. Không tự dùng raw HTML/native input khi BootstrapBlazor đã có component tương ứng (`Table`, `Modal`, `Button`, `Select`, `DateTimePicker`, `BootstrapInput`, `BootstrapInputNumber`, `Checkbox`, `InputFile`, `Toast`, `Swal`...).
+- Raw HTML chỉ dùng cho layout semantic đơn giản hoặc trường hợp BootstrapBlazor không có component phù hợp; nếu dùng raw HTML phải ghi lý do trong review/commit hoặc comment ngắn khi không hiển nhiên.
+- Form tạo mới CRM/ERP phải dùng modal rộng hoặc layout đủ cột để hiển thị nghiệp vụ đầy đủ; không gom các trường chính vào form quá hẹp.
+- Không đặt form thêm mới cố định ở cạnh/trên trang danh sách nghiệp vụ. Trang danh sách chỉ nên có toolbar + bảng; tạo/sửa dùng BootstrapBlazor `Modal`, `Dialog`, hoặc page detail riêng nếu form nhiều thông tin.
+- Dòng sản phẩm/hàng hoá phải chọn từ lookup tenant khi đã có catalog, không bắt người dùng nhập tay mã hàng nếu có component lookup dùng lại được.
+- Editor dòng hàng nên đặt mã hàng, tên hàng, đơn vị, số lượng, đơn giá và nút thêm trên cùng một hàng ở desktop; xuống một cột trên mobile.
+- Upload file trong form tạo mới dùng pending attachments: chọn file trong form, upload và link sau khi entity tạo thành công.
+- Tệp đã upload: ảnh cho xem trước trong dialog, tài liệu thường giữ action tải về.

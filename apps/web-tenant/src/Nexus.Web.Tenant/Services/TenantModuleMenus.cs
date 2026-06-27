@@ -14,63 +14,87 @@ public static class TenantModuleMenus
         string Code,
         string Title,
         string Icon,
+        string Group,
         IReadOnlyList<TenantMenuItem> Items);
+
+    public sealed record ModuleGroupDefinition(
+        string Code,
+        string Title,
+        string Icon,
+        IReadOnlyList<ModuleMenuDefinition> Modules);
+
+    // Functional domains used to group business modules in the tenant sidebar.
+    public static class Groups
+    {
+        public const string Sales = "GROUP_SALES";
+        public const string Supply = "GROUP_SUPPLY";
+        public const string Finance = "GROUP_FINANCE";
+        public const string Hr = "GROUP_HR";
+        public const string System = "GROUP_SYSTEM";
+    }
+
+    private static readonly IReadOnlyList<(string Code, string Title, string Icon)> GroupOrder =
+    [
+        (Groups.Sales, "Kinh doanh", "fa-solid fa-handshake"),
+        (Groups.Supply, "Mua hàng & Kho", "fa-solid fa-warehouse"),
+        (Groups.Finance, "Tài chính - Kế toán", "fa-solid fa-coins"),
+        (Groups.Hr, "Nhân sự", "fa-solid fa-users-gear"),
+        (Groups.System, "Hệ thống & Báo cáo", "fa-solid fa-gears"),
+    ];
 
     public static IReadOnlyList<ModuleMenuDefinition> All { get; } =
     [
-        new("CRM", "CRM", "fa-solid fa-address-book",
+        new("CRM", "CRM", "fa-solid fa-address-book", Groups.Sales,
         [
             Item("Dashboard", "crm/dashboard", "fa-solid fa-gauge-high", NexusPermissions.Crm.Dashboard.View),
             Item("Khách hàng", "crm/customers", "fa-solid fa-building-user", NexusPermissions.Crm.Customers.View),
             Item("Liên hệ", "crm/contacts", "fa-solid fa-address-book", NexusPermissions.Crm.Contacts.View),
             Item("Leads", "crm/leads", "fa-solid fa-user-plus", NexusPermissions.Crm.Leads.View),
             Item("Cơ hội", "crm/opportunities", "fa-solid fa-bullseye", NexusPermissions.Crm.Opportunities.View),
-            Item("Kanban", "crm/opportunity-board", "fa-solid fa-table-columns", NexusPermissions.Crm.OpportunityBoard.View),
             Item("Báo giá", "crm/quotations", "fa-solid fa-file-invoice", NexusPermissions.Crm.Quotations.View),
             Item("Hợp đồng", "crm/contracts", "fa-solid fa-file-signature", NexusPermissions.Crm.Contracts.View),
             Item("Hoạt động", "crm/activities", "fa-solid fa-calendar-check", NexusPermissions.Crm.Activities.View),
-        ]),
-        new("SALES", "Bán hàng", "fa-solid fa-cart-shopping",
-        [
             Item("Đơn hàng", "sales/orders", "fa-solid fa-receipt", NexusPermissions.Sales.Orders.View),
         ]),
-        new("PURCHASE", "Mua hàng", "fa-solid fa-cart-flatbed",
+        new("PURCHASE", "Mua hàng", "fa-solid fa-cart-flatbed", Groups.Supply,
         [
-            Item("Tổng quan phân hệ", "purchase", "fa-solid fa-compass", ""),
-        ]),
-        new("INVENTORY", "Kho", "fa-solid fa-boxes-stacked",
-        [
+            Item("Đơn mua", "purchase", "fa-solid fa-cart-flatbed", NexusPermissions.Purchase.Orders.View),
+            Item("Nhà cung cấp", "purchase/suppliers", "fa-solid fa-truck-field", NexusPermissions.Purchase.Suppliers.View),
+            Item("Phiếu nhận hàng", "purchase/receipts", "fa-solid fa-truck-ramp-box", NexusPermissions.Purchase.Orders.Receive),
             Item("Tồn kho", "inventory", "fa-solid fa-boxes-stacked", NexusPermissions.Inventory.Stock.View),
+            Item("Mã hàng hoá", "inventory/products", "fa-solid fa-box", NexusPermissions.Inventory.Products.View),
+            Item("Kho hàng", "inventory/warehouses", "fa-solid fa-warehouse", NexusPermissions.Inventory.Warehouses.View),
         ]),
-        new("ERP", "ERP", "fa-solid fa-industry",
+        new("INVOICE", "Hóa đơn", "fa-solid fa-file-invoice-dollar", Groups.Finance,
         [
-            Item("Tổng quan phân hệ", "erp", "fa-solid fa-compass", ""),
-        ]),
-        new("INVOICE", "Hóa đơn", "fa-solid fa-file-invoice-dollar",
-        [
+            Item("Mua hàng", "purchase", "fa-solid fa-cart-flatbed", NexusPermissions.Purchase.Orders.View),
             Item("Tổng quan phân hệ", "invoice", "fa-solid fa-compass", ""),
         ]),
-        new("ACCOUNTING", "Kế toán", "fa-solid fa-calculator",
+        new("ACCOUNTING", "Kế toán", "fa-solid fa-calculator", Groups.Finance,
         [
             Item("Tổng quan phân hệ", "accounting", "fa-solid fa-compass", ""),
         ]),
-        new("PAYROLL", "Lương", "fa-solid fa-money-check-dollar",
-        [
-            Item("Tổng quan phân hệ", "payroll", "fa-solid fa-compass", ""),
-        ]),
-        new("HRM", "Nhân sự", "fa-solid fa-people-group",
+        new("HRM", "Nhân sự", "fa-solid fa-people-group", Groups.Hr,
         [
             Item("Tổng quan phân hệ", "hrm", "fa-solid fa-compass", ""),
         ]),
-        new("ATTENDANCE", "Chấm công", "fa-solid fa-clock",
+        new("ATTENDANCE", "Chấm công", "fa-solid fa-clock", Groups.Hr,
         [
             Item("Tổng quan phân hệ", "attendance", "fa-solid fa-compass", ""),
         ]),
-        new("WORKFLOW", "Quy trình", "fa-solid fa-diagram-project",
+        new("PAYROLL", "Lương", "fa-solid fa-money-check-dollar", Groups.Hr,
+        [
+            Item("Tổng quan phân hệ", "payroll", "fa-solid fa-compass", ""),
+        ]),
+        new("ERP", "ERP", "fa-solid fa-industry", Groups.System,
+        [
+            Item("Tổng quan phân hệ", "erp", "fa-solid fa-compass", ""),
+        ]),
+        new("WORKFLOW", "Quy trình", "fa-solid fa-diagram-project", Groups.System,
         [
             Item("Quy trình phê duyệt", "workflow", "fa-solid fa-list-check", NexusPermissions.Workflow.View),
         ]),
-        new("REPORT", "Báo cáo", "fa-solid fa-chart-line",
+        new("REPORT", "Báo cáo", "fa-solid fa-chart-line", Groups.System,
         [
             Item("Báo cáo tổng hợp", "reports", "fa-solid fa-chart-pie", NexusPermissions.Workflow.View),
         ]),
@@ -94,6 +118,29 @@ public static class TenantModuleMenus
 
     public static IEnumerable<ModuleMenuDefinition> GetEnabledModules(Func<string, bool> hasModule) =>
         GetEnabledModules(hasModule, _ => true);
+
+    /// <summary>
+    /// Returns the enabled modules grouped into functional domains, preserving the catalog order.
+    /// Only groups that contain at least one visible module are returned.
+    /// </summary>
+    public static IEnumerable<ModuleGroupDefinition> GetEnabledGroups(Func<string, bool> hasModule, Func<string, bool> isGranted)
+    {
+        var enabled = GetEnabledModules(hasModule, isGranted).ToList();
+
+        foreach (var (code, title, icon) in GroupOrder)
+        {
+            var modules = enabled.Where(x => x.Group == code).ToList();
+            if (modules.Count == 0)
+            {
+                continue;
+            }
+
+            yield return new ModuleGroupDefinition(code, title, icon, modules);
+        }
+    }
+
+    public static IEnumerable<ModuleGroupDefinition> GetEnabledGroups(Func<string, bool> hasModule) =>
+        GetEnabledGroups(hasModule, _ => true);
 
     public static IEnumerable<MenuItem> ToMenuItems(IEnumerable<TenantMenuItem> items) =>
         items.Select(x => new MenuItem(x.Text, x.Url, x.Icon));

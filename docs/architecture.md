@@ -36,6 +36,7 @@ Background Workers
 - `apps/web-admin`: Blazor cho vận hành platform/admin.
 - `apps/web-tenant`: Blazor cho tenant user.
 - `external/bootstrap-blazor`: source BootstrapBlazor dùng làm UI framework source/vendor.
+- Tenant workflow hiện tại được mô tả tại `docs/tenant-workflow.md`.
 
 ## Mobile
 

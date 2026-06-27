@@ -932,9 +932,45 @@ h1:focus {
 
 .app-form-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 1rem;
     align-items: start;
+}
+
+.tenant-work-grid-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.modal-dialog.modal-lg {
+    max-width: min(1180px, calc(100vw - 2rem));
+}
+
+.modal-body .app-form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.product-form-dialog {
+    display: grid;
+    gap: 1rem;
+}
+
+.product-form-section {
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    padding: 1rem;
+    background: #fff;
+}
+
+.product-form-section h3 {
+    margin: 0 0 .85rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--app-text);
+}
+
+.product-active-field {
+    justify-content: end;
+    min-height: 4.25rem;
 }
 
 .app-form-field {
@@ -942,6 +978,106 @@ h1:focus {
     flex-direction: column;
     gap: 0.35rem;
     min-width: 0;
+}
+
+/* Span the full width of an .app-form-grid row (e.g. notes textarea, line editor). */
+.app-form-field-full {
+    grid-column: 1 / -1;
+}
+
+.file-attachment-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.file-attachment-upload {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    cursor: pointer;
+    margin: 0;
+    color: #fff;
+    background: var(--app-primary);
+    border-color: var(--app-primary);
+    box-shadow: 0 10px 18px rgba(37, 99, 235, .18);
+}
+
+.file-attachment-upload:hover,
+.file-attachment-upload:focus {
+    color: #fff;
+    background: var(--app-primary-hover);
+    border-color: var(--app-primary-hover);
+}
+
+.file-attachment-upload.disabled {
+    opacity: .6;
+    pointer-events: none;
+}
+
+.pending-files-picker {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    color: #fff;
+    background: var(--app-primary);
+    border-color: var(--app-primary);
+    box-shadow: 0 10px 18px rgba(37, 99, 235, .18);
+}
+
+.pending-files-picker:hover,
+.pending-files-picker:focus {
+    color: #fff;
+    background: var(--app-primary-hover);
+    border-color: var(--app-primary-hover);
+}
+
+.pending-files-empty {
+    min-height: 3.75rem;
+    justify-content: flex-start;
+    padding: .75rem;
+}
+
+.product-line-draft {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.25fr) minmax(220px, 1.25fr) minmax(150px, .75fr) minmax(110px, .55fr) minmax(150px, .75fr) auto;
+    gap: .75rem;
+    align-items: end;
+}
+
+.product-line-add {
+    padding-bottom: .1rem;
+    white-space: nowrap;
+}
+
+.file-preview-button {
+    border: 0;
+    background: transparent;
+    color: var(--app-primary);
+    font-weight: 700;
+    padding: 0;
+}
+
+.file-image-preview {
+    display: block;
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    margin: 0 auto;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-md);
+}
+
+.pending-file-preview-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    margin-right: .5rem;
+    color: var(--app-primary);
+    font-weight: 700;
 }
 
 .app-form-label {
@@ -1728,6 +1864,14 @@ body {
 
 @media (max-width: 900px) {
     .tenant-work-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-body .app-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .product-line-draft {
         grid-template-columns: 1fr;
     }
 }

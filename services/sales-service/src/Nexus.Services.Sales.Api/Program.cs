@@ -73,7 +73,7 @@ app.MapPost("/api/sales/orders", async (CreateSalesOrderDto input, SalesDbContex
         return Results.Conflict(new { Code = "Sales:OrderAlreadyExists", Message = "Sales order number already exists." });
     }
 
-    var lines = input.Lines.Select(x => new SalesOrderLineDraft(x.ProductCode, x.Description, x.Quantity, x.UnitPrice, x.DiscountPercent, x.TaxPercent)).ToArray();
+    var lines = input.Lines.Select(x => new SalesOrderLineDraft(x.WarehouseCode, x.ProductCode, x.Description, x.Quantity, x.UnitPrice, x.DiscountPercent, x.TaxPercent)).ToArray();
     var order = new SalesOrder(
         Guid.NewGuid(),
         input.TenantId,
@@ -175,7 +175,7 @@ app.MapNexusObservability();
 app.Run();
 
 public sealed record CreateSalesOrderDto(Guid TenantId, Guid CustomerId, string OrderNo, string? SourceType, Guid? SourceId, string? SourceNo, IReadOnlyCollection<CreateSalesOrderLineDto> Lines);
-public sealed record CreateSalesOrderLineDto(string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal TaxPercent);
+public sealed record CreateSalesOrderLineDto(string WarehouseCode, string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal TaxPercent);
 
 public sealed class InventoryClient
 {
@@ -193,7 +193,7 @@ public sealed class InventoryClient
             "SALES_ORDER",
             order.Id,
             order.OrderNo,
-            order.Lines.Select(x => new InventoryLineRequest(x.ProductCode, x.Description, x.Quantity)).ToArray());
+            order.Lines.Select(x => new InventoryLineRequest(x.WarehouseCode, x.ProductCode, x.Description, x.Quantity)).ToArray());
 
         return PostAsync("/api/inventory/reservations", request, ct);
     }
@@ -241,7 +241,7 @@ public sealed class InventoryClient
 
 public sealed record InventoryReserveRequest(Guid TenantId, string SourceType, Guid SourceId, string SourceNo, IReadOnlyCollection<InventoryLineRequest> Lines);
 public sealed record InventoryShipRequest(Guid TenantId, string SourceType, Guid SourceId, string SourceNo);
-public sealed record InventoryLineRequest(string ProductCode, string Description, decimal Quantity);
+public sealed record InventoryLineRequest(string WarehouseCode, string ProductCode, string Description, decimal Quantity);
 public sealed record InventoryErrorResponse(string? Code, string? Message);
 public sealed record InventoryCallResult(bool Success, string Code, string Message)
 {

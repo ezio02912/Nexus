@@ -202,6 +202,25 @@ public static class NexusPermissions
         }
     }
 
+    public static class Purchase
+    {
+        public const string Default = GroupName + ".Purchase";
+
+        public static class Suppliers
+        {
+            public const string View = Default + ".Suppliers.View";
+            public const string Manage = Default + ".Suppliers.Manage";
+        }
+
+        public static class Orders
+        {
+            public const string View = Default + ".Orders.View";
+            public const string Create = Default + ".Orders.Create";
+            public const string Approve = Default + ".Orders.Approve";
+            public const string Receive = Default + ".Orders.Receive";
+        }
+    }
+
     public static class TenantAdmin
     {
         public const string Default = GroupName + ".Tenant";
@@ -240,9 +259,12 @@ public static class NexusPermissions
         Crm.Contracts.View, Crm.Contracts.Create, Crm.Contracts.Edit, Crm.Contracts.Delete, Crm.Contracts.Sign,
         Crm.Activities.View, Crm.Activities.Create, Crm.Activities.Edit, Crm.Activities.Delete, Crm.Activities.Complete,
         Sales.Orders.View, Sales.Orders.Create, Sales.Orders.Edit, Sales.Orders.Delete, Sales.Orders.Approve, Sales.Orders.Complete,
+        Purchase.Suppliers.View, Purchase.Suppliers.Manage,
+        Purchase.Orders.View, Purchase.Orders.Create, Purchase.Orders.Approve, Purchase.Orders.Receive,
         Inventory.Stock.View, Inventory.Stock.Import, Inventory.Stock.Reserve, Inventory.Stock.Ship,
         Inventory.Products.View, Inventory.Products.Manage,
         Inventory.Warehouses.View, Inventory.Warehouses.Manage,
+        Files.View, Files.Upload, Files.Delete,
         Workflow.View, Workflow.Approve,
         TenantAdmin.Users.View, TenantAdmin.Users.Create, TenantAdmin.Users.Edit, TenantAdmin.Users.Delete,
         TenantAdmin.Permissions.View, TenantAdmin.Permissions.Manage,

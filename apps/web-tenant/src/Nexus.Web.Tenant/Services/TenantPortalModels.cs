@@ -39,13 +39,91 @@ public sealed record RolePermissionDto(string RoleName, IReadOnlyCollection<stri
 public sealed record UpdateRolePermissionsRequest(IReadOnlyCollection<string> Permissions);
 
 public sealed record SalesOrderRecord(Guid Id, Guid TenantId, Guid CustomerId, string OrderNo, string? SourceType, Guid? SourceId, string? SourceNo, string Status, string InventoryReservationStatus, string DeliveryStatus, decimal Subtotal, decimal DiscountAmount, decimal TaxAmount, decimal TotalAmount, IReadOnlyList<SalesOrderLineRecord>? Lines, DateTimeOffset CreatedAt, DateTimeOffset? ApprovedAt, DateTimeOffset? ReservedAt, DateTimeOffset? DeliveredAt, DateTimeOffset? CompletedAt);
-public sealed record SalesOrderLineRecord(Guid Id, string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal DiscountAmount, decimal TaxPercent, decimal TaxAmount, decimal Subtotal, decimal LineAmount);
+public sealed record SalesOrderLineRecord(Guid Id, string WarehouseCode, string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal DiscountAmount, decimal TaxPercent, decimal TaxAmount, decimal Subtotal, decimal LineAmount);
 public sealed record CreateSalesOrderRequest(Guid TenantId, Guid CustomerId, string OrderNo, string? SourceType, Guid? SourceId, string? SourceNo, IReadOnlyCollection<CreateSalesOrderLineRequest> Lines);
-public sealed record CreateSalesOrderLineRequest(string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal TaxPercent);
+public sealed record CreateSalesOrderLineRequest(string WarehouseCode, string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal TaxPercent);
 
-public sealed record StockBalanceRecord(Guid Id, Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal OnHandQuantity, decimal ReservedQuantity, decimal AvailableQuantity, DateTimeOffset UpdatedAt);
+// Read-models below use mutable properties so they can bind to BootstrapBlazor
+// Table columns (@bind-Field). They are only deserialized from JSON, never built positionally.
+public sealed record StockBalanceRecord
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string WarehouseCode { get; set; } = "";
+    public string ProductCode { get; set; } = "";
+    public string ProductName { get; set; } = "";
+    public decimal OnHandQuantity { get; set; }
+    public decimal ReservedQuantity { get; set; }
+    public decimal AvailableQuantity { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
 public sealed record ImportStockRequest(Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, string? SourceType, Guid? SourceId, string? SourceNo);
-public sealed record InventoryProductRecord(Guid Id, Guid TenantId, string ProductCode, string ProductName, string Unit, string Category, decimal Price, decimal TaxPercent, bool IsActive, DateTimeOffset UpdatedAt);
-public sealed record UpsertInventoryProductRequest(Guid TenantId, string ProductCode, string ProductName, string Unit, string? Category, decimal Price, decimal TaxPercent, bool IsActive);
-public sealed record WarehouseRecord(Guid Id, Guid TenantId, string WarehouseCode, string Name, string Location, bool IsActive, DateTimeOffset UpdatedAt);
+public sealed record InventoryProductRecord
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string ProductCode { get; set; } = "";
+    public string ProductName { get; set; } = "";
+    public string Unit { get; set; } = "";
+    public string Category { get; set; } = "";
+    public decimal Price { get; set; }
+    public decimal TaxPercent { get; set; }
+    public bool IsActive { get; set; }
+    public string Attributes { get; set; } = "";
+    public string Variants { get; set; } = "";
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+public sealed record UpsertInventoryProductRequest(Guid TenantId, string ProductCode, string ProductName, string Unit, string? Category, decimal Price, decimal TaxPercent, bool IsActive, string? Attributes, string? Variants);
+public sealed record WarehouseRecord
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string WarehouseCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Location { get; set; } = "";
+    public bool IsActive { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
 public sealed record UpsertWarehouseRequest(Guid TenantId, string WarehouseCode, string Name, string? Location, bool IsActive);
+
+public sealed record SupplierRecord
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string SupplierCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+public sealed record UpsertSupplierRequest(Guid TenantId, string SupplierCode, string Name, string? Email, string? Phone);
+public sealed record PurchaseOrderRecord
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string PurchaseOrderNo { get; set; } = "";
+    public string SupplierCode { get; set; } = "";
+    public string SupplierName { get; set; } = "";
+    public string Status { get; set; } = "";
+    public decimal TotalAmount { get; set; }
+    public IReadOnlyList<PurchaseOrderLineRecord>? Lines { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? ApprovedAt { get; set; }
+    public DateTimeOffset? ReceivedAt { get; set; }
+}
+public sealed record PurchaseOrderLineRecord(Guid Id, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, decimal UnitCost, decimal LineAmount);
+public sealed record CreatePurchaseOrderRequest(Guid TenantId, string PurchaseOrderNo, string SupplierCode, IReadOnlyCollection<CreatePurchaseOrderLineRequest> Lines);
+public sealed record CreatePurchaseOrderLineRequest(string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, decimal UnitCost);
+public sealed record ReceivePurchaseOrderRequest(string? ReceiptNo);
+public sealed record GoodsReceiptRecord
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid PurchaseOrderId { get; set; }
+    public string PurchaseOrderNo { get; set; } = "";
+    public string ReceiptNo { get; set; } = "";
+    public IReadOnlyList<GoodsReceiptLineRecord>? Lines { get; set; }
+    public DateTimeOffset ReceivedAt { get; set; }
+}
+public sealed record GoodsReceiptLineRecord(Guid Id, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, decimal UnitCost);

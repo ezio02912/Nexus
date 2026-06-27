@@ -37,6 +37,7 @@
     [Parameter] public string PlaceHolder { get; set; } = "Chọn...";
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public bool StoreCode { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -59,7 +60,8 @@
         _loading = true;
         try
         {
-            if (Cache.TryGetValue(Category, out var cached))
+            var cacheKey = $"{Category}|{StoreCode}";
+            if (Cache.TryGetValue(cacheKey, out var cached))
             {
                 ApplyCachedOptions(cached);
                 return;
@@ -76,13 +78,14 @@
             foreach (var item in result?.Items ?? [])
             {
                 _nameByCode[item.Code] = item.Name;
-                // Bind by display name — persisted customer fields store Vietnamese labels.
-                items.Add(new SelectedItem(item.Name, item.Name));
+                items.Add(StoreCode
+                    ? new SelectedItem(item.Code, $"{item.Code} - {item.Name}")
+                    : new SelectedItem(item.Name, item.Name));
             }
 
             _options = items;
             _loadedCategory = Category;
-            Cache[Category] = new CachedOptions(items, new Dictionary<string, string>(_nameByCode, StringComparer.OrdinalIgnoreCase));
+            Cache[cacheKey] = new CachedOptions(items, new Dictionary<string, string>(_nameByCode, StringComparer.OrdinalIgnoreCase));
         }
         catch
         {
@@ -127,7 +130,7 @@
             return storedValue;
         }
 
-        if (_nameByCode.TryGetValue(storedValue, out var name))
+        if (!StoreCode && _nameByCode.TryGetValue(storedValue, out var name))
         {
             return name;
         }

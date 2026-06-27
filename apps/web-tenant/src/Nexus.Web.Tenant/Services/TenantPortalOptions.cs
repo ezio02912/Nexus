@@ -9,4 +9,6 @@ public sealed class TenantPortalOptions
     public string Sales { get; set; } = "http://localhost:7209";
     public string Inventory { get; set; } = "http://localhost:7210";
     public string MasterData { get; set; } = "http://localhost:7211";
+    public string Purchase { get; set; } = "http://localhost:7212";
+    public string File { get; set; } = "http://localhost:7205";
 }

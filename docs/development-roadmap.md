@@ -89,10 +89,13 @@ Tiến độ hiện tại:
 - Sales Order backend đã có source document fields tối thiểu (`SourceType`, `SourceId`, `SourceNo`) để trace về Quotation/Contract.
 - Sales Order đã có detail page, trạng thái giữ hàng/giao hàng và link ngược CRM.
 - Inventory Service đã có stock balance, manual import, reservation và shipment API.
-- Inventory Service đã có product catalog và warehouse catalog nền tảng, kèm UI tenant `/inventory`.
+- Inventory Service đã có product catalog và warehouse catalog nền tảng, kèm UI tenant tách riêng `/inventory`, `/inventory/products`, `/inventory/warehouses`.
 - Sales Order approve gọi Inventory reservation; deliver/complete gọi Inventory shipment.
 - Sales Order đã có pricing/discount/tax trên line và tổng tiền, đồng thời form tạo đơn có thể chọn product từ Inventory catalog.
-- Bước tiếp theo của Phase 3 là nhiều dòng hàng trong Sales Order form, chọn warehouse trên từng dòng hàng và purchase goods receipt -> stock movement.
+- Sales Order form đã hỗ trợ nhiều dòng hàng, chọn warehouse theo từng dòng và truyền warehouse sang Inventory reservation/shipment.
+- Purchase Service đã có supplier, purchase order, approve và goods receipt; receive PO gọi Inventory stock import với source `PURCHASE_RECEIPT`.
+- Tenant web `/purchase` đã có tab đơn mua, nhà cung cấp và phiếu nhận.
+- Bước tiếp theo của Phase 3 là invoice từ Sales Order và payable từ Purchase.
 
 ## Phase 4: Invoice + Accounting Core
 
@@ -153,9 +156,9 @@ Yêu cầu:
 
 ## Đề xuất bước tiếp theo
 
-1. Chốt Phase 2 CRM làm mốc hoàn thiện đầu tiên vì đây là luồng đã có code nhiều nhất nhưng UI/form/table còn cần làm đầy đủ.
-2. Hoàn thiện detail pages CRM: Customer related records, Lead converted links, Opportunity source/quotation/contract links, Quotation lines, Contract lines đã có nền tảng; tiếp theo bổ sung edit/detail drawer cho related rows khi cần thao tác trực tiếp.
-3. Mở rộng quick-create: Customer đã có trong lookup chung, Contact đã có trong form Quotation/Contract, Opportunity -> Quotation và Quotation -> Contract đã có action nhanh; tiếp theo là tạo Sales Order từ Contract/Quotation ở Phase 3.
-4. Chuẩn hóa table filter test cho CRM, MasterData, Tenant, Identity để khóa chuẩn `lowercase + trim + contains`; riêng Tenant/Identity cần đưa filter xuống repository/query trước paging để total count đúng.
-5. Sau khi CRM đạt Definition of Done, nâng Sales Order detail và Inventory reservation/delivery ở Phase 3.
-6. Viết seed scenario end-to-end: Lead -> Customer -> Opportunity -> Quotation -> Contract -> Sales Order -> Invoice.
+1. Bắt đầu Phase 4 bằng Invoice từ Sales Order/Contract, có invoice lines, tax, payment state và trace source document.
+2. Thêm Supplier Invoice/Payable từ Goods Receipt để khép luồng Purchase -> Payable.
+3. Bổ sung Accounting posting rules tối thiểu cho Sales Invoice, Supplier Invoice, Payment receipt/payment voucher.
+4. Hoàn thiện Inventory product detail: tồn theo warehouse, reserved/available và lịch sử stock movement theo source document.
+5. Viết seed scenario end-to-end: Lead -> Customer -> Opportunity -> Quotation -> Contract -> Sales Order -> Inventory shipment -> Invoice -> Payment; Supplier -> PO -> Goods Receipt -> Supplier Invoice -> Payment.
+6. Bổ sung test cho service domain và API quan trọng: Sales pricing/reservation, Inventory reserve/ship/import, Purchase receive PO.

@@ -1,0 +1,69 @@
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+
+@* Per-tenant warehouse catalog lookup. Binds the warehouse code. *@
+<AppFormField Label="@Label" Required="@Required" InputId="@_selectId">
+    <Select TValue="string"
+            Value="@Value"
+            ValueChanged="OnValueChangedAsync"
+            Items="@_options"
+            ShowLabel="false"
+            ShowSearch="true"
+            IsPopover="true"
+            PlaceHolder="@PlaceHolder" />
+</AppFormField>
+
+@code {
+    private readonly string _selectId = $"warehouse-lookup-{Guid.NewGuid():N}";
+    private List<SelectedItem> _options = [];
+
+    [Parameter] public string Label { get; set; } = "Kho";
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string PlaceHolder { get; set; } = "Chọn kho...";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override void OnParametersSet() => EnsureSelectedOption();
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            _options = [new SelectedItem("", PlaceHolder)];
+            return;
+        }
+
+        try
+        {
+            var warehouses = await Api.GetWarehousesAsync(tenantId) ?? [];
+            var items = new List<SelectedItem> { new("", PlaceHolder) };
+            foreach (var w in warehouses.Where(x => x.IsActive))
+            {
+                items.Add(new SelectedItem(w.WarehouseCode, $"{w.WarehouseCode} — {w.Name}"));
+            }
+
+            _options = items;
+            EnsureSelectedOption();
+        }
+        catch
+        {
+            _options = [new SelectedItem("", PlaceHolder)];
+        }
+    }
+
+    private void EnsureSelectedOption()
+    {
+        if (!string.IsNullOrWhiteSpace(Value) && _options.All(x => !string.Equals(x.Value, Value, StringComparison.Ordinal)))
+        {
+            _options = [.. _options, new SelectedItem(Value, Value)];
+        }
+    }
+
+    private Task OnValueChangedAsync(string? value)
+    {
+        var stored = string.IsNullOrWhiteSpace(value) ? null : value;
+        return ValueChanged.InvokeAsync(stored);
+    }
+}

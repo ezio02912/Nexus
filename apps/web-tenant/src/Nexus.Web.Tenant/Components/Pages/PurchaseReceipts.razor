@@ -1,0 +1,105 @@
+@page "/purchase/receipts"
+@attribute [TabItemOption(Text = "Phiếu nhận hàng", Icon = "fa-solid fa-truck-ramp-box")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject SwalService SwalService
+
+<PageTitle>Phiếu nhận hàng</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Mua hàng</p>
+            <h1>Phiếu nhận hàng</h1>
+            <p>Theo dõi các phiếu nhận hàng đã nhập kho từ đơn mua.</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("PURCHASE"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Mua hàng.</div>
+    }
+    else if (!Session.IsGranted(NexusPermissions.Purchase.Orders.Receive))
+    {
+        <div class="app-alert">Bạn không có quyền xem phiếu nhận hàng.</div>
+    }
+    else
+    {
+        <Card HeaderText="Danh sách phiếu nhận" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="GoodsReceiptRecord" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="false"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.ReceiptNo" Text="Số phiếu" Sortable="true" Searchable="true">
+                            <Template Context="v"><span class="app-table-link-code">@v.Row.ReceiptNo</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.PurchaseOrderNo" Text="Đơn mua" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.ReceivedAt" Text="Ngày nhận" Sortable="true">
+                            <Template Context="v">@v.Row.ReceivedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.ReceiptNo" Text="Dòng hàng">
+                            <Template Context="v">@ReceiptLinesText(v.Row)</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<GoodsReceiptRecord>? _table;
+
+    private async Task<QueryData<GoodsReceiptRecord>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("PURCHASE") || !Session.IsGranted(NexusPermissions.Purchase.Orders.Receive))
+        {
+            return new QueryData<GoodsReceiptRecord> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var all = (await Api.GetGoodsReceiptsAsync(tenantId))?.ToList() ?? [];
+            if (!string.IsNullOrWhiteSpace(options.SearchText))
+            {
+                var term = options.SearchText.Trim().ToLowerInvariant();
+                all = all.Where(x =>
+                    x.ReceiptNo.ToLowerInvariant().Contains(term)
+                    || x.PurchaseOrderNo.ToLowerInvariant().Contains(term)).ToList();
+            }
+
+            var items = all.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+            return new QueryData<GoodsReceiptRecord>
+            {
+                Items = items,
+                TotalCount = all.Count,
+                IsFiltered = !string.IsNullOrEmpty(options.SearchText),
+                IsSearch = !string.IsNullOrEmpty(options.SearchText)
+            };
+        }
+        catch (Exception ex)
+        {
+            await SwalService.Show(new SwalOption
+            {
+                Category = SwalCategory.Error,
+                Title = "Đã xảy ra lỗi",
+                Content = ex.Message,
+                CloseButtonText = "Đóng"
+            });
+            return new QueryData<GoodsReceiptRecord> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private static string ReceiptLinesText(GoodsReceiptRecord receipt)
+    {
+        if (receipt.Lines is null || receipt.Lines.Count == 0)
+        {
+            return "-";
+        }
+
+        return string.Join(", ", receipt.Lines.Select(x => $"{x.WarehouseCode}/{x.ProductCode} x{x.Quantity:N0}"));
+    }
+}

@@ -1,4 +1,4 @@
-<div class="app-form-field">
+<div class="app-form-field @Class">
     <label class="app-form-label" for="@InputId">
         @Label
         @if (Required)
@@ -14,4 +14,7 @@
     [Parameter] public bool Required { get; set; }
     [Parameter] public string InputId { get; set; } = Guid.NewGuid().ToString("N");
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    // Optional extra CSS class, e.g. "app-form-field-full" to span the whole form grid row.
+    [Parameter] public string? Class { get; set; }
 }

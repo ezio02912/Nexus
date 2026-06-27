@@ -1,0 +1,219 @@
+@page "/crm/opportunities"
+@attribute [TabItemOption(Text = "Cơ hội", Icon = "fa-solid fa-bullseye")]
+@inherits CrmPageBase
+
+<PageTitle>Cơ hội - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Cơ hội</h1>
+            <p>Quản lý cơ hội bán hàng trong tenant hiện tại.</p>
+        </div>
+        @if (Can(NexusPermissions.Crm.Opportunities.View) && HasCrmModule)
+        {
+            <div class="d-flex gap-2">
+                <Button Text="Danh sách" Icon="fa-solid fa-list" Color="@ViewColor(ViewMode.List)"
+                        IsAsync="true" OnClick="@(() => SwitchViewAsync(ViewMode.List))" />
+                @if (Can(NexusPermissions.Crm.OpportunityBoard.View))
+                {
+                    <Button Text="Kanban" Icon="fa-solid fa-table-columns" Color="@ViewColor(ViewMode.Board)"
+                            IsAsync="true" OnClick="@(() => SwitchViewAsync(ViewMode.Board))" />
+                }
+            </div>
+        }
+    </header>
+
+    @if (!Can(NexusPermissions.Crm.Opportunities.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
+    {
+        <div class="app-alert">Tenant này chưa được bật module CRM.</div>
+    }
+    else if (_viewMode == ViewMode.Board)
+    {
+        @if (_boardLoading)
+        {
+            <div class="app-loading">
+                <Spinner Color="Color.Primary" />
+                <span class="app-loading-text">Đang tải dữ liệu...</span>
+            </div>
+        }
+        else
+        {
+            <div class="crm-kanban-board">
+                @foreach (var stage in _stages)
+                {
+                    <div class="crm-kanban-column app-card">
+                        <header class="crm-kanban-column-header">
+                            <div>
+                                <h3>@CrmLabels.FormatOpportunityStage(stage)</h3>
+                                <span>@VnMoney.Format(ColumnAmount(stage))</span>
+                            </div>
+                            <span class="app-status-badge app-status-muted">@ColumnCount(stage)</span>
+                        </header>
+                        <div class="crm-kanban-cards">
+                            @if (!ItemsForStage(stage).Any())
+                            {
+                                <div class="crm-kanban-empty">
+                                    <i class="fa-regular fa-folder-open"></i>
+                                    <span>Chưa có cơ hội</span>
+                                </div>
+                            }
+                            @foreach (var item in ItemsForStage(stage))
+                            {
+                                <div class="crm-kanban-card">
+                                    <button class="crm-kanban-title" type="button" @onclick="@(() => ViewDetailAsync(item.Id))">
+                                        @item.Name
+                                    </button>
+                                    <div class="crm-kanban-card-meta">
+                                        <span>@VnMoney.Format(item.Amount) @item.Currency</span>
+                                        <span>@item.Probability%</span>
+                                    </div>
+                                    <div class="crm-kanban-card-date">
+                                        <i class="fa-regular fa-calendar"></i>
+                                        <span>@(item.ExpectedCloseDate?.ToString("dd/MM/yyyy") ?? "Chưa có ngày chốt")</span>
+                                    </div>
+                                    <div class="crm-kanban-actions">
+                                        @foreach (var targetStage in _stages.Where(s => s != stage))
+                                        {
+                                            <Button Size="Size.ExtraSmall" Color="Color.Light"
+                                                    Text="@CrmLabels.FormatOpportunityStage(targetStage)"
+                                                    IsAsync="true"
+                                                    OnClick="@(() => ChangeStageAsync(item, targetStage))" />
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <Card HeaderText="Danh sách cơ hội" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="OpportunityDto" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="180"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        @if (Can(NexusPermissions.Crm.Opportunities.Create))
+                        {
+                            <TableToolbarButton TItem="OpportunityDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                            Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewDetailAsync(context.Id))" />
+                        @if (Can(NexusPermissions.Crm.Opportunities.Edit))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                         OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Opportunities.Delete))
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                         OnClick="@(() => DeleteAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.Name
+                                </button>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.CustomerId" Text="Khách hàng">
+                            <Template Context="v">
+                                @if (v.Row.CustomerId.HasValue)
+                                {
+                                    <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewCustomerDetail(v.Row.CustomerId.Value))">
+                                        @CustomerName(v.Row.CustomerId)
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.LeadId" Text="Lead nguồn">
+                            <Template Context="v">
+                                @if (v.Row.LeadId.HasValue)
+                                {
+                                    <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewLeadDetail(v.Row.LeadId.Value))">
+                                        Mở lead
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Stage" Text="Giai đoạn" Sortable="true">
+                            <Template Context="v">
+                                <span class="@CrmLabels.StatusBadgeClass(v.Row.Stage)">@CrmLabels.FormatOpportunityStage(v.Row.Stage)</span>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Amount" Text="Giá trị" Sortable="true">
+                            <Template Context="v">@VnMoney.Format(v.Row.Amount) @v.Row.Currency</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Probability" Text="Xác suất (%)" Sortable="true" />
+                        <TableColumn @bind-Field="@context.ExpectedCloseDate" Text="Dự kiến chốt">
+                            <Template Context="v">@(v.Row.ExpectedCloseDate?.ToString("dd/MM/yyyy") ?? "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.NextStep" Text="Bước tiếp theo" />
+                        <TableColumn @bind-Field="@context.NextStepDate" Text="Ngày bước tiếp">
+                            <Template Context="v">@(v.Row.NextStepDate?.ToString("dd/MM/yyyy") ?? "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Source" Text="Nguồn" />
+                        <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_modalTitle" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <CustomerLookupSelect Label="Khách hàng" @bind-Value="_customerIdText" />
+                <AppFormField Label="Tên cơ hội" Required="true">
+                    <BootstrapInput @bind-Value="_model.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá trị" @bind-Value="_model.Amount" DecimalPlaces="0" />
+                @if (!_isCreate)
+                {
+                    <AppFormField Label="Xác suất (%)">
+                        <BootstrapInputNumber @bind-Value="_model.Probability" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Tiền tệ">
+                        <BootstrapInput @bind-Value="_model.Currency" ShowLabel="false" />
+                    </AppFormField>
+                    <AppStatusSelect Label="Giai đoạn" @bind-Value="_stageText"
+                                     Items="@_stageOptions" Meta="@_stageMeta" />
+                }
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

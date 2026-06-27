@@ -38,8 +38,10 @@ public sealed class MonitoringService
         ("workflow-service", "Workflow", "http://localhost:7207/health"),
         ("crm-service", "CRM", "http://localhost:7208/health"),
         ("sales-service", "Sales", "http://localhost:7209/health"),
-        ("notification-service", "Notification", "http://localhost:7210/health"),
+        ("inventory-service", "Inventory", "http://localhost:7210/health"),
         ("masterdata-service", "Master Data", "http://localhost:7211/health"),
+        ("purchase-service", "Purchase", "http://localhost:7212/health"),
+        ("notification-service", "Notification", "http://localhost:7213/health"),
     ];
 
     private readonly IHttpClientFactory _httpClientFactory;

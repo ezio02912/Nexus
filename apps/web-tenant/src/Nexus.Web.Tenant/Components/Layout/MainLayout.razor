@@ -140,6 +140,7 @@
             new MenuItem("Tổng quan", "", "fa-solid fa-gauge-high") { Match = NavLinkMatch.All },
         ];
 
+        // Two-level sidebar: each module is a top-level item, its pages are the children.
         foreach (var module in TenantModuleMenus.GetEnabledModules(Session.HasModule, Session.IsGranted))
         {
             _menus.Add(new MenuItem

@@ -74,7 +74,7 @@
             _categoryOptions = [new("", "Tất cả danh mục")];
             _categoryLabels = new Dictionary<string, string>(StringComparer.Ordinal);
 
-            foreach (var category in categories ?? [])
+            foreach (var category in DefaultCategories.Merge(categories))
             {
                 _categoryOptions.Add(new SelectedItem(category.Code, category.Label));
                 _categoryLabels[category.Code] = category.Label;
@@ -155,18 +155,26 @@
             DialogBodyTemplate = FormBody,
             OnEditAsync = async _ =>
             {
+                if (string.IsNullOrWhiteSpace(model.Category)
+                    || string.IsNullOrWhiteSpace(model.Code)
+                    || string.IsNullOrWhiteSpace(model.Name))
+                {
+                    await ShowErrorAsync(new InvalidOperationException("Vui lòng chọn danh mục, nhập mã và tên hiển thị."));
+                    return false;
+                }
+
                 try
                 {
                     if (id is null)
                     {
                         await Api.CreateMasterDataItemAsync(new CreateLookupItemRequest(
-                            model.Category, model.Code, model.Name, model.SortOrder, model.IsActive));
+                            model.Category.Trim(), model.Code.Trim(), model.Name.Trim(), model.SortOrder, model.IsActive));
                         await ToastService.Success("Thành công", "Đã thêm mục danh mục.");
                     }
                     else
                     {
                         await Api.UpdateMasterDataItemAsync(id.Value, new UpdateLookupItemRequest(
-                            model.Code, model.Name, model.SortOrder, model.IsActive));
+                            model.Code.Trim(), model.Name.Trim(), model.SortOrder, model.IsActive));
                         await ToastService.Success("Thành công", "Đã cập nhật mục danh mục.");
                     }
 
@@ -259,5 +267,28 @@
         public string Name { get; set; } = "";
         public int SortOrder { get; set; }
         public bool IsActive { get; set; } = true;
+    }
+
+    private static class DefaultCategories
+    {
+        private static readonly MasterDataCategoryDto[] Items =
+        [
+            new("Industry", "Ngành"),
+            new("City", "Thành phố"),
+            new("Source", "Nguồn"),
+            new("Unit", "Đơn vị tính"),
+            new("ProductType", "Loại hàng hoá")
+        ];
+
+        public static IEnumerable<MasterDataCategoryDto> Merge(IEnumerable<MasterDataCategoryDto>? remote)
+        {
+            var map = Items.ToDictionary(x => x.Code, x => x, StringComparer.OrdinalIgnoreCase);
+            foreach (var item in remote ?? [])
+            {
+                map[item.Code] = item;
+            }
+
+            return map.Values.OrderBy(x => x.Code == "Unit" ? 3 : Array.FindIndex(Items, y => y.Code == x.Code));
+        }
     }
 }

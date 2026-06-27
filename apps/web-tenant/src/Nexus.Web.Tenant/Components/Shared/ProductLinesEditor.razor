@@ -1,0 +1,119 @@
+@* Reusable multi-line product editor for quotation/contract style forms.
+   The parent owns the Lines list; this component edits it in place. *@
+
+<div class="app-form-field app-form-field-full">
+    <label class="app-form-label">@Label</label>
+
+    <div class="product-line-draft">
+        <ProductLookupSelect Label="Mã hàng" @bind-Value="_draft.ProductCode" OnProductSelected="OnProductSelected" />
+        <AppFormField Label="Tên hàng">
+            <BootstrapInput @bind-Value="_draft.ProductName" ShowLabel="false" />
+        </AppFormField>
+        <MasterDataLookupSelect Category="@MasterDataCategories.Unit" Label="Đơn vị"
+                                Value="@_draft.Unit" ValueChanged="OnDraftUnitChanged"
+                                PlaceHolder="Chọn đơn vị..." />
+        <AppFormField Label="Số lượng">
+            <BootstrapInputNumber @bind-Value="_draft.Quantity" ShowLabel="false" />
+        </AppFormField>
+        <AppMoneyInput Label="Đơn giá" @bind-Value="_draft.UnitPrice" DecimalPlaces="0" />
+        <div class="product-line-add">
+            <Button Text="Thêm dòng" Color="Color.Primary" Icon="fa-solid fa-plus" OnClick="AddLine" />
+        </div>
+    </div>
+
+    @if (Lines.Count == 0)
+    {
+        <div class="app-empty-state mt-2">Chưa có dòng sản phẩm. Nhập thông tin rồi bấm "Thêm dòng".</div>
+    }
+    else
+    {
+        <table class="app-table mt-2">
+            <thead>
+                <tr><th>#</th><th>Mã hàng</th><th>Tên hàng</th><th>ĐVT</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th><th></th></tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < Lines.Count; i++)
+                {
+                    var index = i;
+                    var line = Lines[index];
+                    <tr>
+                        <td>@(index + 1)</td>
+                        <td>@line.ProductCode</td>
+                        <td>@line.ProductName</td>
+                        <td>@line.Unit</td>
+                        <td>@line.Quantity.ToString("N0")</td>
+                        <td>@line.UnitPrice.ToString("N0")</td>
+                        <td>@line.LineTotal.ToString("N0")</td>
+                        <td>
+                            <Button Text="Xoá" Size="Size.ExtraSmall" Color="Color.Danger"
+                                    Icon="fa-solid fa-trash" OnClick="@(() => RemoveLine(index))" />
+                        </td>
+                    </tr>
+                }
+                <tr class="product-lines-total">
+                    <td colspan="6" class="text-end"><strong>Tổng cộng</strong></td>
+                    <td colspan="2"><strong>@Lines.Sum(x => x.LineTotal).ToString("N0")</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Dòng sản phẩm";
+    [Parameter] public List<ProductLineInput> Lines { get; set; } = [];
+    [Parameter] public EventCallback<List<ProductLineInput>> LinesChanged { get; set; }
+
+    private ProductLineInput _draft = new();
+
+    private void OnDraftUnitChanged(string? value) =>
+        _draft.Unit = string.IsNullOrWhiteSpace(value) ? "Cái" : value;
+
+    // Auto-fill name / price / unit from the selected catalog product.
+    private void OnProductSelected(InventoryProductRecord? product)
+    {
+        if (product is null)
+        {
+            return;
+        }
+
+        _draft.ProductName = product.ProductName;
+        _draft.UnitPrice = product.Price;
+        if (!string.IsNullOrWhiteSpace(product.Unit))
+        {
+            _draft.Unit = product.Unit;
+        }
+    }
+
+    private async Task AddLine()
+    {
+        if (string.IsNullOrWhiteSpace(_draft.ProductCode)
+            || string.IsNullOrWhiteSpace(_draft.ProductName)
+            || _draft.Quantity <= 0)
+        {
+            return;
+        }
+
+        Lines.Add(new ProductLineInput
+        {
+            ProductCode = _draft.ProductCode.Trim(),
+            ProductName = _draft.ProductName.Trim(),
+            Unit = string.IsNullOrWhiteSpace(_draft.Unit) ? "Cái" : _draft.Unit.Trim(),
+            Quantity = _draft.Quantity,
+            UnitPrice = _draft.UnitPrice
+        });
+        _draft = new ProductLineInput();
+        await LinesChanged.InvokeAsync(Lines);
+    }
+
+    private async Task RemoveLine(int index)
+    {
+        if (index < 0 || index >= Lines.Count)
+        {
+            return;
+        }
+
+        Lines.RemoveAt(index);
+        await LinesChanged.InvokeAsync(Lines);
+    }
+}

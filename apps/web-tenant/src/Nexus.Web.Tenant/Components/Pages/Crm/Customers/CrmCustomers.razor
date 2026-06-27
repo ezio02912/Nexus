@@ -1,0 +1,148 @@
+@page "/crm/customers"
+@attribute [TabItemOption(Text = "Khách hàng", Icon = "fa-solid fa-building-user")]
+@inherits CrmPageBase
+
+<PageTitle>Khách hàng - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM</p>
+            <h1>Khách hàng</h1>
+            <p>Quản lý danh sách khách hàng trong tenant hiện tại.</p>
+        </div>
+    </header>
+
+    @if (!Can(NexusPermissions.Crm.Customers.View))
+    {
+        <div class="app-alert">@AccessDeniedMessage</div>
+    }
+    else if (!HasCrmModule)
+    {
+        <div class="app-alert">Tenant này chưa được bật module CRM.</div>
+    }
+    else
+    {
+        <Card HeaderText="Danh sách khách hàng" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="CustomerDto" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="180"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        @if (Can(NexusPermissions.Crm.Customers.Create))
+                        {
+                            <TableToolbarButton TItem="CustomerDto" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                                Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Info" Icon="fa-solid fa-eye" Text="Chi tiết"
+                                         OnClick="@(() => ViewDetailAsync(context.Id))" />
+                        @if (Can(NexusPermissions.Crm.Customers.Edit))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                             OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Customers.Delete))
+                        {
+                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
+                                             OnClick="@(() => DeleteAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.Code" Text="Mã" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link app-table-link-code" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.Code
+                                </button>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true">
+                            <Template Context="v">
+                                <button class="app-table-link" type="button" @onclick="@(() => ViewDetailAsync(v.Row.Id))">
+                                    @v.Row.Name
+                                </button>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.CustomerType" Text="Loại">
+                            <Template Context="v">@CrmLabels.FormatCustomerType(v.Row.CustomerType)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Email" Text="Email" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Phone" Text="Điện thoại" />
+                        <TableColumn @bind-Field="@context.TaxCode" Text="MST" />
+                        <TableColumn @bind-Field="@context.Website" Text="Website" />
+                        <TableColumn @bind-Field="@context.Industry" Text="Ngành" />
+                        <TableColumn @bind-Field="@context.Source" Text="Nguồn" />
+                        <TableColumn @bind-Field="@context.Rating" Text="Xếp hạng">
+                            <Template Context="v">@(v.Row.Rating.HasValue ? CrmLabels.FormatLeadRating(v.Row.Rating.Value) : "—")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.City" Text="Thành phố" />
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v">
+                                <span class="@CrmLabels.StatusBadgeClass(v.Row.Status)">@CrmLabels.FormatCustomerStatus(v.Row.Status)</span>
+                            </Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.CreationTime" Text="Ngày tạo" Sortable="true">
+                            <Template Context="v">@v.Row.CreationTime.ToLocalTime().ToString("dd/MM/yyyy")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_modalTitle" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Loại khách hàng" Required="true">
+                    <Select TValue="string" @bind-Value="_customerTypeText" Items="@_customerTypeOptions" ShowLabel="false" ShowSearch="true" PlaceHolder="Chọn loại khách hàng..." />
+                </AppFormField>
+                @if (_isCreate)
+                {
+                    <AppFormField Label="Mã khách hàng">
+                        <BootstrapInput @bind-Value="_createModel.Code" ShowLabel="false" PlaceHolder="Tự sinh nếu để trống" />
+                    </AppFormField>
+                }
+                <AppFormField Label="Tên khách hàng" Required="true">
+                    <BootstrapInput @bind-Value="_editModel.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_editModel.Email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_editModel.Phone" ShowLabel="false" />
+                </AppFormField>
+                <MasterDataLookupSelect Category="@MasterDataCategories.Industry" Label="Ngành" @bind-Value="_editModel.Industry" PlaceHolder="Chọn ngành..." />
+                <MasterDataLookupSelect Category="@MasterDataCategories.City" Label="Thành phố" @bind-Value="_editModel.City" PlaceHolder="Chọn thành phố..." />
+                <AppFormField Label="Website">
+                    <BootstrapInput @bind-Value="_editModel.Website" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Mã số thuế">
+                    <BootstrapInput @bind-Value="_editModel.TaxCode" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Địa chỉ">
+                    <BootstrapInput @bind-Value="_editModel.AddressLine1" ShowLabel="false" />
+                </AppFormField>
+                <MasterDataLookupSelect Category="@MasterDataCategories.Source" Label="Nguồn" @bind-Value="_editModel.Source" PlaceHolder="Chọn nguồn..." />
+                <AppFormField Label="Mô tả" Class="app-form-field-full">
+                    <Textarea @bind-Value="_editModel.Description" ShowLabel="false" rows="3" PlaceHolder="Nhập mô tả khách hàng..." />
+                </AppFormField>
+                @if (!_isCreate)
+                {
+                    <AppStatusSelect Label="Trạng thái" @bind-Value="_customerStatusText"
+                                     Items="@_customerStatusOptions" Meta="@_customerStatusMeta" />
+                }
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

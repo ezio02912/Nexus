@@ -1,0 +1,5 @@
+/* Chart hosts for the ECharts instances rendered via the collocated JS module. */
+.crm-chart-host {
+    width: 100%;
+    height: 360px;
+}

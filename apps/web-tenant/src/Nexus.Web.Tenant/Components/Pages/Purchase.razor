@@ -1,0 +1,382 @@
+@page "/purchase"
+@attribute [TabItemOption(Text = "Đơn mua", Icon = "fa-solid fa-cart-flatbed")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject SwalService SwalService
+@inject ToastService ToastService
+
+<PageTitle>Đơn mua</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Mua hàng</p>
+            <h1>Đơn mua</h1>
+            <p>Tạo đơn mua hàng từ nhà cung cấp và chuyển nhận hàng khi được duyệt.</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("PURCHASE"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Mua hàng.</div>
+    }
+    else if (!Session.IsGranted(NexusPermissions.Purchase.Orders.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem mua hàng.</div>
+    }
+    else
+    {
+        <Card HeaderText="Danh sách đơn mua" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="PurchaseOrderRecord" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="280"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        @if (Session.IsGranted(NexusPermissions.Purchase.Orders.Create))
+                        {
+                            <TableToolbarButton TItem="PurchaseOrderRecord" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                                Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        @if (Session.IsGranted(NexusPermissions.Purchase.Orders.Approve))
+                        {
+                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-check" Text="Duyệt"
+                                             IsDisabled="@(context.Status != "Draft")"
+                                             OnClick="@(() => ApproveAsync(context.Id))" />
+                        }
+                        @if (Session.IsGranted(NexusPermissions.Purchase.Orders.Receive))
+                        {
+                            <TableCellButton Color="Color.Info" Icon="fa-solid fa-truck-ramp-box" Text="Nhận hàng"
+                                             IsDisabled="@(context.Status != "Approved")"
+                                             OnClick="@(() => ReceiveAsync(context))" />
+                        }
+                        <TableCellButton Color="Color.Secondary" Icon="fa-solid fa-paperclip" Text="Đính kèm"
+                                         OnClick="@(() => OpenAttachmentsAsync(context))" />
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.PurchaseOrderNo" Text="Số PO" Sortable="true" Searchable="true">
+                            <Template Context="v"><span class="app-table-link-code">@v.Row.PurchaseOrderNo</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.SupplierName" Text="Nhà cung cấp" Searchable="true">
+                            <Template Context="v">@v.Row.SupplierCode - @v.Row.SupplierName</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v"><span class="@StatusCss(v.Row.Status)">@StatusText(v.Row.Status)</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.TotalAmount" Text="Tổng tiền" Sortable="true">
+                            <Template Context="v">@v.Row.TotalAmount.ToString("N0")</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.PurchaseOrderNo" Text="Dòng hàng">
+                            <Template Context="v">@OrderLinesText(v.Row)</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_createModal" IsBackdrop="true">
+    <ModalDialog Title="Tạo đơn mua" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Số PO" Required="true">
+                    <BootstrapInput @bind-Value="_purchaseOrderNo" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Nhà cung cấp" Required="true">
+                    <Select TValue="string" @bind-Value="_orderSupplierCode" Items="_supplierOptions"
+                            ShowLabel="false" ShowSearch="true" PlaceHolder="Chọn nhà cung cấp..." />
+                </AppFormField>
+                <WarehouseLookupSelect Label="Kho" @bind-Value="_warehouseCode" />
+                <ProductLookupSelect Label="Mã hàng" @bind-Value="_productCode" OnProductSelected="OnProductSelected" />
+                <AppFormField Label="Tên hàng">
+                    <BootstrapInput @bind-Value="_productName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Số lượng">
+                    <BootstrapInputNumber @bind-Value="_quantity" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá mua" @bind-Value="_unitCost" DecimalPlaces="0" />
+            </div>
+            <div class="app-actions mt-3">
+                <Button Text="Thêm dòng" Color="Color.Secondary" Icon="fa-solid fa-plus" OnClick="AddLine" />
+            </div>
+            @if (_draftLines.Count > 0)
+            {
+                <table class="app-table mt-3">
+                    <thead><tr><th>Kho</th><th>Mã hàng</th><th>Số lượng</th><th>Giá mua</th><th>Thành tiền</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var line in _draftLines)
+                        {
+                            <tr>
+                                <td>@line.WarehouseCode</td>
+                                <td>@line.ProductCode</td>
+                                <td>@line.Quantity.ToString("N2")</td>
+                                <td>@line.UnitCost.ToString("N0")</td>
+                                <td>@line.LineAmount.ToString("N0")</td>
+                                <td><Button Text="Xoá" Size="Size.ExtraSmall" Color="Color.Danger" OnClick="@(() => RemoveLine(line.Id))" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseCreateAsync" />
+            <Button Text="Tạo đơn mua" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="CreateOrderAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+<Modal @ref="_attachModal" IsBackdrop="true">
+    <ModalDialog Title="@($"Chứng từ đơn mua {_attachOrder?.PurchaseOrderNo}")" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            @if (_attachOrder is not null)
+            {
+                <FileAttachmentPanel Module="PURCHASE" EntityType="PurchaseOrder" EntityId="@_attachOrder.Id.ToString()"
+                                     Title="Chứng từ đơn mua"
+                                     WarningText="Chưa có chứng từ đơn mua. Vui lòng tải lên hoá đơn/PO." />
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Đóng" Color="Color.Secondary" OnClick="CloseAttachmentsAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<PurchaseOrderRecord>? _table;
+    private List<SelectedItem> _supplierOptions = [new("", "Chọn nhà cung cấp...")];
+    private List<PurchaseLineDraft> _draftLines = [];
+    private Modal? _createModal;
+    private Modal? _attachModal;
+    private PurchaseOrderRecord? _attachOrder;
+    private string _purchaseOrderNo = "PO-0001";
+    private string _orderSupplierCode = "";
+    private string _warehouseCode = "MAIN";
+    private string _productCode = "";
+    private string _productName = "";
+    private decimal _quantity = 10;
+    private decimal _unitCost = 50;
+
+    protected override async Task OnInitializedAsync() => await LoadSupplierOptionsAsync();
+
+    private async Task<QueryData<PurchaseOrderRecord>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("PURCHASE") || !Session.IsGranted(NexusPermissions.Purchase.Orders.View))
+        {
+            return new QueryData<PurchaseOrderRecord> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var all = (await Api.GetPurchaseOrdersAsync(tenantId, options.SearchText))?.ToList() ?? [];
+            var items = all.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+            return new QueryData<PurchaseOrderRecord>
+            {
+                Items = items,
+                TotalCount = all.Count,
+                IsFiltered = !string.IsNullOrEmpty(options.SearchText),
+                IsSearch = !string.IsNullOrEmpty(options.SearchText)
+            };
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            return new QueryData<PurchaseOrderRecord> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private async Task LoadSupplierOptionsAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.IsGranted(NexusPermissions.Purchase.Suppliers.View))
+        {
+            return;
+        }
+
+        try
+        {
+            var suppliers = (await Api.GetSuppliersAsync(tenantId))?.ToList() ?? [];
+            _supplierOptions = [new("", "Chọn nhà cung cấp..."), .. suppliers.Select(x => new SelectedItem(x.SupplierCode, $"{x.SupplierCode} - {x.Name}"))];
+            if (string.IsNullOrWhiteSpace(_orderSupplierCode))
+            {
+                _orderSupplierCode = suppliers.FirstOrDefault()?.SupplierCode ?? "";
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task ShowCreateAsync(IEnumerable<PurchaseOrderRecord> _)
+    {
+        _purchaseOrderNo = $"PO-{DateTime.Now:yyyyMMddHHmm}";
+        _draftLines = [];
+        _warehouseCode = "MAIN";
+        _productCode = "";
+        _productName = "";
+        _quantity = 10;
+        _unitCost = 0;
+        await LoadSupplierOptionsAsync();
+        await _createModal!.Show();
+    }
+
+    private Task CloseCreateAsync() => _createModal!.Close();
+
+    private void OnProductSelected(InventoryProductRecord? product)
+    {
+        if (product is null)
+        {
+            return;
+        }
+
+        _productName = product.ProductName;
+        _unitCost = product.Price;
+    }
+
+    private async Task AddLine()
+    {
+        if (string.IsNullOrWhiteSpace(_warehouseCode) || string.IsNullOrWhiteSpace(_productCode) || string.IsNullOrWhiteSpace(_productName) || _quantity <= 0)
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập kho, mã hàng, tên hàng và số lượng hợp lệ."));
+            return;
+        }
+
+        _draftLines.Add(new PurchaseLineDraft(
+            Guid.NewGuid(),
+            _warehouseCode.Trim().ToUpperInvariant(),
+            _productCode.Trim().ToUpperInvariant(),
+            _productName.Trim(),
+            _quantity,
+            _unitCost,
+            _quantity * _unitCost));
+    }
+
+    private void RemoveLine(Guid id) => _draftLines.RemoveAll(x => x.Id == id);
+
+    private async Task CreateOrderAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_purchaseOrderNo) || string.IsNullOrWhiteSpace(_orderSupplierCode))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập số PO và chọn nhà cung cấp."));
+            return;
+        }
+
+        if (_draftLines.Count == 0
+            && (string.IsNullOrWhiteSpace(_warehouseCode)
+                || string.IsNullOrWhiteSpace(_productCode)
+                || string.IsNullOrWhiteSpace(_productName)
+                || _quantity <= 0))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng thêm ít nhất một dòng mua hàng hợp lệ."));
+            return;
+        }
+
+        try
+        {
+            var lines = _draftLines.Count > 0
+                ? _draftLines.Select(x => new CreatePurchaseOrderLineRequest(x.WarehouseCode, x.ProductCode, x.ProductName, x.Quantity, x.UnitCost)).ToArray()
+                : new[] { new CreatePurchaseOrderLineRequest(_warehouseCode, _productCode, _productName, _quantity, _unitCost) };
+
+            await Api.CreatePurchaseOrderAsync(new CreatePurchaseOrderRequest(tenantId, _purchaseOrderNo, _orderSupplierCode, lines));
+            _draftLines.Clear();
+            await ToastService.Success("Thành công", "Đã tạo đơn mua hàng.");
+            await _createModal!.Close();
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task ApproveAsync(Guid id)
+    {
+        try
+        {
+            await Api.ApprovePurchaseOrderAsync(id);
+            await ToastService.Success("Thành công", "Đã duyệt đơn mua hàng.");
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task ReceiveAsync(PurchaseOrderRecord order)
+    {
+        try
+        {
+            await Api.ReceivePurchaseOrderAsync(order.Id, new ReceivePurchaseOrderRequest($"GR-{order.PurchaseOrderNo}"));
+            await ToastService.Success("Thành công", "Đã nhận hàng và nhập kho.");
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private Task OpenAttachmentsAsync(PurchaseOrderRecord order)
+    {
+        _attachOrder = order;
+        return _attachModal!.Show();
+    }
+
+    private Task CloseAttachmentsAsync() => _attachModal!.Close();
+
+    private async Task ReloadTableAsync()
+    {
+        if (_table is not null)
+        {
+            await _table.QueryAsync();
+        }
+    }
+
+    private static string StatusText(string status) => status switch
+    {
+        "Approved" => "Đã duyệt",
+        "Received" => "Đã nhận",
+        _ => "Nháp"
+    };
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Approved" => "app-status-badge app-status-pending",
+        "Received" => "app-status-badge app-status-active",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private static string OrderLinesText(PurchaseOrderRecord order)
+    {
+        if (order.Lines is null || order.Lines.Count == 0)
+        {
+            return "-";
+        }
+
+        return string.Join(", ", order.Lines.Select(x => $"{x.WarehouseCode}/{x.ProductCode} x{x.Quantity:N0}"));
+    }
+
+    private Task ShowErrorAsync(Exception ex) =>
+        SwalService.Show(new SwalOption
+        {
+            Category = SwalCategory.Error,
+            Title = "Đã xảy ra lỗi",
+            Content = ex.Message,
+            CloseButtonText = "Đóng"
+        });
+
+    private sealed record PurchaseLineDraft(Guid Id, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, decimal UnitCost, decimal LineAmount);
+}

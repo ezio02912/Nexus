@@ -1,0 +1,146 @@
+@page "/crm/contracts/{Id:guid}"
+@attribute [TabItemOption(Text = "Chi tiết HĐ", Icon = "fa-solid fa-file-signature")]
+@inherits CrmPageBase
+
+<PageTitle>Chi tiết hợp đồng - CRM</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">CRM / Hợp đồng</p>
+            <h1>@(_item?.ContractNo ?? "Chi tiết hợp đồng")</h1>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <Button Text="Quay lại" Color="Color.Secondary" Icon="fa-solid fa-arrow-left" OnClick="GoBack" />
+            @if (_item is not null)
+            {
+                <Button Text="Sửa" Color="Color.Primary" Icon="fa-solid fa-pen" IsAsync="true" OnClick="ShowEditModalAsync" />
+                <Button Text="Ký" Color="Color.Success" Icon="fa-solid fa-signature" IsAsync="true" OnClick="SignAsync" />
+                <Button Text="Kích hoạt" Color="Color.Primary" Icon="fa-solid fa-play" IsAsync="true" OnClick="ActivateAsync" />
+                @if (Session.HasModule("SALES"))
+                {
+                    <Button Text="Tạo đơn hàng" Color="Color.Info" Icon="fa-solid fa-cart-shopping" OnClick="GoToSalesOrder" />
+                }
+                <Button Text="Chấm dứt" Color="Color.Danger" Icon="fa-solid fa-ban" IsAsync="true" OnClick="TerminateAsync" />
+            }
+            <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <div class="app-loading">
+            <Spinner Color="Color.Primary" />
+            <span class="app-loading-text">Đang tải dữ liệu...</span>
+        </div>
+    }
+    else if (_item is null)
+    {
+        <div class="app-empty-state">Không tìm thấy hợp đồng.</div>
+    }
+    else
+    {
+        <section class="app-card app-card-wide mb-3">
+            <div class="app-detail-grid">
+                <div><span class="app-detail-label">Tiêu đề</span><span>@_item.Title</span></div>
+                <div><span class="app-detail-label">Trạng thái</span>
+                    <span class="@CrmLabels.StatusBadgeClass(_item.Status)">@CrmLabels.FormatContractStatus(_item.Status)</span>
+                </div>
+                <div><span class="app-detail-label">Giá trị</span><span>@_item.ContractValue.ToString("N0") @_item.Currency</span></div>
+                <div><span class="app-detail-label">Ngày ký</span><span>@(_item.SignedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</span></div>
+                <div><span class="app-detail-label">Bắt đầu</span><span>@(_item.StartDate?.ToString("dd/MM/yyyy") ?? "—")</span></div>
+                <div><span class="app-detail-label">Kết thúc</span><span>@(_item.EndDate?.ToString("dd/MM/yyyy") ?? "—")</span></div>
+                <div><span class="app-detail-label">Gia hạn</span><span>@(_item.RenewalDate?.ToString("dd/MM/yyyy") ?? "—")</span></div>
+                <div><span class="app-detail-label">Điều khoản TT</span><span>@(_item.PaymentTerms ?? "—")</span></div>
+                <div><span class="app-detail-label">File</span><span>@(_item.FileId.HasValue ? _item.FileId.Value.ToString("N")[..8] : "—")</span></div>
+                <div><span class="app-detail-label">Ngày tạo</span><span>@_item.CreationTime.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span></div>
+            </div>
+        </section>
+
+        <div class="crm-related-grid mb-3">
+            @if (_customer is not null)
+            {
+                <button class="app-card crm-related-summary" type="button" @onclick="@(() => OpenCustomer(_customer.Id))">
+                    <span class="app-detail-label">Khách hàng</span>
+                    <strong>@_customer.Code - @_customer.Name</strong>
+                    <span>@(_customer.Email ?? _customer.Phone ?? "Mở chi tiết khách hàng")</span>
+                </button>
+            }
+            @if (_opportunity is not null)
+            {
+                <button class="app-card crm-related-summary" type="button" @onclick="@(() => OpenOpportunity(_opportunity.Id))">
+                    <span class="app-detail-label">Cơ hội</span>
+                    <strong>@_opportunity.Name</strong>
+                    <span>@VnMoney.Format(_opportunity.Amount) @_opportunity.Currency / @CrmLabels.FormatOpportunityStage(_opportunity.Stage)</span>
+                </button>
+            }
+            @if (_quotation is not null)
+            {
+                <button class="app-card crm-related-summary" type="button" @onclick="@(() => OpenQuotation(_quotation.Id))">
+                    <span class="app-detail-label">Báo giá</span>
+                    <strong>@_quotation.QuotationNo</strong>
+                    <span>@VnMoney.Format(_quotation.TotalAmount) @_quotation.Currency / @CrmLabels.FormatQuotationStatus(_quotation.Status)</span>
+                </button>
+            }
+        </div>
+
+        <Card HeaderText="Chi tiết dòng hàng" IsShadow="true">
+            <BodyTemplate>
+                @if (!_item.Lines.Any())
+                {
+                    <div class="app-empty-state">Chưa có dòng hàng.</div>
+                }
+                else
+                {
+                    <Table TItem="ContractLineDto" Items="@_item.Lines.ToList()" IsPagination="false" IsStriped="true" IsBordered="true">
+                        <TableColumns>
+                            <TableColumn @bind-Field="@context.LineNo" Text="#" />
+                            <TableColumn @bind-Field="@context.ProductCode" Text="Mã SP" />
+                            <TableColumn @bind-Field="@context.ProductName" Text="Tên SP" />
+                            <TableColumn @bind-Field="@context.Quantity" Text="SL" />
+                            <TableColumn @bind-Field="@context.UnitPrice" Text="Đơn giá">
+                                <Template Context="v">@v.Row.UnitPrice.ToString("N0")</Template>
+                            </TableColumn>
+                            <TableColumn @bind-Field="@context.LineTotal" Text="Thành tiền">
+                                <Template Context="v">@v.Row.LineTotal.ToString("N0")</Template>
+                            </TableColumn>
+                        </TableColumns>
+                    </Table>
+                }
+            </BodyTemplate>
+        </Card>
+
+        <div class="mt-3">
+            <FileAttachmentPanel Module="CRM" EntityType="Contract" EntityId="@_item.Id.ToString()"
+                                 Title="Chứng từ hợp đồng"
+                                 WarningText="Chưa có chứng từ hợp đồng. Vui lòng tải lên file hợp đồng đã ký." />
+        </div>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="Sửa hợp đồng" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Tiêu đề" Required="true">
+                    <BootstrapInput @bind-Value="_editModel.Title" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá trị" @bind-Value="_editModel.ContractValue" DecimalPlaces="0" />
+                <AppFormField Label="Tiền tệ">
+                    <BootstrapInput @bind-Value="_editModel.Currency" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điều khoản thanh toán">
+                    <BootstrapInput @bind-Value="_editModel.PaymentTerms" ShowLabel="false" />
+                </AppFormField>
+                <ProductLinesEditor Label="Dòng sản phẩm" @bind-Lines="_editModel.Lines" />
+                <AppFormField Label="Ghi chú" Class="app-form-field-full">
+                    <Textarea @bind-Value="_editModel.Notes" ShowLabel="false" rows="3" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseEditModalAsync" />
+            <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveEditAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>

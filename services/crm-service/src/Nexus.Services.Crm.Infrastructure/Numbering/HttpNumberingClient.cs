@@ -12,7 +12,7 @@ public sealed class HttpNumberingClient : INumberingClient
     public HttpNumberingClient(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
-        _baseUrl = configuration["Services:Numbering"] ?? "http://localhost:7210";
+        _baseUrl = configuration["Services:Numbering"] ?? "http://localhost:7206";
     }
 
     public async Task<string> GetNextNumberAsync(Guid tenantId, string module, string documentType, string prefix, CancellationToken cancellationToken = default)

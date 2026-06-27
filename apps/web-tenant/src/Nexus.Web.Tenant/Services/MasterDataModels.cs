@@ -5,6 +5,8 @@ public sealed class MasterDataCategories
     public const string Industry = "Industry";
     public const string City = "City";
     public const string Source = "Source";
+    public const string Unit = "Unit";
+    public const string ProductType = "ProductType";
 }
 
 public sealed record LookupItemDto(

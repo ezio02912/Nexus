@@ -1,6 +1,6 @@
 # Core API Endpoints
 
-Các endpoint dưới đây là bản core in-memory để bắt đầu phát triển flow SaaS. Phase sau sẽ thay repository in-memory bằng PostgreSQL và event bus thật.
+Các endpoint dưới đây là catalog endpoint đang dùng trong core services và tenant workspace. Các service nghiệp vụ mới dùng PostgreSQL theo database riêng; một số core service vẫn dùng EF migration trong project Infrastructure/API.
 
 ## Permission Service
 
@@ -68,7 +68,30 @@ Tenant context via JWT / `x-tenant-id`. Full CRUD + workflow on all entities.
 
 ## Sales Service
 
-- `GET /api/sales/orders`
+- `GET /api/sales/orders?tenantId={tenantId}&search={search}`
+- `GET /api/sales/orders/{id}?tenantId={tenantId}`
 - `POST /api/sales/orders`
 - `POST /api/sales/orders/{id}/approve`
+- `POST /api/sales/orders/{id}/deliver`
 - `POST /api/sales/orders/{id}/complete`
+
+## Inventory Service
+
+- `GET /api/inventory/balances?tenantId={tenantId}&search={search}`
+- `GET /api/inventory/products?tenantId={tenantId}&search={search}`
+- `POST /api/inventory/products` tạo/cập nhật mã hàng hoá, gồm đơn vị, loại hàng, thuộc tính và biến thể.
+- `GET /api/inventory/warehouses?tenantId={tenantId}&search={search}`
+- `POST /api/inventory/warehouses`
+- `POST /api/inventory/stock/import`
+- `POST /api/inventory/reservations`
+- `POST /api/inventory/shipments`
+
+## Purchase Service
+
+- `GET /api/purchase/suppliers?tenantId={tenantId}&search={search}`
+- `POST /api/purchase/suppliers`
+- `GET /api/purchase/orders?tenantId={tenantId}&search={search}`
+- `POST /api/purchase/orders`
+- `POST /api/purchase/orders/{id}/approve`
+- `POST /api/purchase/orders/{id}/receive`
+- `GET /api/purchase/goods-receipts?tenantId={tenantId}`

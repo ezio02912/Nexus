@@ -38,6 +38,7 @@ builder.Services.Configure<TenantPortalOptions>(builder.Configuration.GetSection
 builder.Services.AddScoped<TenantPortalApiClient>();
 builder.Services.AddScoped<CrmApiClient>();
 builder.Services.AddScoped<MasterDataApiClient>();
+builder.Services.AddScoped<FileApiClient>();
 builder.Services.AddScoped<TenantSessionService>();
 builder.Services.AddScoped<OnboardingStateService>();
 builder.Services.AddScoped<PendingAuthStateService>();

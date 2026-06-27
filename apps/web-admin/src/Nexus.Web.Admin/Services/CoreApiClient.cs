@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 
 namespace Nexus.Web.Admin.Services;
@@ -98,7 +99,7 @@ public sealed class CoreApiClient
     {
         var client = CreateClient();
         var response = await client.PostAsJsonAsync(BuildUrl(baseUrl, path), request);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<T>();
     }
 
@@ -106,7 +107,7 @@ public sealed class CoreApiClient
     {
         var client = CreateClient();
         var response = await client.PutAsJsonAsync(BuildUrl(baseUrl, path), request);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<T>();
     }
 
@@ -114,7 +115,46 @@ public sealed class CoreApiClient
     {
         var client = CreateClient();
         var response = await client.DeleteAsync(BuildUrl(baseUrl, path));
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
+    }
+
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var body = await response.Content.ReadAsStringAsync();
+        var message = ExtractErrorMessage(body);
+        throw new InvalidOperationException(string.IsNullOrWhiteSpace(message)
+            ? $"Yêu cầu thất bại ({(int)response.StatusCode})."
+            : message);
+    }
+
+    private static string? ExtractErrorMessage(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("message", out var message)
+                || doc.RootElement.TryGetProperty("Message", out message)
+                || doc.RootElement.TryGetProperty("error", out message))
+            {
+                return message.GetString();
+            }
+        }
+        catch
+        {
+            return body;
+        }
+
+        return body;
     }
 
     // Routes go through the API gateway, so the per-service base already includes the gateway

@@ -87,12 +87,13 @@
             {
                 <table class="app-table">
                     <thead>
-                        <tr><th>Mã hàng</th><th>Mô tả</th><th>Số lượng</th><th>Đơn giá</th><th>Tạm tính</th><th>CK</th><th>Thuế</th><th>Thành tiền</th></tr>
+                        <tr><th>Kho</th><th>Mã hàng</th><th>Mô tả</th><th>Số lượng</th><th>Đơn giá</th><th>Tạm tính</th><th>CK</th><th>Thuế</th><th>Thành tiền</th></tr>
                     </thead>
                     <tbody>
                         @foreach (var line in _order.Lines)
                         {
                             <tr>
+                                <td>@line.WarehouseCode</td>
                                 <td>@line.ProductCode</td>
                                 <td>@line.Description</td>
                                 <td>@line.Quantity.ToString("N2")</td>
@@ -107,6 +108,12 @@
                 </table>
             }
         </section>
+
+        <div class="mt-3">
+            <FileAttachmentPanel Module="SALES" EntityType="SalesOrder" EntityId="@_order.Id.ToString()"
+                                 Title="Chứng từ đơn hàng"
+                                 WarningText="Chưa có chứng từ đơn hàng. Vui lòng tải lên hoá đơn/biên bản giao hàng." />
+        </div>
     }
 </section>
 

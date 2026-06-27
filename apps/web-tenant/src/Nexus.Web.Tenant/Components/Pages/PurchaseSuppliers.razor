@@ -1,0 +1,200 @@
+@page "/purchase/suppliers"
+@attribute [TabItemOption(Text = "Nhà cung cấp", Icon = "fa-solid fa-truck-field")]
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject SwalService SwalService
+@inject ToastService ToastService
+
+<PageTitle>Nhà cung cấp</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Mua hàng</p>
+            <h1>Nhà cung cấp</h1>
+            <p>Quản lý danh mục nhà cung cấp dùng cho đơn mua.</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("PURCHASE"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Mua hàng.</div>
+    }
+    else if (!Session.IsGranted(NexusPermissions.Purchase.Suppliers.View))
+    {
+        <div class="app-alert">Bạn không có quyền xem nhà cung cấp.</div>
+    }
+    else
+    {
+        <Card HeaderText="Danh sách nhà cung cấp" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="SupplierRecord" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="120"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        @if (Session.IsGranted(NexusPermissions.Purchase.Suppliers.Manage))
+                        {
+                            <TableToolbarButton TItem="SupplierRecord" Color="Color.Primary" Icon="fa-solid fa-plus"
+                                                Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        }
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        @if (Session.IsGranted(NexusPermissions.Purchase.Suppliers.Manage))
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
+                                             OnClick="@(() => ShowEditAsync(context))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.SupplierCode" Text="Mã NCC" Sortable="true" Searchable="true">
+                            <Template Context="v"><span class="app-table-link-code">@v.Row.SupplierCode</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Name" Text="Tên" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Email" Text="Email" Searchable="true">
+                            <Template Context="v">@(string.IsNullOrWhiteSpace(v.Row.Email) ? "-" : v.Row.Email)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Phone" Text="Điện thoại">
+                            <Template Context="v">@(string.IsNullOrWhiteSpace(v.Row.Phone) ? "-" : v.Row.Phone)</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_dialogTitle" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Mã NCC" Required="true">
+                    <BootstrapInput @bind-Value="_supplierCode" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Tên NCC" Required="true">
+                    <BootstrapInput @bind-Value="_supplierName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_supplierEmail" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_supplierPhone" ShowLabel="false" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseModalAsync" />
+            <Button Text="Lưu nhà cung cấp" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="SaveSupplierAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<SupplierRecord>? _table;
+    private Modal? _editModal;
+    private string _dialogTitle = "Thêm nhà cung cấp";
+    private string _supplierCode = "";
+    private string _supplierName = "";
+    private string _supplierEmail = "";
+    private string _supplierPhone = "";
+
+    private async Task<QueryData<SupplierRecord>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("PURCHASE") || !Session.IsGranted(NexusPermissions.Purchase.Suppliers.View))
+        {
+            return new QueryData<SupplierRecord> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var all = (await Api.GetSuppliersAsync(tenantId, options.SearchText))?.ToList() ?? [];
+            return BuildQuery(all, options);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            return new QueryData<SupplierRecord> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private Task ShowCreateAsync(IEnumerable<SupplierRecord> _)
+    {
+        _dialogTitle = "Thêm nhà cung cấp";
+        _supplierCode = "";
+        _supplierName = "";
+        _supplierEmail = "";
+        _supplierPhone = "";
+        return _editModal!.Show();
+    }
+
+    private Task ShowEditAsync(SupplierRecord supplier)
+    {
+        _dialogTitle = $"Sửa nhà cung cấp {supplier.SupplierCode}";
+        _supplierCode = supplier.SupplierCode;
+        _supplierName = supplier.Name;
+        _supplierEmail = supplier.Email;
+        _supplierPhone = supplier.Phone;
+        return _editModal!.Show();
+    }
+
+    private Task CloseModalAsync() => _editModal!.Close();
+
+    private async Task SaveSupplierAsync()
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_supplierCode) || string.IsNullOrWhiteSpace(_supplierName))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập mã và tên nhà cung cấp."));
+            return;
+        }
+
+        try
+        {
+            await Api.UpsertSupplierAsync(new UpsertSupplierRequest(tenantId, _supplierCode, _supplierName, _supplierEmail, _supplierPhone));
+            await ToastService.Success("Thành công", "Đã lưu nhà cung cấp.");
+            await _editModal!.Close();
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task ReloadTableAsync()
+    {
+        if (_table is not null)
+        {
+            await _table.QueryAsync();
+        }
+    }
+
+    private static QueryData<SupplierRecord> BuildQuery(List<SupplierRecord> all, QueryPageOptions options)
+    {
+        var items = all.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+        return new QueryData<SupplierRecord>
+        {
+            Items = items,
+            TotalCount = all.Count,
+            IsFiltered = !string.IsNullOrEmpty(options.SearchText),
+            IsSearch = !string.IsNullOrEmpty(options.SearchText)
+        };
+    }
+
+    private Task ShowErrorAsync(Exception ex) =>
+        SwalService.Show(new SwalOption
+        {
+            Category = SwalCategory.Error,
+            Title = "Đã xảy ra lỗi",
+            Content = ex.Message,
+            CloseButtonText = "Đóng"
+        });
+}

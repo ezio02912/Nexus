@@ -57,5 +57,7 @@ apply "workflow"     "services/workflow-service/src/Nexus.Services.Workflow.Api"
 apply "numbering"    "services/numbering-service/src/Nexus.Services.Numbering.Api"          "services/numbering-service/src/Nexus.Services.Numbering.Api"
 apply_sql_folder "crm"   "${CRM_DB:-crm_db}"     "services/crm-service/migrations"
 apply_sql_folder "sales" "${SALES_DB:-sales_db}" "services/sales-service/migrations"
+apply_sql_folder "inventory" "${INVENTORY_DB:-inventory_db}" "services/inventory-service/migrations"
+apply_sql_folder "purchase"  "${PURCHASE_DB:-purchase_db}"   "services/purchase-service/migrations"
 
 echo "All core migrations applied."

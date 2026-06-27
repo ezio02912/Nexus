@@ -12,9 +12,11 @@ public sealed class InventoryProduct : NexusEntity<Guid>
         ProductName = string.Empty;
         Unit = string.Empty;
         Category = string.Empty;
+        Attributes = string.Empty;
+        Variants = string.Empty;
     }
 
-    public InventoryProduct(Guid id, Guid tenantId, string productCode, string productName, string unit, string? category, decimal price, decimal taxPercent, bool isActive, DateTimeOffset now)
+    public InventoryProduct(Guid id, Guid tenantId, string productCode, string productName, string unit, string? category, decimal price, decimal taxPercent, bool isActive, string? attributes, string? variants, DateTimeOffset now)
     {
         Id = id;
         TenantId = tenantId;
@@ -25,6 +27,8 @@ public sealed class InventoryProduct : NexusEntity<Guid>
         Price = price;
         TaxPercent = taxPercent;
         IsActive = isActive;
+        Attributes = attributes?.Trim() ?? string.Empty;
+        Variants = variants?.Trim() ?? string.Empty;
         CreatedAt = now;
         UpdatedAt = now;
     }
@@ -37,10 +41,12 @@ public sealed class InventoryProduct : NexusEntity<Guid>
     public decimal Price { get; private set; }
     public decimal TaxPercent { get; private set; }
     public bool IsActive { get; private set; }
+    public string Attributes { get; private set; }
+    public string Variants { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public void Update(string productName, string unit, string? category, decimal price, decimal taxPercent, bool isActive, DateTimeOffset now)
+    public void Update(string productName, string unit, string? category, decimal price, decimal taxPercent, bool isActive, string? attributes, string? variants, DateTimeOffset now)
     {
         ProductName = productName.Trim();
         Unit = string.IsNullOrWhiteSpace(unit) ? "EA" : StockBalance.NormalizeCode(unit, 16);
@@ -48,6 +54,8 @@ public sealed class InventoryProduct : NexusEntity<Guid>
         Price = price;
         TaxPercent = taxPercent;
         IsActive = isActive;
+        Attributes = attributes?.Trim() ?? string.Empty;
+        Variants = variants?.Trim() ?? string.Empty;
         UpdatedAt = now;
     }
 }
@@ -185,7 +193,8 @@ public sealed class StockReservation : NexusEntity<Guid>
 
         foreach (var line in lines)
         {
-            _lines.Add(new StockReservationLine(Guid.NewGuid(), id, "MAIN", line.ProductCode, line.Description, line.Quantity));
+            var warehouseCode = string.IsNullOrWhiteSpace(line.WarehouseCode) ? "MAIN" : line.WarehouseCode;
+            _lines.Add(new StockReservationLine(Guid.NewGuid(), id, warehouseCode, line.ProductCode, line.Description, line.Quantity));
         }
     }
 
@@ -290,6 +299,8 @@ public sealed class InventoryDbContext : NexusDbContext
             builder.Property(x => x.ProductName).HasMaxLength(256).IsRequired();
             builder.Property(x => x.Unit).HasMaxLength(16).IsRequired();
             builder.Property(x => x.Category).HasMaxLength(128).IsRequired();
+            builder.Property(x => x.Attributes).HasMaxLength(2048).IsRequired();
+            builder.Property(x => x.Variants).HasMaxLength(2048).IsRequired();
             builder.Property(x => x.Price).HasPrecision(18, 2);
             builder.Property(x => x.TaxPercent).HasPrecision(5, 2);
             builder.HasIndex(x => new { x.TenantId, x.ProductCode }).IsUnique();
@@ -359,4 +370,4 @@ public sealed class InventoryDbContext : NexusDbContext
     }
 }
 
-public sealed record ReserveStockLineDto(string ProductCode, string Description, decimal Quantity);
+public sealed record ReserveStockLineDto(string WarehouseCode, string ProductCode, string Description, decimal Quantity);

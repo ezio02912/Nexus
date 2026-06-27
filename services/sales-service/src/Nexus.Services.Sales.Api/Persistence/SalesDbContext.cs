@@ -42,7 +42,7 @@ public sealed class SalesOrder : NexusEntity<Guid>
 
         foreach (var line in lines)
         {
-            _lines.Add(new SalesOrderLine(Guid.NewGuid(), id, line.ProductCode, line.Description, line.Quantity, line.UnitPrice, line.DiscountPercent, line.TaxPercent));
+            _lines.Add(new SalesOrderLine(Guid.NewGuid(), id, line.WarehouseCode, line.ProductCode, line.Description, line.Quantity, line.UnitPrice, line.DiscountPercent, line.TaxPercent));
         }
 
         Subtotal = _lines.Sum(x => x.Subtotal);
@@ -113,20 +113,22 @@ public sealed class SalesOrder : NexusEntity<Guid>
     }
 }
 
-public sealed record SalesOrderLineDraft(string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal TaxPercent);
+public sealed record SalesOrderLineDraft(string WarehouseCode, string ProductCode, string Description, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, decimal TaxPercent);
 
 public sealed class SalesOrderLine : NexusEntity<Guid>
 {
     private SalesOrderLine()
     {
+        WarehouseCode = string.Empty;
         ProductCode = string.Empty;
         Description = string.Empty;
     }
 
-    public SalesOrderLine(Guid id, Guid salesOrderId, string productCode, string description, decimal quantity, decimal unitPrice, decimal discountPercent, decimal taxPercent)
+    public SalesOrderLine(Guid id, Guid salesOrderId, string warehouseCode, string productCode, string description, decimal quantity, decimal unitPrice, decimal discountPercent, decimal taxPercent)
     {
         Id = id;
         SalesOrderId = salesOrderId;
+        WarehouseCode = NormalizeCode(warehouseCode, 64, "MAIN");
         ProductCode = productCode.Trim().ToUpperInvariant();
         Description = description.Trim();
         Quantity = quantity;
@@ -140,6 +142,7 @@ public sealed class SalesOrderLine : NexusEntity<Guid>
     }
 
     public Guid SalesOrderId { get; private set; }
+    public string WarehouseCode { get; private set; }
     public string ProductCode { get; private set; }
     public string Description { get; private set; }
     public decimal Quantity { get; private set; }
@@ -150,6 +153,12 @@ public sealed class SalesOrderLine : NexusEntity<Guid>
     public decimal TaxAmount { get; private set; }
     public decimal Subtotal { get; private set; }
     public decimal LineAmount { get; private set; }
+
+    private static string NormalizeCode(string value, int maxLength, string fallback)
+    {
+        var normalized = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim().ToUpperInvariant();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
 }
 
 public sealed class SalesDbContext : NexusDbContext
@@ -193,6 +202,7 @@ public sealed class SalesDbContext : NexusDbContext
         {
             builder.ToTable("sales_order_lines");
             builder.HasKey(x => x.Id);
+            builder.Property(x => x.WarehouseCode).HasMaxLength(64).IsRequired();
             builder.Property(x => x.ProductCode).HasMaxLength(64).IsRequired();
             builder.Property(x => x.Description).HasMaxLength(256).IsRequired();
             builder.Property(x => x.Quantity).HasPrecision(18, 2);

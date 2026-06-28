@@ -1,0 +1,405 @@
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject NavigationManager Navigation
+@inject ToastService ToastService
+@inject SwalService SwalService
+
+<PageTitle>@Definition.Title</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">HRM</p>
+            <h1>@Definition.Title</h1>
+            <p>@Definition.Description</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("HRM"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Nhân sự.</div>
+    }
+    else if (!Session.IsGranted(Definition.ViewPermission))
+    {
+        <div class="app-alert">Bạn không có quyền xem màn hình này.</div>
+    }
+    else
+    {
+        <Card HeaderText="@Definition.Title" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="OperationRow" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="150"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        <TableToolbarButton TItem="OperationRow" Color="Color.Primary" Icon="fa-solid fa-plus" Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa" OnClick="@(() => ShowEditAsync(context))" />
+                        <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá" OnClick="@(() => DeleteAsync(context))" />
+                        @if (context.Kind == "offers" && context.Status.Equals("Draft", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-check" Text="Nhận việc" OnClick="@(() => AcceptOfferAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.Code" Text="Mã/Số" Sortable="true" Searchable="true">
+                            <Template Context="v"><span class="app-table-link-code">@v.Row.Code</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Name" Text="Tên/Nội dung" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v"><span class="@StatusCss(v.Row.Status)">@StatusText(v.Row.Status)</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Amount" Text="Giá trị" Sortable="true">
+                            <Template Context="v">@FormatAmount(v.Row.Amount, v.Row.Currency)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Extra" Text="Thông tin nghiệp vụ" Searchable="true" />
+                        <TableColumn @bind-Field="@context.UpdatedAt" Text="Cập nhật" Sortable="true">
+                            <Template Context="v">@v.Row.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_dialogTitle" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="@CodeLabel" Required="true">
+                    <BootstrapInput @bind-Value="_form.Code" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="@NameLabel" Required="true">
+                    <BootstrapInput @bind-Value="_form.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Trạng thái">
+                    <BootstrapInput @bind-Value="_form.Status" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="@AmountLabel">
+                    <BootstrapInputNumber @bind-Value="_form.Amount" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Ngày bắt đầu">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_form.StartDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
+                </AppFormField>
+                <AppFormField Label="Ngày kết thúc">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_form.EndDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
+                </AppFormField>
+                <AppFormField Label="Thông tin thêm" Class="app-form-field-full">
+                    <Textarea @bind-Value="_form.Extra" ShowLabel="false" rows="3" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="@(() => _editModal!.Close())" />
+            <Button Text="Lưu" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<OperationRow>? _table;
+    private Modal? _editModal;
+    private HrmFormModel _form = new();
+    private string _dialogTitle = "";
+
+    private HrmDefinition Definition => ResolveDefinition();
+    private string CodeLabel => Definition.Kind switch { "employees" or "profiles" or "dashboard" => "Mã nhân viên", "departments" => "Mã phòng ban", "positions" => "Mã chức vụ", "contracts" => "Số hợp đồng", "recruitment" => "Mã/Số", _ => "Mã" };
+    private string NameLabel => Definition.Kind switch { "employees" or "profiles" or "dashboard" => "Họ tên", "departments" => "Tên phòng ban", "positions" => "Tên chức vụ", "contracts" => "Loại hợp đồng", "recruitment" => "Tiêu đề/Họ tên", _ => "Tên" };
+    private string AmountLabel => Definition.Kind switch { "positions" => "Lương tối đa", "contracts" => "Lương cơ bản", "recruitment" => "Ngân sách/Lương", _ => "Lương/Giá trị" };
+
+    private async Task<QueryData<OperationRow>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("HRM") || !Session.IsGranted(Definition.ViewPermission))
+        {
+            return new QueryData<OperationRow> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var rows = await LoadRowsAsync(tenantId, options.SearchText);
+            var items = rows.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+            return new QueryData<OperationRow>
+            {
+                Items = items,
+                TotalCount = rows.Count,
+                IsSearch = !string.IsNullOrWhiteSpace(options.SearchText),
+                IsFiltered = !string.IsNullOrWhiteSpace(options.SearchText)
+            };
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            return new QueryData<OperationRow> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private async Task<List<OperationRow>> LoadRowsAsync(Guid tenantId, string? search)
+    {
+        if (Definition.Kind == "employees" || Definition.Kind == "profiles" || Definition.Kind == "dashboard")
+        {
+            var items = await Api.GetHrmEmployeesAsync(tenantId, search) ?? [];
+            return items.Select(x => new OperationRow(x.Id, x.EmployeeCode, x.FullName, x.EmploymentStatus, x.BaseSalary, x.SalaryCurrency, $"{x.EmploymentType} | {x.WorkEmail} | {x.Phone}", x.UpdatedAt)).ToList();
+        }
+
+        if (Definition.Kind == "departments")
+        {
+            var items = await Api.GetHrmDepartmentsAsync(tenantId, search) ?? [];
+            return items.Select(x => new OperationRow(x.Id, x.DepartmentCode, x.Name, x.Status, 0, "VND", $"{x.CostCenterCode} | {x.Location}", x.UpdatedAt)).ToList();
+        }
+
+        if (Definition.Kind == "positions")
+        {
+            var items = await Api.GetHrmPositionsAsync(tenantId, search) ?? [];
+            return items.Select(x => new OperationRow(x.Id, x.PositionCode, x.Name, x.Status, x.MaxSalary, "VND", $"{x.Level} | {x.JobGrade} | {FormatAmount(x.MinSalary, "VND")} - {FormatAmount(x.MaxSalary, "VND")}", x.UpdatedAt)).ToList();
+        }
+
+        if (Definition.Kind == "contracts")
+        {
+            var items = await Api.GetHrmContractsAsync(tenantId, search) ?? [];
+            return items.Select(x => new OperationRow(x.Id, x.ContractNo, x.ContractType, x.Status, x.BaseSalary + x.AllowanceAmount, x.Currency, $"{DateText(x.EffectiveFrom)} - {DateText(x.EffectiveTo)} | {x.WorkingLocation}", x.UpdatedAt)).ToList();
+        }
+
+        if (Definition.Kind == "recruitment")
+        {
+            var reqs = await Api.GetHrmRequisitionsAsync(tenantId, search) ?? [];
+            var candidates = await Api.GetHrmCandidatesAsync(tenantId, search) ?? [];
+            var apps = await Api.GetHrmApplicationsAsync(tenantId, search) ?? [];
+            var offers = await Api.GetHrmOffersAsync(tenantId, search) ?? [];
+            return reqs.Select(x => new OperationRow(x.Id, x.RequisitionNo, x.Title, x.Status, x.SalaryMax, "VND", $"{x.Headcount} vị trí | {x.WorkLocation} | {x.EmploymentType}", x.UpdatedAt))
+                .Concat(candidates.Select(x => new OperationRow(x.Id, x.CandidateCode, x.FullName, x.Status, x.ExpectedSalary, x.Currency, $"{x.Email} | {x.Phone} | {x.Source}", x.UpdatedAt)))
+                .Concat(apps.Select(x => new OperationRow(x.Id, x.Id.ToString("N")[..8], x.Stage, x.Status, x.OfferSalary, "VND", $"Screen {x.ScreeningScore} | Interview {x.InterviewScore}", x.UpdatedAt)))
+                .Concat(offers.Select(x => new OperationRow(x.Id, x.OfferNo, "Offer", x.Status, x.OfferedSalary, x.Currency, $"Ngày bắt đầu {DateText(x.StartDate)}", x.UpdatedAt, "offers")))
+                .OrderByDescending(x => x.UpdatedAt)
+                .ToList();
+        }
+
+        var offerItems = await Api.GetHrmOffersAsync(tenantId, search) ?? [];
+        return offerItems.Select(x => new OperationRow(x.Id, x.OfferNo, "Onboarding từ offer", x.Status, x.OfferedSalary, x.Currency, $"Accepted {DateTimeText(x.AcceptedAt)}", x.UpdatedAt, "offers")).ToList();
+    }
+
+    private async Task AcceptOfferAsync(Guid id)
+    {
+        try
+        {
+            await Api.AcceptHrmOfferAsync(id);
+            await ToastService.Success("Thành công", "Offer đã được nhận, hệ thống đã tạo nhân viên draft và checklist onboarding.");
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private Task ShowCreateAsync(IEnumerable<OperationRow> _)
+    {
+        _dialogTitle = $"Thêm {Definition.Title.ToLowerInvariant()}";
+        _form = new HrmFormModel { Status = DefaultStatus(), Currency = "VND" };
+        return _editModal!.Show();
+    }
+
+    private Task ShowEditAsync(OperationRow row)
+    {
+        _dialogTitle = $"Sửa {Definition.Title.ToLowerInvariant()}";
+        _form = new HrmFormModel
+        {
+            Id = row.Id,
+            Code = row.Code,
+            Name = row.Name,
+            Status = row.Status,
+            Amount = row.Amount,
+            Currency = row.Currency,
+            Extra = row.Extra
+        };
+        return _editModal!.Show();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(_form.Code) || string.IsNullOrWhiteSpace(_form.Name))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập đầy đủ mã và tên."));
+            return;
+        }
+
+        try
+        {
+            await UpsertAsync(tenantId);
+            await ToastService.Success("Thành công", "Đã lưu dữ liệu.");
+            await _editModal!.Close();
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task DeleteAsync(OperationRow row)
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        try
+        {
+            await Api.DeleteHrmEntityAsync(DeleteEndpoint(), tenantId, row.Id);
+            await ToastService.Success("Đã xoá", "Đã xoá dữ liệu.");
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private Task ReloadAsync() => _table is null ? Task.CompletedTask : _table.QueryAsync();
+
+    private async Task UpsertAsync(Guid tenantId)
+    {
+        var id = _form.Id;
+        var now = DateTimeOffset.UtcNow;
+        switch (Definition.Kind)
+        {
+            case "employees":
+            case "profiles":
+            case "dashboard":
+                await Api.UpsertHrmEmployeeAsync(new HrmEmployeeRecord { Id = id, TenantId = tenantId, EmployeeCode = _form.Code.Trim(), FullName = _form.Name.Trim(), DisplayName = _form.Name.Trim(), EmploymentStatus = BlankDefault(_form.Status, "Draft"), EmploymentType = "FullTime", BaseSalary = _form.Amount, SalaryCurrency = "VND", WorkEmail = _form.Extra ?? "", UpdatedAt = now });
+                break;
+            case "departments":
+                await Api.UpsertHrmDepartmentAsync(new HrmDepartmentRecord { Id = id, TenantId = tenantId, DepartmentCode = _form.Code.Trim(), Name = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Active"), Description = _form.Extra ?? "", UpdatedAt = now });
+                break;
+            case "positions":
+                await Api.UpsertHrmPositionAsync(new HrmPositionRecord { Id = id, TenantId = tenantId, PositionCode = _form.Code.Trim(), Name = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Active"), MaxSalary = _form.Amount, Description = _form.Extra ?? "", UpdatedAt = now });
+                break;
+            case "contracts":
+                await Api.UpsertHrmContractAsync(new HrmContractRecord { Id = id, TenantId = tenantId, ContractNo = _form.Code.Trim(), ContractType = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Draft"), BaseSalary = _form.Amount, Currency = "VND", WorkingLocation = _form.Extra ?? "", EffectiveFrom = ToDateOnly(_form.StartDate), EffectiveTo = ToDateOnly(_form.EndDate), UpdatedAt = now });
+                break;
+            default:
+                await Api.UpsertHrmRequisitionAsync(new HrmRequisitionRecord { Id = id, TenantId = tenantId, RequisitionNo = _form.Code.Trim(), Title = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Open"), SalaryMax = _form.Amount, WorkLocation = _form.Extra ?? "", UpdatedAt = now });
+                break;
+        }
+    }
+
+    private string DeleteEndpoint() => Definition.Kind switch
+    {
+        "employees" or "profiles" or "dashboard" => "employees",
+        "departments" => "departments",
+        "positions" => "positions",
+        "contracts" => "contracts",
+        _ => "requisitions"
+    };
+
+    private string DefaultStatus() => Definition.Kind switch
+    {
+        "departments" or "positions" => "Active",
+        "recruitment" => "Open",
+        _ => "Draft"
+    };
+
+    private static string BlankDefault(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    private static DateOnly? ToDateOnly(DateTime? value) => value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
+
+    private HrmDefinition ResolveDefinition()
+    {
+        var path = Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/').ToLowerInvariant();
+        return path switch
+        {
+            "hrm/employees" => new("employees", "Nhân viên", "Danh sách nhân viên đầy đủ hồ sơ, trạng thái lao động, phòng ban, chức vụ, lương cơ bản.", NexusPermissions.Hrm.Employees.View),
+            "hrm/departments" => new("departments", "Phòng ban", "Cơ cấu phòng ban, quản lý, cost center và địa điểm làm việc.", NexusPermissions.Hrm.Departments.View),
+            "hrm/positions" => new("positions", "Chức vụ", "Danh mục chức vụ, level, job grade và dải lương.", NexusPermissions.Hrm.Positions.View),
+            "hrm/contracts" => new("contracts", "Hợp đồng lao động", "Hợp đồng, hiệu lực, lương, phụ cấp, file ký và trạng thái duyệt.", NexusPermissions.Hrm.Contracts.View),
+            "hrm/profiles" => new("profiles", "Hồ sơ nhân sự", "Hồ sơ cá nhân, liên hệ, giấy tờ, bảo hiểm, ngân hàng và file đính kèm.", NexusPermissions.Hrm.Employees.View),
+            "hrm/recruitment" => new("recruitment", "Tuyển dụng", "Requisition, candidate, application, interview và offer.", NexusPermissions.Hrm.Recruitment.View),
+            "hrm/onboarding" => new("onboarding", "Onboarding/Offboarding", "Checklist nhận việc, nghỉ việc và các bước bàn giao.", NexusPermissions.Hrm.Onboarding.View),
+            _ => new("dashboard", "Dashboard nhân sự", "Tổng quan nhanh hồ sơ nhân sự và các trạng thái chính.", NexusPermissions.Hrm.Dashboard.View)
+        };
+    }
+
+    private static string DateText(DateOnly? value) => value?.ToString("dd/MM/yyyy") ?? "-";
+    private static string DateTimeText(DateTimeOffset? value) => value?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-";
+    private static string FormatAmount(decimal amount, string currency) => amount <= 0 ? "-" : string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), "{0:N0} {1}", amount, currency);
+    private static string StatusText(string status) => status switch
+    {
+        "Active" => "Hoạt động",
+        "Draft" => "Nháp",
+        "Signed" => "Đã ký",
+        "Accepted" => "Đã nhận",
+        "Resigned" => "Nghỉ việc",
+        "Open" => "Đang mở",
+        "Won" => "Thắng",
+        _ => string.IsNullOrWhiteSpace(status) ? "-" : status
+    };
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Active" or "Signed" or "Accepted" or "Won" => "app-status-badge app-status-active",
+        "Draft" or "Open" => "app-status-badge app-status-pending",
+        "Resigned" or "Rejected" => "app-status-badge app-status-danger",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private Task ShowErrorAsync(Exception ex) =>
+        SwalService.Show(new SwalOption { Category = SwalCategory.Error, Title = "Đã xảy ra lỗi", Content = ex.Message });
+
+    private sealed record HrmDefinition(string Kind, string Title, string Description, string ViewPermission);
+
+    private sealed class OperationRow
+    {
+        public OperationRow()
+        {
+            Code = string.Empty;
+            Name = string.Empty;
+            Status = string.Empty;
+            Currency = "VND";
+            Extra = string.Empty;
+            Kind = string.Empty;
+        }
+
+        public OperationRow(Guid id, string code, string name, string status, decimal amount, string currency, string extra, DateTimeOffset updatedAt, string kind = "")
+        {
+            Id = id;
+            Code = code;
+            Name = name;
+            Status = status;
+            Amount = amount;
+            Currency = currency;
+            Extra = extra;
+            UpdatedAt = updatedAt;
+            Kind = kind;
+        }
+
+        public Guid Id { get; set; }
+        public string Code { get; set; }
+        public string Name { get; set; }
+        public string Status { get; set; }
+        public decimal Amount { get; set; }
+        public string Currency { get; set; }
+        public string Extra { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+        public string Kind { get; set; }
+    }
+
+    private sealed class HrmFormModel
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Status { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Currency { get; set; } = "VND";
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string? Extra { get; set; }
+    }
+}

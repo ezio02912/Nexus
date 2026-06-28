@@ -49,6 +49,9 @@ Script hiện apply:
 - `services/sales-service/migrations/*.sql` vào `sales_db`
 - `services/inventory-service/migrations/*.sql` vào `inventory_db`
 - `services/purchase-service/migrations/*.sql` vào `purchase_db`
+- `services/hrm-service/migrations/*.sql` vào `hrm_db`
+- `services/attendance-service/migrations/*.sql` vào `attendance_db`
+- `services/payroll-service/migrations/*.sql` vào `payroll_db`
 
 ## Business data boundaries
 
@@ -56,4 +59,7 @@ Script hiện apply:
 - Sales snapshot customer id và source document info từ CRM, không đọc trực tiếp database CRM.
 - Inventory giữ product/warehouse/stock balance/reservation/movement. Sales và Purchase cập nhật tồn qua API Inventory.
 - Purchase giữ supplier/PO/goods receipt. Khi receive PO, Purchase gọi Inventory import với source `PURCHASE_RECEIPT`.
+- HRM giữ employee/department/position/contract/recruitment/onboarding.
+- Attendance giữ work calendar/shift/attendance/leave/overtime và chỉ tham chiếu `EmployeeId`, không join database HRM.
+- Payroll giữ policy/period/run/line/payslip/payment và dùng snapshot từ HRM/Attendance qua API/event, không join database chéo.
 - Accounting/Invoice giai đoạn sau sẽ đọc theo event/API source document, không join trực tiếp database Sales/Purchase.

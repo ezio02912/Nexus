@@ -306,9 +306,9 @@
                 : new[] { new CreatePurchaseOrderLineRequest(_warehouseCode, _productCode, _productName, _quantity, _unitCost) };
 
             await Api.CreatePurchaseOrderAsync(new CreatePurchaseOrderRequest(tenantId, _purchaseOrderNo, _orderSupplierCode, lines));
-            _draftLines.Clear();
             await ToastService.Success("Thành công", "Đã tạo đơn mua hàng.");
             await _createModal!.Close();
+            ResetCreateForm();
             await ReloadTableAsync();
         }
         catch (Exception ex)
@@ -401,6 +401,18 @@
         {
             await _table.QueryAsync();
         }
+    }
+
+    private void ResetCreateForm()
+    {
+        _purchaseOrderNo = "AUTO";
+        _orderSupplierCode = _supplierOptions.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Value))?.Value ?? "";
+        _warehouseCode = "MAIN";
+        _productCode = "";
+        _productName = "";
+        _quantity = 10;
+        _unitCost = 0;
+        _draftLines.Clear();
     }
 
     private static string StatusText(string status) => status switch

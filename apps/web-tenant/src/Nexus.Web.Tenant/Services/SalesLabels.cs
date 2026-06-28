@@ -27,10 +27,23 @@ public static class SalesLabels
         _ => "Chờ giao"
     };
 
+    public static string DeliveryStatusCss(string? value) => value switch
+    {
+        "Delivered" => "app-status-badge app-status-active",
+        "Ready" => "app-status-badge app-status-pending",
+        _ => "app-status-badge app-status-muted"
+    };
+
     public static string ReservationStatus(string? value) => value switch
     {
         "Reserved" => "Đã giữ",
         _ => "Chờ giữ"
+    };
+
+    public static string ReservationStatusCss(string? value) => value switch
+    {
+        "Reserved" => "app-status-badge app-status-active",
+        _ => "app-status-badge app-status-muted"
     };
 }
 

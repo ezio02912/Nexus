@@ -140,6 +140,9 @@ public sealed class CrmApiClient
     public Task<ContractDto?> ActivateContractAsync(Guid id)
         => PostAsync<ContractDto>($"/api/crm/contracts/{id}/activate", new { });
 
+    public Task<ContractDto?> CompleteContractAsync(Guid id)
+        => PostAsync<ContractDto>($"/api/crm/contracts/{id}/complete", new { });
+
     public Task<ContractDto?> TerminateContractAsync(Guid id, TerminateContractRequest request)
         => PostAsync<ContractDto>($"/api/crm/contracts/{id}/terminate", request);
 

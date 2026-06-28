@@ -63,6 +63,7 @@ public sealed class ActivityAppService : CrmAppServiceBase, IActivityAppService
             input.ActivityDate,
             input.OwnerId,
             input.AssignedToId,
+            input.AssignedToIds,
             CurrentUser.Id,
             now);
 
@@ -85,6 +86,7 @@ public sealed class ActivityAppService : CrmAppServiceBase, IActivityAppService
             input.Status,
             input.OwnerId,
             input.AssignedToId,
+            input.AssignedToIds,
             input.DurationMinutes,
             CurrentUser.Id,
             now);
@@ -138,6 +140,7 @@ public sealed class ActivityAppService : CrmAppServiceBase, IActivityAppService
             Status = activity.Status,
             OwnerId = activity.OwnerId,
             AssignedToId = activity.AssignedToId,
+            AssignedToIds = activity.GetAssignedToIds(),
             DurationMinutes = activity.DurationMinutes,
             CreationTime = activity.CreationTime,
             CreatorId = activity.CreatorId,

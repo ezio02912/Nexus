@@ -15,6 +15,7 @@
             @if (_item?.CustomerId is not null)
             {
                 <Button Text="Tạo báo giá" Color="Color.Primary" Icon="fa-solid fa-file-invoice" IsAsync="true" OnClick="ShowCreateQuotationAsync" />
+                <Button Text="Tạo hợp đồng" Color="Color.Info" Icon="fa-solid fa-file-signature" IsAsync="true" OnClick="ShowCreateContractAsync" />
             }
             @if (_item is not null)
             {
@@ -77,7 +78,13 @@
 
         <div class="crm-related-grid mt-3">
             <section class="app-card">
-                <h3>Báo giá</h3>
+                <header class="crm-card-header">
+                    <h3>Báo giá</h3>
+                    <button class="crm-card-add" type="button" title="Thêm báo giá"
+                            disabled="@(_item.CustomerId is null)" @onclick="ShowCreateQuotationAsync">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </header>
                 @if (!_quotations.Any())
                 {
                     <div class="app-empty-state">Chưa có báo giá cho cơ hội này.</div>
@@ -98,7 +105,13 @@
             </section>
 
             <section class="app-card">
-                <h3>Hợp đồng</h3>
+                <header class="crm-card-header">
+                    <h3>Hợp đồng</h3>
+                    <button class="crm-card-add" type="button" title="Thêm hợp đồng"
+                            disabled="@(_item.CustomerId is null)" @onclick="ShowCreateContractAsync">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </header>
                 @if (!_contracts.Any())
                 {
                     <div class="app-empty-state">Chưa có hợp đồng cho cơ hội này.</div>
@@ -174,6 +187,41 @@
         <FooterTemplate>
             <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseEditModalAsync" />
             <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveEditAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+<Modal @ref="_contractModal" IsBackdrop="true">
+    <ModalDialog Title="Tạo hợp đồng từ cơ hội" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Tiêu đề" Required="true">
+                    <BootstrapInput @bind-Value="_contractModel.Title" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá trị" @bind-Value="_contractModel.ContractValue" DecimalPlaces="0" />
+                <AppFormField Label="Tiền tệ">
+                    <BootstrapInput @bind-Value="_contractModel.Currency" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Ngày bắt đầu">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_contractModel.StartDate"
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
+                </AppFormField>
+                <AppFormField Label="Ngày kết thúc">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_contractModel.EndDate"
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
+                </AppFormField>
+                <AppFormField Label="Điều khoản thanh toán">
+                    <BootstrapInput @bind-Value="_contractModel.PaymentTerms" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điều khoản hợp đồng" Class="app-form-field-full">
+                    <Textarea @bind-Value="_contractModel.Terms" ShowLabel="false" rows="3" />
+                </AppFormField>
+                <PendingFileAttachmentInput Label="Tệp hợp đồng" @bind-Files="_contractModel.PendingFiles" />
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseContractModalAsync" />
+            <Button Text="Tạo hợp đồng" Color="Color.Primary" IsAsync="true" OnClick="CreateContractAsync" />
         </FooterTemplate>
     </ModalDialog>
 </Modal>

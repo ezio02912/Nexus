@@ -1,16 +1,22 @@
 @page "/crm/activities"
 @attribute [TabItemOption(Text = "Hoạt động", Icon = "fa-solid fa-calendar-check")]
 @inherits CrmPageBase
+@using System.Globalization
 
-<PageTitle>Hoạt động - CRM</PageTitle>
+<PageTitle>Lịch hoạt động - CRM</PageTitle>
 
 <section class="app-page">
     <header class="app-page-header">
         <div>
             <p class="app-eyebrow">CRM</p>
-            <h1>Hoạt động</h1>
-            <p>Quản lý cuộc gọi, họp, email và công việc CRM.</p>
+            <h1>Lịch hoạt động</h1>
+            <p>Quản lý cuộc gọi, họp, email và công việc CRM theo lịch.</p>
         </div>
+        @if (Can(NexusPermissions.Crm.Activities.Create) && HasCrmModule)
+        {
+            <Button Text="Thêm hoạt động" Color="Color.Primary" Icon="fa-solid fa-plus" IsAsync="true"
+                    OnClick="@(() => ShowCreateForDateAsync(_selectedDate))" />
+        }
     </header>
 
     @if (!Can(NexusPermissions.Crm.Activities.View))
@@ -21,63 +27,112 @@
     {
         <div class="app-alert">Tenant này chưa được bật module CRM.</div>
     }
+    else if (_loading)
+    {
+        <div class="app-loading">
+            <Spinner Color="Color.Primary" />
+            <span class="app-loading-text">Đang tải lịch hoạt động...</span>
+        </div>
+    }
     else
     {
-        <Card HeaderText="Danh sách hoạt động" IsShadow="true">
-            <BodyTemplate>
-                <Table @ref="_table" TItem="ActivityDto" OnQueryAsync="OnQueryAsync"
-                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
-                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
-                       ShowEditButton="false" ShowDeleteButton="false"
-                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
-                       ExtendButtonColumnWidth="180"
-                       ShowSearch="false" ShowRefresh="true">
-                    <TableToolbarTemplate>
-                        @if (Can(NexusPermissions.Crm.Activities.Create))
+        <div class="crm-activity-calendar-layout">
+            <section class="app-card app-card-wide crm-activity-calendar">
+                <div class="crm-calendar-toolbar">
+                    <div>
+                        <h3>@_selectedDate.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("vi-VN"))</h3>
+                        <span>@_activities.Count hoạt động</span>
+                    </div>
+                    <Button Text="Làm mới" Color="Color.Secondary" Icon="fa-solid fa-rotate" IsAsync="true" OnClick="LoadAsync" />
+                </div>
+                <Calendar @bind-Value="_selectedDate" FirstDayOfWeek="DayOfWeek.Monday" OnValueChanged="OnCalendarDateChanged">
+                    <CellTemplate>
+                        <td class="@context.DefaultCss">
+                            <button class="crm-calendar-cell" type="button" @onclick="@(() => SelectDateAsync(context.CellValue))">
+                                <span class="crm-calendar-day">@context.CellValue.Day</span>
+                                <div class="crm-calendar-events">
+                                    @foreach (var segment in ActivitySegmentsForDate(context.CellValue).Take(4))
+                                    {
+                                        <span class="@CalendarEventCss(segment)">
+                                            @if (segment.IsStart)
+                                            {
+                                                <span>@CrmLabels.FormatActivityType(segment.Activity.ActivityType): @segment.Activity.Subject</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@segment.Activity.Subject</span>
+                                            }
+                                        </span>
+                                    }
+                                    @if (ActivitySegmentsForDate(context.CellValue).Count > 4)
+                                    {
+                                        <span class="crm-calendar-more">+@(ActivitySegmentsForDate(context.CellValue).Count - 4)</span>
+                                    }
+                                </div>
+                            </button>
+                        </td>
+                    </CellTemplate>
+                </Calendar>
+            </section>
+
+            <aside class="app-card crm-activity-agenda">
+                <div class="crm-card-header">
+                    <div>
+                        <h3>@_selectedDate.ToString("dd/MM/yyyy")</h3>
+                        <span>@SelectedDateActivities.Count hoạt động trong ngày</span>
+                    </div>
+                    @if (Can(NexusPermissions.Crm.Activities.Create))
+                    {
+                        <button class="crm-card-add" type="button" title="Thêm hoạt động" @onclick="@(() => ShowCreateForDateAsync(_selectedDate))">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    }
+                </div>
+
+                @if (!SelectedDateActivities.Any())
+                {
+                    <div class="app-empty-state">Chưa có hoạt động.</div>
+                }
+                else
+                {
+                    <div class="crm-agenda-list">
+                        @foreach (var item in SelectedDateActivities)
                         {
-                            <TableToolbarButton TItem="ActivityDto" Color="Color.Primary" Icon="fa-solid fa-plus"
-                                            Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                            <article class="crm-agenda-item">
+                                <div>
+                                    <strong>@item.Subject</strong>
+                                    <span>@item.ActivityDate.ToLocalTime().ToString("HH:mm") · @CrmLabels.FormatActivityType(item.ActivityType)</span>
+                                    <span>@CrmLabels.FormatRelatedEntityType(item.RelatedEntityType): @RelatedEntityName(item)</span>
+                                    @if (item.AssignedToIds.Any())
+                                    {
+                                        <span>@AssigneeNames(item)</span>
+                                    }
+                                </div>
+                                <span class="@CrmLabels.StatusBadgeClass(item.Status)">@CrmLabels.FormatActivityStatus(item.Status)</span>
+                                <div class="crm-agenda-actions">
+                                    @if (Can(NexusPermissions.Crm.Activities.Complete))
+                                    {
+                                        <Button Text="Hoàn thành" Size="Size.ExtraSmall" Color="Color.Success" Icon="fa-solid fa-check"
+                                                IsDisabled="@(item.Status == CrmActivityStatus.Completed)"
+                                                OnClick="@(() => CompleteAsync(item.Id))" />
+                                    }
+                                    @if (Can(NexusPermissions.Crm.Activities.Edit))
+                                    {
+                                        <Button Text="Sửa" Size="Size.ExtraSmall" Color="Color.Primary" Icon="fa-solid fa-pen"
+                                                OnClick="@(() => ShowEditAsync(item))" />
+                                    }
+                                    @if (Can(NexusPermissions.Crm.Activities.Delete))
+                                    {
+                                        <Button Text="Xoá" Size="Size.ExtraSmall" Color="Color.Danger" Icon="fa-solid fa-trash"
+                                                OnClick="@(() => DeleteAsync(item.Id))" />
+                                    }
+                                </div>
+                            </article>
                         }
-                    </TableToolbarTemplate>
-                    <RowButtonTemplate>
-                        @if (Can(NexusPermissions.Crm.Activities.Complete))
-                        {
-                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-check" Text="Hoàn thành"
-                                         IsDisabled="@(context.Status == CrmActivityStatus.Completed)"
-                                         OnClick="@(() => CompleteAsync(context.Id))" />
-                        }
-                        @if (Can(NexusPermissions.Crm.Activities.Edit))
-                        {
-                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa"
-                                         OnClick="@(() => ShowEditAsync(context))" />
-                        }
-                        @if (Can(NexusPermissions.Crm.Activities.Delete))
-                        {
-                            <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
-                                         OnClick="@(() => DeleteAsync(context.Id))" />
-                        }
-                    </RowButtonTemplate>
-                    <TableColumns>
-                        <TableColumn @bind-Field="@context.Subject" Text="Tiêu đề" Sortable="true" />
-                        <TableColumn @bind-Field="@context.ActivityType" Text="Loại">
-                            <Template Context="v">@CrmLabels.FormatActivityType(v.Row.ActivityType)</Template>
-                        </TableColumn>
-                        <TableColumn @bind-Field="@context.RelatedEntityType" Text="Liên kết">
-                            <Template Context="v">@CrmLabels.FormatRelatedEntityType(v.Row.RelatedEntityType)</Template>
-                        </TableColumn>
-                        <TableColumn @bind-Field="@context.ActivityDate" Text="Thời gian" Sortable="true">
-                            <Template Context="v">@v.Row.ActivityDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
-                        </TableColumn>
-                        <TableColumn @bind-Field="@context.DueDate" Text="Hạn">
-                            <Template Context="v">@(v.Row.DueDate?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</Template>
-                        </TableColumn>
-                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
-                            <Template Context="v">@CrmLabels.FormatActivityStatus(v.Row.Status)</Template>
-                        </TableColumn>
-                    </TableColumns>
-                </Table>
-            </BodyTemplate>
-        </Card>
+                    </div>
+                }
+            </aside>
+        </div>
     }
 </section>
 
@@ -86,10 +141,12 @@
         <BodyTemplate>
             <div class="app-form-grid">
                 <AppFormField Label="Loại thực thể" Required="true">
-                    <Select TValue="string" @bind-Value="_relatedTypeText" Items="@_relatedTypeOptions" ShowLabel="false" ShowSearch="true" />
+                    <Select TValue="string" @bind-Value="_relatedTypeText" Items="@_relatedTypeOptions"
+                            ShowLabel="false" ShowSearch="true" OnSelectedItemChanged="OnRelatedTypeSelectedAsync" />
                 </AppFormField>
-                <AppFormField Label="ID thực thể (GUID)" Required="true">
-                    <BootstrapInput @bind-Value="_relatedEntityIdText" ShowLabel="false" />
+                <AppFormField Label="Thực thể liên quan" Required="true">
+                    <Select TValue="string" @bind-Value="_relatedEntityIdText" Items="@RelatedEntityOptions"
+                            ShowLabel="false" ShowSearch="true" PlaceHolder="Chọn thực thể..." />
                 </AppFormField>
                 <AppFormField Label="Loại hoạt động">
                     <Select TValue="string" @bind-Value="_activityTypeText" Items="@_activityTypeOptions" ShowLabel="false" ShowSearch="true" />
@@ -98,13 +155,22 @@
                     <BootstrapInput @bind-Value="_model.Subject" ShowLabel="false" />
                 </AppFormField>
                 <AppFormField Label="Thời gian">
-                    <DateTimePicker @bind-Value="_model.ActivityDate" ShowLabel="false" />
+                    <DateTimePicker @bind-Value="_model.ActivityDate" ShowLabel="false"
+                                    DateTimeFormat="dd/MM/yyyy HH:mm:ss" DateTimePlaceHolderText="Chọn ngày giờ..." />
+                </AppFormField>
+                <AppFormField Label="Hạn xử lý">
+                    <DateTimePicker TValue="DateTimeOffset?" @bind-Value="_model.DueDate" ShowLabel="false"
+                                    DateTimeFormat="dd/MM/yyyy HH:mm:ss" DateTimePlaceHolderText="Chọn ngày giờ..." />
+                </AppFormField>
+                <AppFormField Label="Người phụ trách" Class="app-form-field-full">
+                    <MultiSelect TValue="List<string>" @bind-Value="_assignedToIdTexts" Items="@_userOptions"
+                                 ShowLabel="false" ShowSearch="true" PlaceHolder="Chọn người phụ trách..." />
+                </AppFormField>
+                <AppFormField Label="Mô tả" Class="app-form-field-full">
+                    <Textarea @bind-Value="_model.Description" ShowLabel="false" rows="4" />
                 </AppFormField>
                 @if (!_isCreate)
                 {
-                    <AppFormField Label="Mô tả">
-                        <BootstrapInput @bind-Value="_model.Description" ShowLabel="false" />
-                    </AppFormField>
                     <AppStatusSelect Label="Trạng thái" @bind-Value="_statusText"
                                      Items="@_statusOptions" Meta="@_statusMeta" />
                 }

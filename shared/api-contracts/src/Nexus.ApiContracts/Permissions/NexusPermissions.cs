@@ -222,6 +222,201 @@ public static class NexusPermissions
         }
     }
 
+    public static class Hrm
+    {
+        public const string Default = GroupName + ".Hrm";
+
+        public static class Dashboard
+        {
+            public const string View = Default + ".Dashboard.View";
+        }
+
+        public static class Employees
+        {
+            public const string View = Default + ".Employees.View";
+            public const string Create = Default + ".Employees.Create";
+            public const string Edit = Default + ".Employees.Edit";
+            public const string Delete = Default + ".Employees.Delete";
+            public const string Import = Default + ".Employees.Import";
+            public const string Export = Default + ".Employees.Export";
+            public const string Manage = Default + ".Employees.Manage";
+        }
+
+        public static class Departments
+        {
+            public const string View = Default + ".Departments.View";
+            public const string Create = Default + ".Departments.Create";
+            public const string Edit = Default + ".Departments.Edit";
+            public const string Delete = Default + ".Departments.Delete";
+            public const string Manage = Default + ".Departments.Manage";
+        }
+
+        public static class Positions
+        {
+            public const string View = Default + ".Positions.View";
+            public const string Create = Default + ".Positions.Create";
+            public const string Edit = Default + ".Positions.Edit";
+            public const string Delete = Default + ".Positions.Delete";
+            public const string Manage = Default + ".Positions.Manage";
+        }
+
+        public static class Contracts
+        {
+            public const string View = Default + ".Contracts.View";
+            public const string Create = Default + ".Contracts.Create";
+            public const string Edit = Default + ".Contracts.Edit";
+            public const string Delete = Default + ".Contracts.Delete";
+            public const string Approve = Default + ".Contracts.Approve";
+            public const string Manage = Default + ".Contracts.Manage";
+        }
+
+        public static class Recruitment
+        {
+            public const string View = Default + ".Recruitment.View";
+            public const string Create = Default + ".Recruitment.Create";
+            public const string Edit = Default + ".Recruitment.Edit";
+            public const string Delete = Default + ".Recruitment.Delete";
+            public const string Approve = Default + ".Recruitment.Approve";
+            public const string Manage = Default + ".Recruitment.Manage";
+        }
+
+        public static class Onboarding
+        {
+            public const string View = Default + ".Onboarding.View";
+            public const string Create = Default + ".Onboarding.Create";
+            public const string Edit = Default + ".Onboarding.Edit";
+            public const string Delete = Default + ".Onboarding.Delete";
+            public const string Approve = Default + ".Onboarding.Approve";
+            public const string Manage = Default + ".Onboarding.Manage";
+        }
+    }
+
+    public static class Attendance
+    {
+        public const string Default = GroupName + ".Attendance";
+
+        public static class WorkCalendars
+        {
+            public const string View = Default + ".WorkCalendars.View";
+            public const string Create = Default + ".WorkCalendars.Create";
+            public const string Edit = Default + ".WorkCalendars.Edit";
+            public const string Delete = Default + ".WorkCalendars.Delete";
+            public const string Manage = Default + ".WorkCalendars.Manage";
+        }
+
+        public static class Shifts
+        {
+            public const string View = Default + ".Shifts.View";
+            public const string Create = Default + ".Shifts.Create";
+            public const string Edit = Default + ".Shifts.Edit";
+            public const string Delete = Default + ".Shifts.Delete";
+            public const string Manage = Default + ".Shifts.Manage";
+        }
+
+        public static class Records
+        {
+            public const string View = Default + ".Records.View";
+            public const string Create = Default + ".Records.Create";
+            public const string Edit = Default + ".Records.Edit";
+            public const string Delete = Default + ".Records.Delete";
+            public const string Approve = Default + ".Records.Approve";
+            public const string Import = Default + ".Records.Import";
+            public const string Export = Default + ".Records.Export";
+        }
+
+        public static class LeaveRequests
+        {
+            public const string View = Default + ".LeaveRequests.View";
+            public const string Create = Default + ".LeaveRequests.Create";
+            public const string Edit = Default + ".LeaveRequests.Edit";
+            public const string Delete = Default + ".LeaveRequests.Delete";
+            public const string Approve = Default + ".LeaveRequests.Approve";
+            public const string Export = Default + ".LeaveRequests.Export";
+        }
+
+        public static class OvertimeRequests
+        {
+            public const string View = Default + ".OvertimeRequests.View";
+            public const string Create = Default + ".OvertimeRequests.Create";
+            public const string Edit = Default + ".OvertimeRequests.Edit";
+            public const string Delete = Default + ".OvertimeRequests.Delete";
+            public const string Approve = Default + ".OvertimeRequests.Approve";
+            public const string Export = Default + ".OvertimeRequests.Export";
+        }
+
+        public static class Timesheets
+        {
+            public const string View = Default + ".Timesheets.View";
+            public const string Approve = Default + ".Timesheets.Approve";
+            public const string Export = Default + ".Timesheets.Export";
+            public const string Manage = Default + ".Timesheets.Manage";
+        }
+    }
+
+    public static class Payroll
+    {
+        public const string Default = GroupName + ".Payroll";
+
+        public static class Settings
+        {
+            public const string View = Default + ".Settings.View";
+            public const string Create = Default + ".Settings.Create";
+            public const string Edit = Default + ".Settings.Edit";
+            public const string Delete = Default + ".Settings.Delete";
+            public const string Manage = Default + ".Settings.Manage";
+        }
+
+        public static class Components
+        {
+            public const string View = Default + ".Components.View";
+            public const string Create = Default + ".Components.Create";
+            public const string Edit = Default + ".Components.Edit";
+            public const string Delete = Default + ".Components.Delete";
+            public const string Manage = Default + ".Components.Manage";
+        }
+
+        public static class Periods
+        {
+            public const string View = Default + ".Periods.View";
+            public const string Create = Default + ".Periods.Create";
+            public const string Edit = Default + ".Periods.Edit";
+            public const string Delete = Default + ".Periods.Delete";
+            public const string Manage = Default + ".Periods.Manage";
+        }
+
+        public static class Runs
+        {
+            public const string View = Default + ".Runs.View";
+            public const string Create = Default + ".Runs.Create";
+            public const string Edit = Default + ".Runs.Edit";
+            public const string Delete = Default + ".Runs.Delete";
+            public const string Approve = Default + ".Runs.Approve";
+            public const string Export = Default + ".Runs.Export";
+            public const string Manage = Default + ".Runs.Manage";
+        }
+
+        public static class Payslips
+        {
+            public const string View = Default + ".Payslips.View";
+            public const string Create = Default + ".Payslips.Create";
+            public const string Edit = Default + ".Payslips.Edit";
+            public const string Delete = Default + ".Payslips.Delete";
+            public const string Export = Default + ".Payslips.Export";
+            public const string Manage = Default + ".Payslips.Manage";
+        }
+
+        public static class Payments
+        {
+            public const string View = Default + ".Payments.View";
+            public const string Create = Default + ".Payments.Create";
+            public const string Edit = Default + ".Payments.Edit";
+            public const string Delete = Default + ".Payments.Delete";
+            public const string Approve = Default + ".Payments.Approve";
+            public const string Export = Default + ".Payments.Export";
+            public const string Manage = Default + ".Payments.Manage";
+        }
+    }
+
     public static class TenantAdmin
     {
         public const string Default = GroupName + ".Tenant";
@@ -265,6 +460,25 @@ public static class NexusPermissions
         Inventory.Stock.View, Inventory.Stock.Import, Inventory.Stock.Reserve, Inventory.Stock.Ship, Inventory.Stock.Transfer,
         Inventory.Products.View, Inventory.Products.Manage,
         Inventory.Warehouses.View, Inventory.Warehouses.Manage,
+        Hrm.Dashboard.View,
+        Hrm.Employees.View, Hrm.Employees.Create, Hrm.Employees.Edit, Hrm.Employees.Delete, Hrm.Employees.Import, Hrm.Employees.Export, Hrm.Employees.Manage,
+        Hrm.Departments.View, Hrm.Departments.Create, Hrm.Departments.Edit, Hrm.Departments.Delete, Hrm.Departments.Manage,
+        Hrm.Positions.View, Hrm.Positions.Create, Hrm.Positions.Edit, Hrm.Positions.Delete, Hrm.Positions.Manage,
+        Hrm.Contracts.View, Hrm.Contracts.Create, Hrm.Contracts.Edit, Hrm.Contracts.Delete, Hrm.Contracts.Approve, Hrm.Contracts.Manage,
+        Hrm.Recruitment.View, Hrm.Recruitment.Create, Hrm.Recruitment.Edit, Hrm.Recruitment.Delete, Hrm.Recruitment.Approve, Hrm.Recruitment.Manage,
+        Hrm.Onboarding.View, Hrm.Onboarding.Create, Hrm.Onboarding.Edit, Hrm.Onboarding.Delete, Hrm.Onboarding.Approve, Hrm.Onboarding.Manage,
+        Attendance.WorkCalendars.View, Attendance.WorkCalendars.Create, Attendance.WorkCalendars.Edit, Attendance.WorkCalendars.Delete, Attendance.WorkCalendars.Manage,
+        Attendance.Shifts.View, Attendance.Shifts.Create, Attendance.Shifts.Edit, Attendance.Shifts.Delete, Attendance.Shifts.Manage,
+        Attendance.Records.View, Attendance.Records.Create, Attendance.Records.Edit, Attendance.Records.Delete, Attendance.Records.Approve, Attendance.Records.Import, Attendance.Records.Export,
+        Attendance.LeaveRequests.View, Attendance.LeaveRequests.Create, Attendance.LeaveRequests.Edit, Attendance.LeaveRequests.Delete, Attendance.LeaveRequests.Approve, Attendance.LeaveRequests.Export,
+        Attendance.OvertimeRequests.View, Attendance.OvertimeRequests.Create, Attendance.OvertimeRequests.Edit, Attendance.OvertimeRequests.Delete, Attendance.OvertimeRequests.Approve, Attendance.OvertimeRequests.Export,
+        Attendance.Timesheets.View, Attendance.Timesheets.Approve, Attendance.Timesheets.Export, Attendance.Timesheets.Manage,
+        Payroll.Settings.View, Payroll.Settings.Create, Payroll.Settings.Edit, Payroll.Settings.Delete, Payroll.Settings.Manage,
+        Payroll.Components.View, Payroll.Components.Create, Payroll.Components.Edit, Payroll.Components.Delete, Payroll.Components.Manage,
+        Payroll.Periods.View, Payroll.Periods.Create, Payroll.Periods.Edit, Payroll.Periods.Delete, Payroll.Periods.Manage,
+        Payroll.Runs.View, Payroll.Runs.Create, Payroll.Runs.Edit, Payroll.Runs.Delete, Payroll.Runs.Approve, Payroll.Runs.Export, Payroll.Runs.Manage,
+        Payroll.Payslips.View, Payroll.Payslips.Create, Payroll.Payslips.Edit, Payroll.Payslips.Delete, Payroll.Payslips.Export, Payroll.Payslips.Manage,
+        Payroll.Payments.View, Payroll.Payments.Create, Payroll.Payments.Edit, Payroll.Payments.Delete, Payroll.Payments.Approve, Payroll.Payments.Export, Payroll.Payments.Manage,
         Files.View, Files.Upload, Files.Delete,
         Workflow.View, Workflow.Approve,
         TenantAdmin.Users.View, TenantAdmin.Users.Create, TenantAdmin.Users.Edit, TenantAdmin.Users.Delete,

@@ -77,7 +77,15 @@ Build Tenant + Identity riêng:
 # Nexus
 
 
+cd /Users/user/Documents/Nexus
 
+pkill -f "dotnet.*Nexus" || true
+
+./tools/scripts/apply-core-migrations.zsh
+./tools/scripts/build-core.zsh
+./tools/scripts/build-web-tenant.zsh
+./tools/scripts/build-web-admin.zsh
 ./tools/scripts/run-core-services.zsh
+
 dotnet run --project apps/web-admin/src/Nexus.Web.Admin/Nexus.Web.Admin.csproj --launch-profile http
 dotnet run --project apps/web-tenant/src/Nexus.Web.Tenant/Nexus.Web.Tenant.csproj --launch-profile http

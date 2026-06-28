@@ -14,6 +14,13 @@ public partial class CrmContractDetail
     private QuotationDto? _quotation;
     private Modal? _editModal;
     private ContractEditModel _editModel = new();
+    private bool IsCompleted => _item?.Status == ContractStatus.Completed;
+    private bool CanEditContract => _item is not null && !IsCompleted;
+    private bool CanSignContract => _item?.Status is ContractStatus.Draft or ContractStatus.PendingSign;
+    private bool CanActivateContract => _item?.Status == ContractStatus.Signed;
+    private bool CanCompleteContract => _item?.Status is ContractStatus.Signed or ContractStatus.Active;
+    private bool CanTerminateContract => _item?.Status is ContractStatus.Signed or ContractStatus.Active;
+    private bool CanEditAttachments => !IsCompleted;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -100,6 +107,30 @@ public partial class CrmContractDetail
         }
     }
 
+    private async Task CompleteAsync()
+    {
+        var confirmed = await SwalService.ShowModal(new SwalOption
+        {
+            Category = SwalCategory.Question,
+            Title = "Xác nhận hoàn thành",
+            Content = "Bạn có chắc muốn đánh dấu hợp đồng này là đã hoàn thành?"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            _item = await CrmApi.CompleteContractAsync(Id);
+            await ToastService.Success("Thành công", "Hợp đồng đã được đánh dấu hoàn thành.");
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
     private void GoBack() => Navigation.NavigateTo("crm/contracts");
     private void OpenCustomer(Guid id) => Navigation.NavigateTo($"crm/customers/{id}");
     private void OpenOpportunity(Guid id) => Navigation.NavigateTo($"crm/opportunities/{id}");
@@ -110,6 +141,11 @@ public partial class CrmContractDetail
         if (_item is null)
         {
             return Task.CompletedTask;
+        }
+
+        if (IsCompleted)
+        {
+            return ShowErrorAsync(new InvalidOperationException("Hợp đồng đã hoàn thành, không thể sửa."));
         }
 
         _editModel = new ContractEditModel
@@ -142,6 +178,12 @@ public partial class CrmContractDetail
         if (_item is null || string.IsNullOrWhiteSpace(_editModel.Title))
         {
             await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập tiêu đề hợp đồng."));
+            return;
+        }
+
+        if (IsCompleted)
+        {
+            await ShowErrorAsync(new InvalidOperationException("Hợp đồng đã hoàn thành, không thể sửa."));
             return;
         }
 

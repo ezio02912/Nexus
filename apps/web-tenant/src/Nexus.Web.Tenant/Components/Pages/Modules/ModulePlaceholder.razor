@@ -1,9 +1,6 @@
 @page "/erp"
 @page "/invoice"
 @page "/accounting"
-@page "/payroll"
-@page "/hrm"
-@page "/attendance"
 @inject NavigationManager Navigation
 
 <PageTitle>@ModuleTitle</PageTitle>
@@ -31,9 +28,6 @@
         var u when u.Contains("/inventory") => "Kho",
         var u when u.Contains("/invoice") => "Hóa đơn",
         var u when u.Contains("/accounting") => "Kế toán",
-        var u when u.Contains("/payroll") => "Lương",
-        var u when u.Contains("/hrm") => "Nhân sự",
-        var u when u.Contains("/attendance") => "Chấm công",
         _ => "ERP"
     };
 }

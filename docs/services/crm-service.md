@@ -26,8 +26,8 @@ services/crm-service/src/
 | Lead | `leads` | Score, convert workflow |
 | Opportunity | `opportunities` | Pipeline stage, probability, currency |
 | Quotation | `quotations` + `quotation_lines` | Approve/reject/send |
-| Contract | `contracts` + `contract_lines` | Sign/activate/terminate, file_id |
-| Activity | `crm_activities` | Call/email/meeting/task/note |
+| Contract | `contracts` + `contract_lines` | Sign/activate/complete/terminate, file_id |
+| Activity | `crm_activities` | Call/email/meeting/task/note, calendar view, multiple assignees |
 | PipelineStage | `pipeline_stages` | Cấu hình Kanban |
 
 ## API (tenant context qua JWT / `x-tenant-id`)
@@ -44,7 +44,7 @@ Mọi endpoint yêu cầu `[Authorize]` và permission `Nexus.Crm.*`.
 - `POST /api/crm/leads/{id}/convert`
 - `PATCH /api/crm/opportunities/{id}/stage`
 - `POST /api/crm/quotations/{id}/approve|reject|send`
-- `POST /api/crm/contracts/{id}/sign|activate|terminate`
+- `POST /api/crm/contracts/{id}/sign|activate|complete|terminate`
 - `POST /api/crm/activities/{id}/complete`
 - `GET /api/crm/dashboard`
 
@@ -75,9 +75,10 @@ Mọi endpoint yêu cầu `[Authorize]` và permission `Nexus.Crm.*`.
 - Leads table/detail phải hiển thị và cho sửa các field chính: full name, company, title, email, phone, source, score, rating, status, owner, converted customer/opportunity, lost reason, address, audit dates.
 - Customers table/detail phải có code, name, type, email, phone, tax code, website, industry, full address, owner, rating, source, status và related contacts/opportunities/quotations/contracts/activities.
 - Opportunities table/detail/Kanban phải có customer/lead/contact link, name, stage, amount, probability, currency, expected/actual close date, next step, source, owner, reason fields.
-- Quotations và Contracts phải có header + lines, status workflow, amount fields, customer/opportunity/contact links và source document trace.
+- Quotations và Contracts phải có header + lines, status workflow, amount fields, customer/opportunity/contact links và source document trace; completed contracts are immutable and lock attachment upload/delete.
 - Search của tất cả list CRM phải dùng `lowercase + trim + contains`.
 - Kanban phải có stage count, value summary, card metadata, empty state, detail action và chuyển stage rõ ràng.
 - Opportunity detail phải tạo nhanh được Quotation với link `OpportunityId`.
 - Quotation detail phải tạo nhanh được Contract với link `QuotationId` và copy lines từ báo giá.
 - Quotation/Contract create forms phải chọn hoặc tạo nhanh được Contact theo Customer đã chọn.
+- Activities UI phải là calendar; form hoạt động chọn thực thể liên quan bằng danh mục theo loại thực thể và hỗ trợ nhiều người phụ trách.

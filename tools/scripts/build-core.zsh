@@ -36,6 +36,9 @@ projects=(
   "services/sales-service/src/Nexus.Services.Sales.Api/Nexus.Services.Sales.Api.csproj"
   "services/inventory-service/src/Nexus.Services.Inventory.Api/Nexus.Services.Inventory.Api.csproj"
   "services/purchase-service/src/Nexus.Services.Purchase.Api/Nexus.Services.Purchase.Api.csproj"
+  "services/hrm-service/src/Nexus.Services.Hrm.Api/Nexus.Services.Hrm.Api.csproj"
+  "services/attendance-service/src/Nexus.Services.Attendance.Api/Nexus.Services.Attendance.Api.csproj"
+  "services/payroll-service/src/Nexus.Services.Payroll.Api/Nexus.Services.Payroll.Api.csproj"
   "workers/background-worker/src/Nexus.Worker.Host/Nexus.Worker.Host.csproj"
 )
 

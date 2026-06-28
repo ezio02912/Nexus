@@ -96,6 +96,7 @@ public partial class CrmLeads
             }
 
             await _editModal!.Close();
+            ResetModalState();
             await ReloadTableAsync();
         }
         catch (Exception ex)
@@ -133,6 +134,14 @@ public partial class CrmLeads
         {
             await _table.QueryAsync();
         }
+    }
+
+    private void ResetModalState()
+    {
+        _editing = null;
+        _isCreate = false;
+        _model = new LeadFormModel();
+        _statusText = LeadStatus.New.ToString();
     }
 
     private sealed class LeadFormModel

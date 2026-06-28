@@ -7,7 +7,7 @@ Roadmap này dùng cho cả người phát triển và AI coding agent. Mục ti
 - Mỗi feature phải đi đủ vòng: Domain, Application contract, API endpoint, EF mapping/migration, permission, audit, docs, web-tenant UI, table filter, detail page, quick-create/link liên quan, test tối thiểu.
 - Mỗi list table phải có đủ các cột nghiệp vụ chính theo DTO/domain, không được chỉ hiển thị 3-4 cột demo. Với nhiều cột, dùng column chooser, responsive priority, sticky action column hoặc detail drawer.
 - Search/filter ở table và API phải dùng chuẩn `lowercase + trim + contains`.
-- UX web-tenant phải thể hiện luồng liên thông dữ liệu: Lead -> Customer -> Opportunity -> Quotation -> Contract -> Sales/Invoice/Accounting.
+- UX web-tenant phải thể hiện luồng liên thông dữ liệu: Lead -> Customer -> Opportunity -> Quotation -> Contract -> Sales/Inventory/Purchase trước; Invoice/Accounting để phase cuối.
 - Style backend/frontend bám ABP Framework style từ `HCS_web`: module rõ lớp, AppService mỏng, DTO rõ, permission/audit đầy đủ, code-behind cho Razor, naming nhất quán, không đẩy business rule vào endpoint.
 
 ## Phase 0: Foundation Hardening
@@ -55,8 +55,8 @@ Phạm vi:
 - Lead: source, score, rating, status, assignment, lost reason, convert flow.
 - Opportunity: customer/lead link, pipeline stage, amount, probability, close date, close/lost reason.
 - Quotation: header, lines, discount/tax, status, approval, PDF/export.
-- Contract: header, lines, sign/active/expire/terminate flow.
-- Activity: call/email/meeting/task/note gắn với customer/lead/opportunity/quotation/contract.
+- Contract: header, lines, sign/active/complete/expire/terminate flow.
+- Activity: call/email/meeting/task/note gắn với customer/lead/opportunity/quotation/contract, hiển thị dạng calendar và hỗ trợ nhiều người phụ trách.
 
 Yêu cầu liên thông:
 
@@ -72,7 +72,7 @@ Phạm vi:
 
 - Sales order: customer, quotation source, order lines, discount/tax, delivery status.
 - Product catalog: SKU, unit, category, price, tax, active state.
-- Warehouse: warehouse, location, stock balance, stock movement.
+- Warehouse: warehouse, location, stock balance, stock movement, cấu hình cho phép tồn kho âm theo kho.
 - Stock in/out/transfer and inventory adjustment.
 - Supplier, purchase request, purchase order, goods receipt.
 
@@ -86,47 +86,62 @@ Yêu cầu liên thông:
 Tiến độ hiện tại:
 
 - CRM Quotation/Contract detail đã có nút tạo Sales Order và prefill Sales Order form qua web-tenant.
+- Contract đã có trạng thái hoàn thành; hợp đồng hoàn thành bị khóa sửa/xóa và khóa thao tác upload/xóa đính kèm ở tenant UI.
 - Sales Order backend đã có source document fields tối thiểu (`SourceType`, `SourceId`, `SourceNo`) để trace về Quotation/Contract.
 - Sales Order đã có detail page, trạng thái giữ hàng/giao hàng và link ngược CRM.
 - Inventory Service đã có stock balance, manual import, reservation và shipment API.
 - Inventory Service đã có product catalog và warehouse catalog nền tảng, kèm UI tenant tách riêng `/inventory`, `/inventory/products`, `/inventory/warehouses`.
+- Warehouse catalog đã có tuỳ chọn cho phép tồn kho âm; Inventory reservation/transfer cho phép âm chỉ khi kho nguồn bật cấu hình này.
 - Sales Order approve gọi Inventory reservation; deliver/complete gọi Inventory shipment.
 - Sales Order đã có pricing/discount/tax trên line và tổng tiền, đồng thời form tạo đơn có thể chọn product từ Inventory catalog.
 - Sales Order form đã hỗ trợ nhiều dòng hàng, chọn warehouse theo từng dòng và truyền warehouse sang Inventory reservation/shipment.
 - Purchase Service đã có supplier, purchase order, approve và goods receipt; receive PO gọi Inventory stock import với source `PURCHASE_RECEIPT`.
 - Tenant web `/purchase` đã có tab đơn mua, nhà cung cấp và phiếu nhận.
-- Bước tiếp theo của Phase 3 là invoice từ Sales Order và payable từ Purchase.
+- Bước tiếp theo của Phase 3 là hoàn thiện Inventory detail, cảnh báo tồn âm và seed/test vận hành CRM/Sales/Inventory/Purchase trước khi sang Invoice.
 
-## Phase 4: Invoice + Accounting Core
+## Phase 4: HRM + Attendance + Payroll
+
+Phạm vi:
+
+- HRM đầy đủ: dashboard, nhân viên, phòng ban, chức vụ, hợp đồng lao động, hồ sơ, lịch sử nhân sự, tuyển dụng, onboarding/offboarding.
+- Attendance đầy đủ: lịch làm việc, ngày nghỉ, ca làm, phân ca, chấm công, sửa công, nghỉ phép, số dư phép, tăng ca, bảng công.
+- Payroll đầy đủ theo Việt Nam: policy hiệu lực ngày, BHXH/BHYT/BHTN, công đoàn, giảm trừ gia cảnh, thuế TNCN lũy tiến, phụ cấp/khấu trừ, kỳ lương, bảng lương, phiếu lương, chi lương.
+- Mặc định Việt Nam: T2-T6, 08:00-17:00, nghỉ trưa 12:00-13:00; phép năm 12 ngày/năm, cho phép cấu hình theo policy/nhóm lao động.
+- Payroll phase này không sinh bút toán kế toán; chỉ giữ snapshot/event để Accounting ở Final Phase consume.
+
+Yêu cầu liên thông:
+
+- Employee detail hiển thị contract, attendance, leave, payroll history.
+- Payroll batch có workflow approval và audit trail.
+- Offer accepted tạo Employee draft và onboarding checklist.
+- Leave approved trừ số dư phép; rejected/cancelled không trừ phép.
+- Payroll run lấy snapshot bảng công, nghỉ phép, tăng ca và thành phần lương để tính gross, bảo hiểm, taxable income, TNCN và net pay.
+
+Tiến độ hiện tại:
+
+- Đã thêm `hrm-service`, `attendance-service`, `payroll-service` vào build/run scripts.
+- Đã thêm migration SQL nền tảng cho HRM, Attendance, Payroll.
+- Đã thêm permission groups `Nexus.Hrm.*`, `Nexus.Attendance.*`, `Nexus.Payroll.*`.
+- Đã thêm menu tenant cho HRM, Attendance và Payroll theo từng nghiệp vụ.
+- Đã thêm API CRUD/list/action chính cho ba service và màn hình web-tenant list/filter/pagination/action nhanh.
+
+
+## Phase 5: Invoice Core
 
 Phạm vi:
 
 - Invoice lifecycle, invoice lines, tax, payment state, e-invoice integration placeholder.
 - Payment receipt/payment voucher.
 - Receivable/payable.
-- Chart of accounts, journal entry, posting rules.
-- Accounting events từ Sales, Purchase, Payroll.
+- Trace source document từ Sales/Contract/Purchase để chuẩn bị posting kế toán ở phase cuối.
 
 Yêu cầu liên thông:
 
 - Sales Order/Contract -> Invoice.
 - Invoice -> Receivable -> Payment.
 - Purchase -> Payable -> Payment.
-- Mọi accounting entry trace được về source document.
+- Dữ liệu invoice/payable phải đủ snapshot để phase kế toán cuối có thể posting không join database chéo.
 
-## Phase 5: HRM + Attendance + Payroll
-
-Phạm vi:
-
-- Employee profile, department, position, labor contract.
-- Shift, check-in/out, leave, overtime.
-- Payroll period, payroll items, calculation, approval, payslip.
-- Payroll posting event sang Accounting.
-
-Yêu cầu liên thông:
-
-- Employee detail hiển thị contract, attendance, leave, payroll history.
-- Payroll batch có workflow approval và audit trail.
 
 ## Phase 6: Reports + Operational Excellence
 
@@ -143,6 +158,15 @@ Yêu cầu:
 - Export CSV/XLSX/PDF cho các bảng chính.
 - Dashboard có drill-down tới bản ghi nguồn.
 
+## Final Phase: Accounting Core
+
+Phạm vi:
+
+- Hệ thống tài khoản, kỳ kế toán, bút toán, posting rules.
+- Accounting events từ Sales, Purchase, Invoice và Payroll.
+- Receivable/payable/payment posting dựa trên snapshot chứng từ.
+- Mọi accounting entry trace được về source document.
+
 ## Definition of Done cho mọi feature
 
 - Contract/DTO có đủ field nghiệp vụ chính, không thiếu field so với domain entity.
@@ -156,9 +180,8 @@ Yêu cầu:
 
 ## Đề xuất bước tiếp theo
 
-1. Bắt đầu Phase 4 bằng Invoice từ Sales Order/Contract, có invoice lines, tax, payment state và trace source document.
-2. Thêm Supplier Invoice/Payable từ Goods Receipt để khép luồng Purchase -> Payable.
-3. Bổ sung Accounting posting rules tối thiểu cho Sales Invoice, Supplier Invoice, Payment receipt/payment voucher.
-4. Hoàn thiện Inventory product detail: tồn theo warehouse, reserved/available và lịch sử stock movement theo source document.
-5. Viết seed scenario end-to-end: Lead -> Customer -> Opportunity -> Quotation -> Contract -> Sales Order -> Inventory shipment -> Invoice -> Payment; Supplier -> PO -> Goods Receipt -> Supplier Invoice -> Payment.
-6. Bổ sung test cho service domain và API quan trọng: Sales pricing/reservation, Inventory reserve/ship/import, Purchase receive PO.
+1. Hoàn thiện Inventory product detail: tồn theo warehouse, reserved/available, cảnh báo tồn âm và lịch sử stock movement theo source document.
+2. Hoàn thiện CRM Activities calendar: filter theo loại hoạt động/trạng thái/người phụ trách và drag/drop đổi ngày nếu BootstrapBlazor hỗ trợ ổn định.
+3. Viết seed scenario vận hành chưa kế toán: Lead -> Customer -> Opportunity -> Quotation -> Contract -> Sales Order -> Inventory reservation/shipment; Supplier -> PO -> Goods Receipt -> Stock Import.
+4. Bổ sung test cho service domain và API quan trọng: Sales pricing/reservation, Inventory reserve/ship/import/negative-stock, Purchase receive PO.
+5. Sau khi CRM/Sales/Inventory/Purchase/HRM ổn định mới bắt đầu Invoice, và Accounting để phase cuối.

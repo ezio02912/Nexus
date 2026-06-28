@@ -157,6 +157,7 @@ public partial class CrmQuotations
             }
 
             await _editModal!.Close();
+            ResetModalState();
             await ReloadTableAsync();
         }
         catch (Exception ex)
@@ -206,6 +207,15 @@ public partial class CrmQuotations
         {
             await _table.QueryAsync();
         }
+    }
+
+    private void ResetModalState()
+    {
+        _editing = null;
+        _isCreate = false;
+        _model = new QuotationFormModel();
+        _customerIdText = "";
+        _contactIdText = null;
     }
 
     private sealed class QuotationFormModel

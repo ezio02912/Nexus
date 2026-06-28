@@ -98,5 +98,5 @@ flowchart LR
 
 - Sales Order -> Invoice -> Receivable.
 - Purchase Goods Receipt -> Supplier Invoice -> Payable.
-- Accounting posting từ Sales, Purchase, Invoice và Payment.
+- Accounting posting từ Sales, Purchase, Invoice và Payment để phase cuối sau khi vận hành CRM/Sales/Inventory/Purchase ổn định.
 - Product detail có tồn kho theo warehouse và lịch sử stock movement.

@@ -25,12 +25,15 @@ tools/scripts/build-web-tenant.zsh
 tools/scripts/apply-core-migrations.zsh
 ```
 
-CRM/Sales/Inventory/Purchase SQL migrations use `psql` and default to:
+CRM/Sales/Inventory/Purchase/HRM/Attendance/Payroll SQL migrations use `psql` and default to:
 
 - CRM: `crm_db`
 - Sales: `sales_db`
 - Inventory: `inventory_db`
 - Purchase: `purchase_db`
+- HRM: `hrm_db`
+- Attendance: `attendance_db`
+- Payroll: `payroll_db`
 
 After migration and service startup, web tenant demo login is:
 
@@ -56,6 +59,9 @@ After migration and service startup, web tenant demo login is:
 - Master Data: `7211`
 - Purchase: `7212`
 - Notification: `7213`
+- HRM: `7214`
+- Attendance: `7215`
+- Payroll: `7216`
 - Workers: no public port by default
 
 ## Observability

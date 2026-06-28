@@ -69,6 +69,7 @@ public static class CrmLabels
         ContractStatus.Expired => "Hết hạn",
         ContractStatus.Terminated => "Chấm dứt",
         ContractStatus.Cancelled => "Đã huỷ",
+        ContractStatus.Completed => "Đã hoàn thành",
         _ => value.ToString()
     };
 
@@ -169,7 +170,7 @@ public static class CrmLabels
 
     public static string StatusBadgeClass(ContractStatus status) => status switch
     {
-        ContractStatus.Active or ContractStatus.Signed => "app-status-badge app-status-active",
+        ContractStatus.Active or ContractStatus.Signed or ContractStatus.Completed => "app-status-badge app-status-active",
         ContractStatus.Terminated or ContractStatus.Cancelled => "app-status-badge app-status-danger",
         ContractStatus.PendingSign => "app-status-badge app-status-pending",
         _ => "app-status-badge app-status-muted"

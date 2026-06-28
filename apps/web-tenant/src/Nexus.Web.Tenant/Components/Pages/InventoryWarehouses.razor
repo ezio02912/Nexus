@@ -62,6 +62,11 @@
                                 <span class="@ActiveCss(v.Row.IsActive)">@(v.Row.IsActive ? "Hoạt động" : "Tạm ngưng")</span>
                             </Template>
                         </TableColumn>
+                        <TableColumn @bind-Field="@context.AllowNegativeStock" Text="Tồn âm">
+                            <Template Context="v">
+                                <span class="@NegativeStockCss(v.Row.AllowNegativeStock)">@(v.Row.AllowNegativeStock ? "Cho phép" : "Không")</span>
+                            </Template>
+                        </TableColumn>
                         <TableColumn @bind-Field="@context.UpdatedAt" Text="Cập nhật" Sortable="true">
                             <Template Context="v">@v.Row.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
                         </TableColumn>
@@ -91,6 +96,12 @@
                         <span>Đang hoạt động</span>
                     </div>
                 </AppFormField>
+                <AppFormField Label="Tồn kho âm">
+                    <div class="app-form-check-row">
+                        <Checkbox @bind-Value="_warehouseAllowNegativeStock" ShowLabel="false" />
+                        <span>Cho phép giữ/xuất khi hàng chưa về</span>
+                    </div>
+                </AppFormField>
             </div>
         </BodyTemplate>
         <FooterTemplate>
@@ -109,6 +120,7 @@
     private string _warehouseName = "";
     private string _warehouseLocation = "";
     private bool _warehouseIsActive = true;
+    private bool _warehouseAllowNegativeStock;
 
     private async Task<QueryData<WarehouseRecord>> OnQueryAsync(QueryPageOptions options)
     {
@@ -143,6 +155,7 @@
         _warehouseName = "";
         _warehouseLocation = "";
         _warehouseIsActive = true;
+        _warehouseAllowNegativeStock = false;
         return _editModal!.Show();
     }
 
@@ -153,6 +166,7 @@
         _warehouseName = item.Name;
         _warehouseLocation = item.Location;
         _warehouseIsActive = item.IsActive;
+        _warehouseAllowNegativeStock = item.AllowNegativeStock;
         return _editModal!.Show();
     }
 
@@ -173,7 +187,7 @@
 
         try
         {
-            await Api.UpsertWarehouseAsync(new UpsertWarehouseRequest(tenantId, _warehouseFormCode, _warehouseName, _warehouseLocation, _warehouseIsActive));
+            await Api.UpsertWarehouseAsync(new UpsertWarehouseRequest(tenantId, _warehouseFormCode, _warehouseName, _warehouseLocation, _warehouseIsActive, _warehouseAllowNegativeStock));
             await ToastService.Success("Thành công", "Đã lưu kho.");
             await _editModal!.Close();
             await ReloadTableAsync();
@@ -194,6 +208,9 @@
 
     private static string ActiveCss(bool value) =>
         value ? "app-status-badge app-status-active" : "app-status-badge app-status-muted";
+
+    private static string NegativeStockCss(bool value) =>
+        value ? "app-status-badge app-status-pending" : "app-status-badge app-status-muted";
 
     private Task ShowErrorAsync(Exception ex) =>
         SwalService.Show(new SwalOption

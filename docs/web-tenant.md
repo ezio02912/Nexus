@@ -66,6 +66,7 @@ web-tenant CRM must feel like a complete workspace, not separated demo screens.
 - Entity code/name cells open detail pages when available.
 - Lead detail links to converted customer and opportunity.
 - Customer detail links to contacts, opportunities, quotations, contracts and activities.
+- Activities page uses a calendar workspace; related entity selection is driven by the selected entity type instead of manual GUID input, and activity assignment supports multiple responsible users.
 - Opportunity detail links to customer, source lead, quotations and contracts.
 - Quotation detail links to customer, opportunity and generated contract/sales order when available.
 - Contract detail links to customer, opportunity, quotation and later invoice.
@@ -77,6 +78,7 @@ web-tenant CRM must feel like a complete workspace, not separated demo screens.
 - Quotation detail can create a linked contract and copy quotation lines.
 - Quotation and Contract create forms can select attachment files; files are uploaded after the entity is created and linked through File Service.
 - Contract creation captures start date, end date, renewal date, payment terms, notes and terms so the initial contract is not a thin placeholder.
+- Contract workflow includes completed status; completed contracts are read-only in tenant UI and lock upload/delete actions for attachments.
 
 ## Sales / Inventory / Purchase Workflow
 
@@ -88,6 +90,7 @@ web-tenant hiện hỗ trợ các workflow nghiệp vụ chính của phase 3:
 - Sales Order approve gọi Inventory reservation; deliver/complete gọi Inventory shipment.
 - Sales Order detail hiển thị source CRM, trạng thái giữ hàng/giao hàng, subtotal, discount, tax và line warehouse.
 - Inventory tách page riêng cho tồn kho, mã hàng hoá và kho hàng; nhập kho nhanh tự tạo product/warehouse catalog nếu chưa tồn tại.
+- Warehouse catalog có tuỳ chọn `Cho phép tồn kho âm`; khi bật, giữ hàng/chuyển kho có thể đưa tồn khả dụng xuống âm để xử lý case chờ hàng về.
 - Tenant menu exposes direct pages for `Tồn kho`, `Mã hàng hoá` and `Kho hàng`.
 - `Mã hàng hoá` routes to `/inventory/products`; `Kho hàng` routes to `/inventory/warehouses`.
 - Product catalog uses Master Data lookups for unit (`Unit`) and product type (`ProductType`), supports product images/files through File Service, and stores attributes/variants on the Inventory catalog.

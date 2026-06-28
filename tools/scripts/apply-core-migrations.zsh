@@ -59,5 +59,8 @@ apply_sql_folder "crm"   "${CRM_DB:-crm_db}"     "services/crm-service/migration
 apply_sql_folder "sales" "${SALES_DB:-sales_db}" "services/sales-service/migrations"
 apply_sql_folder "inventory" "${INVENTORY_DB:-inventory_db}" "services/inventory-service/migrations"
 apply_sql_folder "purchase"  "${PURCHASE_DB:-purchase_db}"   "services/purchase-service/migrations"
+apply_sql_folder "hrm"        "${HRM_DB:-hrm_db}"             "services/hrm-service/migrations"
+apply_sql_folder "attendance" "${ATTENDANCE_DB:-attendance_db}" "services/attendance-service/migrations"
+apply_sql_folder "payroll"    "${PAYROLL_DB:-payroll_db}"     "services/payroll-service/migrations"
 
 echo "All core migrations applied."

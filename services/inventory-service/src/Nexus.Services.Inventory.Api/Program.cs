@@ -117,7 +117,7 @@ app.MapGet("/api/inventory/warehouses", async (InventoryDbContext db, Guid tenan
 
     var items = await query
         .OrderBy(x => x.WarehouseCode)
-        .Select(x => new WarehouseDto(x.Id, x.TenantId, x.WarehouseCode, x.Name, x.Location, x.IsActive, x.UpdatedAt))
+        .Select(x => new WarehouseDto(x.Id, x.TenantId, x.WarehouseCode, x.Name, x.Location, x.IsActive, x.AllowNegativeStock, x.UpdatedAt))
         .ToArrayAsync(ct);
 
     return Results.Ok(items);
@@ -130,16 +130,16 @@ app.MapPost("/api/inventory/warehouses", async (UpsertWarehouseDto input, Invent
     var warehouse = await db.Warehouses.SingleOrDefaultAsync(x => x.TenantId == input.TenantId && x.WarehouseCode == warehouseCode, ct);
     if (warehouse is null)
     {
-        warehouse = new Warehouse(Guid.NewGuid(), input.TenantId, warehouseCode, input.Name, input.Location, input.IsActive, now);
+        warehouse = new Warehouse(Guid.NewGuid(), input.TenantId, warehouseCode, input.Name, input.Location, input.IsActive, input.AllowNegativeStock, now);
         await db.Warehouses.AddAsync(warehouse, ct);
     }
     else
     {
-        warehouse.Update(input.Name, input.Location, input.IsActive, now);
+        warehouse.Update(input.Name, input.Location, input.IsActive, input.AllowNegativeStock, now);
     }
 
     await db.SaveChangesAsync(ct);
-    return Results.Ok(new WarehouseDto(warehouse.Id, warehouse.TenantId, warehouse.WarehouseCode, warehouse.Name, warehouse.Location, warehouse.IsActive, warehouse.UpdatedAt));
+    return Results.Ok(new WarehouseDto(warehouse.Id, warehouse.TenantId, warehouse.WarehouseCode, warehouse.Name, warehouse.Location, warehouse.IsActive, warehouse.AllowNegativeStock, warehouse.UpdatedAt));
 });
 
 app.MapPost("/api/inventory/stock/import", async (ImportStockDto input, InventoryDbContext db, CancellationToken ct) =>
@@ -260,8 +260,9 @@ app.MapPost("/api/inventory/transfers", async (TransferStockDto input, Inventory
         return Results.Conflict(new { Code = "Inventory:SameWarehouse", Message = "Kho nguồn và kho đích phải khác nhau." });
     }
 
+    var allowNegativeStock = await WarehouseAllowsNegativeStockAsync(db, input.TenantId, fromWarehouse, ct);
     var source = await FindBalanceAsync(db, input.TenantId, fromWarehouse, productCode, ct);
-    if (source is null || source.AvailableQuantity < input.Quantity)
+    if ((source is null || source.AvailableQuantity < input.Quantity) && !allowNegativeStock)
     {
         var available = source?.AvailableQuantity ?? 0;
         return Results.Conflict(new
@@ -272,13 +273,19 @@ app.MapPost("/api/inventory/transfers", async (TransferStockDto input, Inventory
     }
 
     var now = DateTimeOffset.UtcNow;
-    var productName = string.IsNullOrWhiteSpace(input.ProductName) ? source.ProductName : input.ProductName;
+    var productName = string.IsNullOrWhiteSpace(input.ProductName) ? source?.ProductName ?? productCode : input.ProductName;
     var transferNo = await numbering.GetNextNumberAsync(input.TenantId, "INVENTORY", "TRANSFER", "TR-", ct);
 
     var transfer = new StockTransfer(Guid.NewGuid(), input.TenantId, transferNo, fromWarehouse, toWarehouse, productCode, productName, input.Quantity, now);
     await db.StockTransfers.AddAsync(transfer, ct);
 
-    source.RemoveOnHand(input.Quantity, now);
+    if (source is null)
+    {
+        source = new StockBalance(Guid.NewGuid(), input.TenantId, fromWarehouse, productCode, productName);
+        await db.StockBalances.AddAsync(source, ct);
+    }
+
+    source.RemoveOnHand(input.Quantity, now, allowNegativeStock);
 
     var destination = await FindBalanceAsync(db, input.TenantId, toWarehouse, productCode, ct);
     if (destination is null)
@@ -315,7 +322,8 @@ app.MapPost("/api/inventory/reservations", async (ReserveStockDto input, Invento
     foreach (var line in input.Lines)
     {
         var balance = await FindBalanceAsync(db, input.TenantId, line.WarehouseCode, line.ProductCode, ct);
-        if (balance is null || !balance.CanReserve(line.Quantity))
+        var allowNegativeStock = await WarehouseAllowsNegativeStockAsync(db, input.TenantId, line.WarehouseCode, ct);
+        if ((balance is null || !balance.CanReserve(line.Quantity, allowNegativeStock)) && !allowNegativeStock)
         {
             var available = balance?.AvailableQuantity ?? 0;
             return Results.Conflict(new
@@ -330,7 +338,14 @@ app.MapPost("/api/inventory/reservations", async (ReserveStockDto input, Invento
     foreach (var line in input.Lines)
     {
         var balance = await FindBalanceAsync(db, input.TenantId, line.WarehouseCode, line.ProductCode, ct);
-        balance!.Reserve(line.Quantity, now);
+        var allowNegativeStock = await WarehouseAllowsNegativeStockAsync(db, input.TenantId, line.WarehouseCode, ct);
+        if (balance is null)
+        {
+            balance = new StockBalance(Guid.NewGuid(), input.TenantId, line.WarehouseCode, line.ProductCode, line.Description);
+            await db.StockBalances.AddAsync(balance, ct);
+        }
+
+        balance.Reserve(line.Quantity, now, allowNegativeStock);
     }
 
     var reservation = new StockReservation(Guid.NewGuid(), input.TenantId, sourceType, input.SourceId, input.SourceNo, input.Lines, now);
@@ -458,8 +473,18 @@ static async Task EnsureCatalogAsync(InventoryDbContext db, ImportStockDto input
             warehouseCode,
             string.Empty,
             true,
+            false,
             now), ct);
     }
+}
+
+static async Task<bool> WarehouseAllowsNegativeStockAsync(InventoryDbContext db, Guid tenantId, string warehouseCode, CancellationToken ct)
+{
+    var normalizedWarehouse = StockBalance.NormalizeCode(string.IsNullOrWhiteSpace(warehouseCode) ? "MAIN" : warehouseCode, 64);
+    return await db.Warehouses
+        .Where(x => x.TenantId == tenantId && x.WarehouseCode == normalizedWarehouse)
+        .Select(x => x.AllowNegativeStock)
+        .SingleOrDefaultAsync(ct);
 }
 
 static ProductDto ToProductDto(InventoryProduct product) =>
@@ -543,8 +568,8 @@ public sealed record StockTransferDto(Guid Id, Guid TenantId, string TransferNo,
 public sealed record ImportStockDto(Guid TenantId, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, string? SourceType, Guid? SourceId, string? SourceNo);
 public sealed record ProductDto(Guid Id, Guid TenantId, string ProductCode, string ProductName, string Unit, string Category, decimal Price, decimal TaxPercent, bool IsActive, string Attributes, string Variants, DateTimeOffset UpdatedAt);
 public sealed record UpsertProductDto(Guid TenantId, string ProductCode, string ProductName, string Unit, string? Category, decimal Price, decimal TaxPercent, bool IsActive, string? Attributes, string? Variants);
-public sealed record WarehouseDto(Guid Id, Guid TenantId, string WarehouseCode, string Name, string Location, bool IsActive, DateTimeOffset UpdatedAt);
-public sealed record UpsertWarehouseDto(Guid TenantId, string WarehouseCode, string Name, string? Location, bool IsActive);
+public sealed record WarehouseDto(Guid Id, Guid TenantId, string WarehouseCode, string Name, string Location, bool IsActive, bool AllowNegativeStock, DateTimeOffset UpdatedAt);
+public sealed record UpsertWarehouseDto(Guid TenantId, string WarehouseCode, string Name, string? Location, bool IsActive, bool AllowNegativeStock);
 public sealed record ReserveStockDto(Guid TenantId, string SourceType, Guid SourceId, string SourceNo, IReadOnlyCollection<ReserveStockLineDto> Lines);
 public sealed record ShipStockDto(Guid TenantId, string SourceType, Guid SourceId, string SourceNo);
 public sealed record StockReservationDto(Guid Id, Guid TenantId, string SourceType, Guid SourceId, string SourceNo, string Status, IReadOnlyCollection<StockReservationLineDto> Lines, DateTimeOffset CreatedAt, DateTimeOffset? ShippedAt);

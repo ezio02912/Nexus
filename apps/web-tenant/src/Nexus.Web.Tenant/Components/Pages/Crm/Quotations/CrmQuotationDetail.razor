@@ -165,11 +165,11 @@
                 <AppMoneyInput Label="Giá trị hợp đồng" @bind-Value="_contractModel.ContractValue" DecimalPlaces="0" />
                 <AppFormField Label="Ngày bắt đầu">
                     <DateTimePicker TValue="DateTime?" @bind-Value="_contractModel.StartDate"
-                                    ShowLabel="false" DateFormat="yyyy-MM-dd" />
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
                 </AppFormField>
                 <AppFormField Label="Ngày kết thúc">
                     <DateTimePicker TValue="DateTime?" @bind-Value="_contractModel.EndDate"
-                                    ShowLabel="false" DateFormat="yyyy-MM-dd" />
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
                 </AppFormField>
                 <AppFormField Label="Điều khoản thanh toán">
                     <BootstrapInput @bind-Value="_contractModel.PaymentTerms" ShowLabel="false" />

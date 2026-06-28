@@ -100,6 +100,139 @@ public static class TenantPermissionCatalog
                 Action(NexusPermissions.Inventory.Warehouses.Manage, "Quản lý")
             ])
         ]),
+        new("Nhân sự", [
+            Menu("Dashboard", [Action(NexusPermissions.Hrm.Dashboard.View, "Xem")]),
+            Menu("Nhân viên", [
+                Action(NexusPermissions.Hrm.Employees.View, "Xem"),
+                Action(NexusPermissions.Hrm.Employees.Create, "Thêm"),
+                Action(NexusPermissions.Hrm.Employees.Edit, "Sửa"),
+                Action(NexusPermissions.Hrm.Employees.Delete, "Xoá"),
+                Action(NexusPermissions.Hrm.Employees.Import, "Nhập"),
+                Action(NexusPermissions.Hrm.Employees.Export, "Xuất"),
+                Action(NexusPermissions.Hrm.Employees.Manage, "Quản lý")
+            ]),
+            Menu("Phòng ban", ManageCrud(
+                NexusPermissions.Hrm.Departments.View,
+                NexusPermissions.Hrm.Departments.Create,
+                NexusPermissions.Hrm.Departments.Edit,
+                NexusPermissions.Hrm.Departments.Delete,
+                NexusPermissions.Hrm.Departments.Manage)),
+            Menu("Chức vụ", ManageCrud(
+                NexusPermissions.Hrm.Positions.View,
+                NexusPermissions.Hrm.Positions.Create,
+                NexusPermissions.Hrm.Positions.Edit,
+                NexusPermissions.Hrm.Positions.Delete,
+                NexusPermissions.Hrm.Positions.Manage)),
+            Menu("Hợp đồng", ApproveManageCrud(
+                NexusPermissions.Hrm.Contracts.View,
+                NexusPermissions.Hrm.Contracts.Create,
+                NexusPermissions.Hrm.Contracts.Edit,
+                NexusPermissions.Hrm.Contracts.Delete,
+                NexusPermissions.Hrm.Contracts.Approve,
+                NexusPermissions.Hrm.Contracts.Manage)),
+            Menu("Tuyển dụng", ApproveManageCrud(
+                NexusPermissions.Hrm.Recruitment.View,
+                NexusPermissions.Hrm.Recruitment.Create,
+                NexusPermissions.Hrm.Recruitment.Edit,
+                NexusPermissions.Hrm.Recruitment.Delete,
+                NexusPermissions.Hrm.Recruitment.Approve,
+                NexusPermissions.Hrm.Recruitment.Manage)),
+            Menu("Onboarding/Offboarding", ApproveManageCrud(
+                NexusPermissions.Hrm.Onboarding.View,
+                NexusPermissions.Hrm.Onboarding.Create,
+                NexusPermissions.Hrm.Onboarding.Edit,
+                NexusPermissions.Hrm.Onboarding.Delete,
+                NexusPermissions.Hrm.Onboarding.Approve,
+                NexusPermissions.Hrm.Onboarding.Manage))
+        ]),
+        new("Chấm công", [
+            Menu("Lịch làm việc", ManageCrud(
+                NexusPermissions.Attendance.WorkCalendars.View,
+                NexusPermissions.Attendance.WorkCalendars.Create,
+                NexusPermissions.Attendance.WorkCalendars.Edit,
+                NexusPermissions.Attendance.WorkCalendars.Delete,
+                NexusPermissions.Attendance.WorkCalendars.Manage)),
+            Menu("Ca làm", ManageCrud(
+                NexusPermissions.Attendance.Shifts.View,
+                NexusPermissions.Attendance.Shifts.Create,
+                NexusPermissions.Attendance.Shifts.Edit,
+                NexusPermissions.Attendance.Shifts.Delete,
+                NexusPermissions.Attendance.Shifts.Manage)),
+            Menu("Chấm công", [
+                Action(NexusPermissions.Attendance.Records.View, "Xem"),
+                Action(NexusPermissions.Attendance.Records.Create, "Thêm"),
+                Action(NexusPermissions.Attendance.Records.Edit, "Sửa"),
+                Action(NexusPermissions.Attendance.Records.Delete, "Xoá"),
+                Action(NexusPermissions.Attendance.Records.Approve, "Duyệt"),
+                Action(NexusPermissions.Attendance.Records.Import, "Nhập"),
+                Action(NexusPermissions.Attendance.Records.Export, "Xuất")
+            ]),
+            Menu("Đơn phép", ApproveCrud(
+                NexusPermissions.Attendance.LeaveRequests.View,
+                NexusPermissions.Attendance.LeaveRequests.Create,
+                NexusPermissions.Attendance.LeaveRequests.Edit,
+                NexusPermissions.Attendance.LeaveRequests.Delete,
+                NexusPermissions.Attendance.LeaveRequests.Approve,
+                NexusPermissions.Attendance.LeaveRequests.Export)),
+            Menu("Tăng ca", ApproveCrud(
+                NexusPermissions.Attendance.OvertimeRequests.View,
+                NexusPermissions.Attendance.OvertimeRequests.Create,
+                NexusPermissions.Attendance.OvertimeRequests.Edit,
+                NexusPermissions.Attendance.OvertimeRequests.Delete,
+                NexusPermissions.Attendance.OvertimeRequests.Approve,
+                NexusPermissions.Attendance.OvertimeRequests.Export)),
+            Menu("Bảng công", [
+                Action(NexusPermissions.Attendance.Timesheets.View, "Xem"),
+                Action(NexusPermissions.Attendance.Timesheets.Approve, "Duyệt"),
+                Action(NexusPermissions.Attendance.Timesheets.Export, "Xuất"),
+                Action(NexusPermissions.Attendance.Timesheets.Manage, "Quản lý")
+            ])
+        ]),
+        new("Lương", [
+            Menu("Cấu hình lương", ManageCrud(
+                NexusPermissions.Payroll.Settings.View,
+                NexusPermissions.Payroll.Settings.Create,
+                NexusPermissions.Payroll.Settings.Edit,
+                NexusPermissions.Payroll.Settings.Delete,
+                NexusPermissions.Payroll.Settings.Manage)),
+            Menu("Thành phần lương", ManageCrud(
+                NexusPermissions.Payroll.Components.View,
+                NexusPermissions.Payroll.Components.Create,
+                NexusPermissions.Payroll.Components.Edit,
+                NexusPermissions.Payroll.Components.Delete,
+                NexusPermissions.Payroll.Components.Manage)),
+            Menu("Kỳ lương", ManageCrud(
+                NexusPermissions.Payroll.Periods.View,
+                NexusPermissions.Payroll.Periods.Create,
+                NexusPermissions.Payroll.Periods.Edit,
+                NexusPermissions.Payroll.Periods.Delete,
+                NexusPermissions.Payroll.Periods.Manage)),
+            Menu("Bảng lương", [
+                Action(NexusPermissions.Payroll.Runs.View, "Xem"),
+                Action(NexusPermissions.Payroll.Runs.Create, "Thêm"),
+                Action(NexusPermissions.Payroll.Runs.Edit, "Sửa"),
+                Action(NexusPermissions.Payroll.Runs.Delete, "Xoá"),
+                Action(NexusPermissions.Payroll.Runs.Approve, "Duyệt"),
+                Action(NexusPermissions.Payroll.Runs.Export, "Xuất"),
+                Action(NexusPermissions.Payroll.Runs.Manage, "Quản lý")
+            ]),
+            Menu("Phiếu lương", ManageCrudExport(
+                NexusPermissions.Payroll.Payslips.View,
+                NexusPermissions.Payroll.Payslips.Create,
+                NexusPermissions.Payroll.Payslips.Edit,
+                NexusPermissions.Payroll.Payslips.Delete,
+                NexusPermissions.Payroll.Payslips.Export,
+                NexusPermissions.Payroll.Payslips.Manage)),
+            Menu("Chi lương", [
+                Action(NexusPermissions.Payroll.Payments.View, "Xem"),
+                Action(NexusPermissions.Payroll.Payments.Create, "Thêm"),
+                Action(NexusPermissions.Payroll.Payments.Edit, "Sửa"),
+                Action(NexusPermissions.Payroll.Payments.Delete, "Xoá"),
+                Action(NexusPermissions.Payroll.Payments.Approve, "Duyệt"),
+                Action(NexusPermissions.Payroll.Payments.Export, "Xuất"),
+                Action(NexusPermissions.Payroll.Payments.Manage, "Quản lý")
+            ])
+        ]),
         new("Tài liệu", [
             Menu("Tệp đính kèm", [
                 Action(NexusPermissions.Files.View, "Xem"),
@@ -210,5 +343,32 @@ public static class TenantPermissionCatalog
         Action(create, "Thêm"),
         Action(edit, "Sửa"),
         Action(delete, "Xoá")
+    ];
+
+    private static IReadOnlyList<PermissionAction> ManageCrud(string view, string create, string edit, string delete, string manage) =>
+    [
+        .. Crud(view, create, edit, delete),
+        Action(manage, "Quản lý")
+    ];
+
+    private static IReadOnlyList<PermissionAction> ApproveCrud(string view, string create, string edit, string delete, string approve, string export) =>
+    [
+        .. Crud(view, create, edit, delete),
+        Action(approve, "Duyệt"),
+        Action(export, "Xuất")
+    ];
+
+    private static IReadOnlyList<PermissionAction> ApproveManageCrud(string view, string create, string edit, string delete, string approve, string manage) =>
+    [
+        .. Crud(view, create, edit, delete),
+        Action(approve, "Duyệt"),
+        Action(manage, "Quản lý")
+    ];
+
+    private static IReadOnlyList<PermissionAction> ManageCrudExport(string view, string create, string edit, string delete, string export, string manage) =>
+    [
+        .. Crud(view, create, edit, delete),
+        Action(export, "Xuất"),
+        Action(manage, "Quản lý")
     ];
 }

@@ -27,6 +27,7 @@ public sealed class CrmActivity : FullAuditedAggregateRoot<Guid>
         DateTimeOffset activityDate,
         Guid? ownerId,
         Guid? assignedToId,
+        IReadOnlyCollection<Guid>? assignedToIds,
         Guid? creatorId,
         DateTimeOffset now)
     {
@@ -35,9 +36,10 @@ public sealed class CrmActivity : FullAuditedAggregateRoot<Guid>
         RelatedEntityId = relatedEntityId;
         ActivityType = activityType;
         Subject = Check.Length(Check.NotNullOrWhiteSpace(subject, nameof(subject)), nameof(subject), ActivityConsts.SubjectMaxLength);
-        ActivityDate = activityDate;
+        ActivityDate = ToUtc(activityDate);
         OwnerId = ownerId;
         AssignedToId = assignedToId;
+        AssignedToIds = FormatAssignedToIds(assignedToIds, assignedToId);
         Status = CrmActivityStatus.Planned;
         SetCreationAudit(tenantId, creatorId, now);
     }
@@ -53,6 +55,7 @@ public sealed class CrmActivity : FullAuditedAggregateRoot<Guid>
     public CrmActivityStatus Status { get; private set; }
     public Guid? OwnerId { get; private set; }
     public Guid? AssignedToId { get; private set; }
+    public string AssignedToIds { get; private set; } = string.Empty;
     public int? DurationMinutes { get; private set; }
 
     public void Update(
@@ -64,6 +67,7 @@ public sealed class CrmActivity : FullAuditedAggregateRoot<Guid>
         CrmActivityStatus status,
         Guid? ownerId,
         Guid? assignedToId,
+        IReadOnlyCollection<Guid>? assignedToIds,
         int? durationMinutes,
         Guid? modifierId,
         DateTimeOffset now)
@@ -71,11 +75,12 @@ public sealed class CrmActivity : FullAuditedAggregateRoot<Guid>
         ActivityType = activityType;
         Subject = Check.Length(Check.NotNullOrWhiteSpace(subject, nameof(subject)), nameof(subject), ActivityConsts.SubjectMaxLength);
         Description = description?.Trim();
-        ActivityDate = activityDate;
-        DueDate = dueDate;
+        ActivityDate = ToUtc(activityDate);
+        DueDate = dueDate.HasValue ? ToUtc(dueDate.Value) : null;
         Status = status;
         OwnerId = ownerId;
         AssignedToId = assignedToId;
+        AssignedToIds = FormatAssignedToIds(assignedToIds, assignedToId);
         DurationMinutes = durationMinutes;
         SetModificationAudit(modifierId, now);
     }
@@ -86,6 +91,33 @@ public sealed class CrmActivity : FullAuditedAggregateRoot<Guid>
         CompletedAt = now;
         SetModificationAudit(modifierId, now);
     }
+
+    public IReadOnlyList<Guid> GetAssignedToIds()
+    {
+        return AssignedToIds
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => Guid.TryParse(x, out var id) ? id : Guid.Empty)
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToArray();
+    }
+
+    private static string FormatAssignedToIds(IReadOnlyCollection<Guid>? assignedToIds, Guid? assignedToId)
+    {
+        IEnumerable<Guid> source = assignedToIds is { Count: > 0 }
+            ? assignedToIds
+            : assignedToId.HasValue ? [assignedToId.Value] : [];
+
+        var ids = source
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .Select(x => x.ToString("D"));
+
+        return string.Join(",", ids);
+    }
+
+    private static DateTimeOffset ToUtc(DateTimeOffset value) =>
+        value.Offset == TimeSpan.Zero ? value : value.ToUniversalTime();
 }
 
 public interface IActivityRepository : IRepository<CrmActivity, Guid>

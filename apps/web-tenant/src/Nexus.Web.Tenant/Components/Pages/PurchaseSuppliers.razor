@@ -161,6 +161,7 @@
             await Api.UpsertSupplierAsync(new UpsertSupplierRequest(tenantId, _supplierCode, _supplierName, _supplierEmail, _supplierPhone));
             await ToastService.Success("Thành công", "Đã lưu nhà cung cấp.");
             await _editModal!.Close();
+            ResetForm();
             await ReloadTableAsync();
         }
         catch (Exception ex)
@@ -175,6 +176,15 @@
         {
             await _table.QueryAsync();
         }
+    }
+
+    private void ResetForm()
+    {
+        _dialogTitle = "Thêm nhà cung cấp";
+        _supplierCode = "";
+        _supplierName = "";
+        _supplierEmail = "";
+        _supplierPhone = "";
     }
 
     private static QueryData<SupplierRecord> BuildQuery(List<SupplierRecord> all, QueryPageOptions options)

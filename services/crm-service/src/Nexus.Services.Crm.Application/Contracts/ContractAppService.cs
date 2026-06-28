@@ -131,6 +131,11 @@ public sealed class ContractAppService : CrmAppServiceBase, IContractAppService
 
         EnsureTenantAccess(contract);
 
+        if (contract.Status == ContractStatus.Completed)
+        {
+            throw new NexusBusinessException(CrmErrorCodes.InvalidStatusTransition, "Completed contracts cannot be updated.");
+        }
+
         var tenantId = GetRequiredTenantId();
         await EnsureCustomerExistsAsync(tenantId, input.CustomerId, cancellationToken);
 
@@ -170,6 +175,11 @@ public sealed class ContractAppService : CrmAppServiceBase, IContractAppService
         }
 
         EnsureTenantAccess(contract);
+        if (contract.Status == ContractStatus.Completed)
+        {
+            throw new NexusBusinessException(CrmErrorCodes.InvalidStatusTransition, "Completed contracts cannot be deleted.");
+        }
+
         await _contractRepository.DeleteAsync(id, cancellationToken);
     }
 
@@ -217,6 +227,24 @@ public sealed class ContractAppService : CrmAppServiceBase, IContractAppService
 
         var now = DateTimeOffset.UtcNow;
         contract.Activate(CurrentUser.Id, now);
+        await _contractRepository.UpdateAsync(contract, cancellationToken);
+        return MapToDto(contract);
+    }
+
+    public async Task<ContractDto> CompleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var contract = await _contractRepository.GetWithLinesAsync(id, cancellationToken)
+            ?? throw new KeyNotFoundException($"Contract with id '{id}' was not found.");
+
+        EnsureTenantAccess(contract);
+
+        if (contract.Status is not (ContractStatus.Signed or ContractStatus.Active))
+        {
+            throw new NexusBusinessException(CrmErrorCodes.InvalidStatusTransition, "Contract cannot be completed in its current status.");
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        contract.Complete(CurrentUser.Id, now);
         await _contractRepository.UpdateAsync(contract, cancellationToken);
         return MapToDto(contract);
     }

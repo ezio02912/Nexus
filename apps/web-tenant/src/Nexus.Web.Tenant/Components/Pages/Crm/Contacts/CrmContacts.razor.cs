@@ -114,6 +114,7 @@ public partial class CrmContacts
             }
 
             await _editModal!.Close();
+            ResetModalState();
             await ReloadTableAsync();
         }
         catch (Exception ex)
@@ -147,6 +148,14 @@ public partial class CrmContacts
         {
             await _table.QueryAsync();
         }
+    }
+
+    private void ResetModalState()
+    {
+        _editing = null;
+        _isCreate = false;
+        _model = new ContactFormModel();
+        _customerIdText = "";
     }
 
     private sealed class ContactFormModel

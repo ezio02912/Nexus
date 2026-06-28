@@ -30,11 +30,6 @@ builder.Services.AddCrmApplication();
 
 var app = builder.Build();
 
-await using (var scope = app.Services.CreateAsyncScope())
-{
-    await scope.ServiceProvider.GetRequiredService<CrmDbContext>().Database.MigrateAsync();
-}
-
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -168,6 +163,9 @@ crm.MapPost("/contracts/{id:guid}/sign", async (Guid id, IContractAppService ser
     .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Sign));
 crm.MapPost("/contracts/{id:guid}/activate", async (Guid id, IContractAppService service, CancellationToken ct) =>
     await ExecuteAsync(() => service.ActivateAsync(id, ct)))
+    .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Edit));
+crm.MapPost("/contracts/{id:guid}/complete", async (Guid id, IContractAppService service, CancellationToken ct) =>
+    await ExecuteAsync(() => service.CompleteAsync(id, ct)))
     .RequireAuthorization(NexusPolicies.Permission(NexusPermissions.Crm.Contracts.Edit));
 crm.MapPost("/contracts/{id:guid}/terminate", async (Guid id, TerminateContractDto input, IContractAppService service, CancellationToken ct) =>
     await ExecuteAsync(() => service.TerminateAsync(id, input, ct)))

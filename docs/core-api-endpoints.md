@@ -62,7 +62,7 @@ Tenant context via JWT / `x-tenant-id`. Full CRUD + workflow on all entities.
 - `GET|POST /api/crm/leads`, `GET|PUT|DELETE /api/crm/leads/{id}`, `POST /api/crm/leads/{id}/convert`
 - `GET|POST /api/crm/opportunities`, `GET|PUT|DELETE /api/crm/opportunities/{id}`, `PATCH /api/crm/opportunities/{id}/stage`
 - `GET|POST /api/crm/quotations`, `GET|PUT|DELETE /api/crm/quotations/{id}`, `POST .../approve|reject|send`
-- `GET|POST /api/crm/contracts`, `GET|PUT|DELETE /api/crm/contracts/{id}`, `POST .../sign|activate|terminate`
+- `GET|POST /api/crm/contracts`, `GET|PUT|DELETE /api/crm/contracts/{id}`, `POST .../sign|activate|complete|terminate`
 - `GET|POST /api/crm/activities`, `GET|PUT|DELETE /api/crm/activities/{id}`, `POST /api/crm/activities/{id}/complete`
 - `GET /api/crm/dashboard`
 
@@ -81,7 +81,7 @@ Tenant context via JWT / `x-tenant-id`. Full CRUD + workflow on all entities.
 - `GET /api/inventory/products?tenantId={tenantId}&search={search}`
 - `POST /api/inventory/products` tạo/cập nhật mã hàng hoá, gồm đơn vị, loại hàng, thuộc tính và biến thể.
 - `GET /api/inventory/warehouses?tenantId={tenantId}&search={search}`
-- `POST /api/inventory/warehouses`
+- `POST /api/inventory/warehouses` (includes `AllowNegativeStock`)
 - `POST /api/inventory/stock/import`
 - `POST /api/inventory/reservations`
 - `POST /api/inventory/shipments`

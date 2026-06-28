@@ -69,7 +69,7 @@ public sealed class Warehouse : NexusEntity<Guid>
         Location = string.Empty;
     }
 
-    public Warehouse(Guid id, Guid tenantId, string warehouseCode, string name, string? location, bool isActive, DateTimeOffset now)
+    public Warehouse(Guid id, Guid tenantId, string warehouseCode, string name, string? location, bool isActive, bool allowNegativeStock, DateTimeOffset now)
     {
         Id = id;
         TenantId = tenantId;
@@ -77,6 +77,7 @@ public sealed class Warehouse : NexusEntity<Guid>
         Name = name.Trim();
         Location = location?.Trim() ?? string.Empty;
         IsActive = isActive;
+        AllowNegativeStock = allowNegativeStock;
         CreatedAt = now;
         UpdatedAt = now;
     }
@@ -86,14 +87,16 @@ public sealed class Warehouse : NexusEntity<Guid>
     public string Name { get; private set; }
     public string Location { get; private set; }
     public bool IsActive { get; private set; }
+    public bool AllowNegativeStock { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public void Update(string name, string? location, bool isActive, DateTimeOffset now)
+    public void Update(string name, string? location, bool isActive, bool allowNegativeStock, DateTimeOffset now)
     {
         Name = name.Trim();
         Location = location?.Trim() ?? string.Empty;
         IsActive = isActive;
+        AllowNegativeStock = allowNegativeStock;
         UpdatedAt = now;
     }
 }
@@ -131,12 +134,12 @@ public sealed class StockBalance : NexusEntity<Guid>
         UpdatedAt = now;
     }
 
-    public bool CanReserve(decimal quantity) => AvailableQuantity >= quantity;
+    public bool CanReserve(decimal quantity, bool allowNegativeStock = false) => allowNegativeStock || AvailableQuantity >= quantity;
 
-    public void Reserve(decimal quantity, DateTimeOffset now)
+    public void Reserve(decimal quantity, DateTimeOffset now, bool allowNegativeStock = false)
     {
         quantity = EnsurePositive(quantity, nameof(quantity));
-        if (!CanReserve(quantity))
+        if (!CanReserve(quantity, allowNegativeStock))
         {
             throw new InvalidOperationException($"Insufficient stock for product {ProductCode}.");
         }
@@ -163,10 +166,10 @@ public sealed class StockBalance : NexusEntity<Guid>
 
     // Used by inter-warehouse transfer to remove quantity from the source warehouse.
     // Only the available (unreserved) quantity can be moved out.
-    public void RemoveOnHand(decimal quantity, DateTimeOffset now)
+    public void RemoveOnHand(decimal quantity, DateTimeOffset now, bool allowNegativeStock = false)
     {
         quantity = EnsurePositive(quantity, nameof(quantity));
-        if (AvailableQuantity < quantity)
+        if (!allowNegativeStock && AvailableQuantity < quantity)
         {
             throw new InvalidOperationException($"Insufficient stock for product {ProductCode}.");
         }
@@ -373,6 +376,7 @@ public sealed class InventoryDbContext : NexusDbContext
             builder.Property(x => x.WarehouseCode).HasMaxLength(64).IsRequired();
             builder.Property(x => x.Name).HasMaxLength(256).IsRequired();
             builder.Property(x => x.Location).HasMaxLength(256).IsRequired();
+            builder.Property(x => x.AllowNegativeStock).IsRequired();
             builder.HasIndex(x => new { x.TenantId, x.WarehouseCode }).IsUnique();
         });
 

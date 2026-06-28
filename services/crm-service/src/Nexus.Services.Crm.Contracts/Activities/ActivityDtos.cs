@@ -19,6 +19,7 @@ public sealed class CreateActivityDto
     public DateTimeOffset ActivityDate { get; init; }
     public Guid? OwnerId { get; init; }
     public Guid? AssignedToId { get; init; }
+    public IReadOnlyList<Guid>? AssignedToIds { get; init; }
 }
 
 public sealed class UpdateActivityDto
@@ -31,6 +32,7 @@ public sealed class UpdateActivityDto
     public CrmActivityStatus Status { get; init; }
     public Guid? OwnerId { get; init; }
     public Guid? AssignedToId { get; init; }
+    public IReadOnlyList<Guid>? AssignedToIds { get; init; }
     public int? DurationMinutes { get; init; }
 }
 
@@ -49,6 +51,7 @@ public sealed class ActivityDto
     public CrmActivityStatus Status { get; init; }
     public Guid? OwnerId { get; init; }
     public Guid? AssignedToId { get; init; }
+    public IReadOnlyList<Guid> AssignedToIds { get; init; } = [];
     public int? DurationMinutes { get; init; }
     public DateTimeOffset CreationTime { get; init; }
     public Guid? CreatorId { get; init; }

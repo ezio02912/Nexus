@@ -231,6 +231,150 @@ public sealed class TenantPortalApiClient
     public Task<IReadOnlyList<GoodsReceiptRecord>?> GetGoodsReceiptsAsync(Guid tenantId) =>
         GetAsync<IReadOnlyList<GoodsReceiptRecord>>(_options.Purchase, $"/api/purchase/goods-receipts?tenantId={tenantId}");
 
+    public Task<IReadOnlyList<HrmEmployeeRecord>?> GetHrmEmployeesAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmEmployeeRecord>(_options.Hrm, "/api/hrm/employees", tenantId, search);
+
+    public Task<IReadOnlyList<HrmDepartmentRecord>?> GetHrmDepartmentsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmDepartmentRecord>(_options.Hrm, "/api/hrm/departments", tenantId, search);
+
+    public Task<IReadOnlyList<HrmPositionRecord>?> GetHrmPositionsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmPositionRecord>(_options.Hrm, "/api/hrm/positions", tenantId, search);
+
+    public Task<IReadOnlyList<HrmContractRecord>?> GetHrmContractsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmContractRecord>(_options.Hrm, "/api/hrm/contracts", tenantId, search);
+
+    public Task<IReadOnlyList<HrmRequisitionRecord>?> GetHrmRequisitionsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmRequisitionRecord>(_options.Hrm, "/api/hrm/requisitions", tenantId, search);
+
+    public Task<IReadOnlyList<HrmCandidateRecord>?> GetHrmCandidatesAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmCandidateRecord>(_options.Hrm, "/api/hrm/candidates", tenantId, search);
+
+    public Task<IReadOnlyList<HrmApplicationRecord>?> GetHrmApplicationsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmApplicationRecord>(_options.Hrm, "/api/hrm/applications", tenantId, search);
+
+    public Task<IReadOnlyList<HrmOfferRecord>?> GetHrmOffersAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmOfferRecord>(_options.Hrm, "/api/hrm/offers", tenantId, search);
+
+    public Task<HrmEmployeeRecord?> AcceptHrmOfferAsync(Guid offerId) =>
+        PostAsync<HrmEmployeeRecord>(_options.Hrm, $"/api/hrm/offers/{offerId}/accept", new { });
+
+    public Task<HrmEmployeeRecord?> UpsertHrmEmployeeAsync(HrmEmployeeRecord request) =>
+        PostAsync<HrmEmployeeRecord>(_options.Hrm, "/api/hrm/employees", request);
+
+    public Task<HrmDepartmentRecord?> UpsertHrmDepartmentAsync(HrmDepartmentRecord request) =>
+        PostAsync<HrmDepartmentRecord>(_options.Hrm, "/api/hrm/departments", request);
+
+    public Task<HrmPositionRecord?> UpsertHrmPositionAsync(HrmPositionRecord request) =>
+        PostAsync<HrmPositionRecord>(_options.Hrm, "/api/hrm/positions", request);
+
+    public Task<HrmContractRecord?> UpsertHrmContractAsync(HrmContractRecord request) =>
+        PostAsync<HrmContractRecord>(_options.Hrm, "/api/hrm/contracts", request);
+
+    public Task<HrmRequisitionRecord?> UpsertHrmRequisitionAsync(HrmRequisitionRecord request) =>
+        PostAsync<HrmRequisitionRecord>(_options.Hrm, "/api/hrm/requisitions", request);
+
+    public Task<HrmCandidateRecord?> UpsertHrmCandidateAsync(HrmCandidateRecord request) =>
+        PostAsync<HrmCandidateRecord>(_options.Hrm, "/api/hrm/candidates", request);
+
+    public Task DeleteHrmEntityAsync(string endpoint, Guid tenantId, Guid id) =>
+        DeleteAsync(_options.Hrm, $"/api/hrm/{endpoint}/{id}?tenantId={tenantId}");
+
+    public Task<IReadOnlyList<AttendanceCalendarRecord>?> GetAttendanceCalendarsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<AttendanceCalendarRecord>(_options.Attendance, "/api/attendance/work-calendars", tenantId, search);
+
+    public Task<IReadOnlyList<AttendanceShiftRecord>?> GetAttendanceShiftsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<AttendanceShiftRecord>(_options.Attendance, "/api/attendance/shifts", tenantId, search);
+
+    public Task<IReadOnlyList<AttendanceRecordItem>?> GetAttendanceRecordsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<AttendanceRecordItem>(_options.Attendance, "/api/attendance/records", tenantId, search);
+
+    public Task<IReadOnlyList<LeaveRequestRecord>?> GetLeaveRequestsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<LeaveRequestRecord>(_options.Attendance, "/api/attendance/leave-requests", tenantId, search);
+
+    public Task<IReadOnlyList<OvertimeRequestRecord>?> GetOvertimeRequestsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<OvertimeRequestRecord>(_options.Attendance, "/api/attendance/overtime-requests", tenantId, search);
+
+    public Task<object?> SetupAttendanceVietnamDefaultsAsync(Guid tenantId) =>
+        PostAsync<object>(_options.Attendance, "/api/attendance/setup-vn-defaults", new TenantScopedRequest(tenantId));
+
+    public Task<LeaveRequestRecord?> ApproveLeaveRequestAsync(Guid id) =>
+        PostAsync<LeaveRequestRecord>(_options.Attendance, $"/api/attendance/leave-requests/{id}/approve", new ApprovalRequest(_session.Login?.UserId));
+
+    public Task<OvertimeRequestRecord?> ApproveOvertimeRequestAsync(Guid id) =>
+        PostAsync<OvertimeRequestRecord>(_options.Attendance, $"/api/attendance/overtime-requests/{id}/approve", new ApprovalRequest(_session.Login?.UserId));
+
+    public Task<AttendanceCalendarRecord?> UpsertAttendanceCalendarAsync(AttendanceCalendarRecord request) =>
+        PostAsync<AttendanceCalendarRecord>(_options.Attendance, "/api/attendance/work-calendars", request);
+
+    public Task<AttendanceShiftRecord?> UpsertAttendanceShiftAsync(AttendanceShiftRecord request) =>
+        PostAsync<AttendanceShiftRecord>(_options.Attendance, "/api/attendance/shifts", request);
+
+    public Task<AttendanceRecordItem?> UpsertAttendanceRecordAsync(AttendanceRecordItem request) =>
+        PostAsync<AttendanceRecordItem>(_options.Attendance, "/api/attendance/records", request);
+
+    public Task<LeaveRequestRecord?> UpsertLeaveRequestAsync(LeaveRequestRecord request) =>
+        PostAsync<LeaveRequestRecord>(_options.Attendance, "/api/attendance/leave-requests", request);
+
+    public Task<OvertimeRequestRecord?> UpsertOvertimeRequestAsync(OvertimeRequestRecord request) =>
+        PostAsync<OvertimeRequestRecord>(_options.Attendance, "/api/attendance/overtime-requests", request);
+
+    public Task DeleteAttendanceEntityAsync(string endpoint, Guid tenantId, Guid id) =>
+        DeleteAsync(_options.Attendance, $"/api/attendance/{endpoint}/{id}?tenantId={tenantId}");
+
+    public Task<IReadOnlyList<PayrollPolicyRecord>?> GetPayrollPoliciesAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<PayrollPolicyRecord>(_options.Payroll, "/api/payroll/policies", tenantId, search);
+
+    public Task<IReadOnlyList<SalaryComponentRecord>?> GetSalaryComponentsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<SalaryComponentRecord>(_options.Payroll, "/api/payroll/components", tenantId, search);
+
+    public Task<IReadOnlyList<PayrollPeriodRecord>?> GetPayrollPeriodsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<PayrollPeriodRecord>(_options.Payroll, "/api/payroll/periods", tenantId, search);
+
+    public Task<IReadOnlyList<PayrollRunRecord>?> GetPayrollRunsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<PayrollRunRecord>(_options.Payroll, "/api/payroll/runs", tenantId, search);
+
+    public Task<IReadOnlyList<PayslipRecord>?> GetPayslipsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<PayslipRecord>(_options.Payroll, "/api/payroll/payslips", tenantId, search);
+
+    public Task<IReadOnlyList<PayrollPaymentRecord>?> GetPayrollPaymentsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<PayrollPaymentRecord>(_options.Payroll, "/api/payroll/payments", tenantId, search);
+
+    public Task<object?> SetupPayrollVietnamDefaultsAsync(Guid tenantId) =>
+        PostAsync<object>(_options.Payroll, "/api/payroll/setup-vn-defaults", new TenantScopedRequest(tenantId));
+
+    public Task<PayrollRunRecord?> CalculatePayrollRunAsync(Guid id) =>
+        PostAsync<PayrollRunRecord>(_options.Payroll, $"/api/payroll/runs/{id}/calculate", new { });
+
+    public Task<PayrollRunRecord?> ApprovePayrollRunAsync(Guid id) =>
+        PostAsync<PayrollRunRecord>(_options.Payroll, $"/api/payroll/runs/{id}/approve", new ApprovalRequest(_session.Login?.UserId));
+
+    public Task<PayrollRunRecord?> PayPayrollRunAsync(Guid id) =>
+        PostAsync<PayrollRunRecord>(_options.Payroll, $"/api/payroll/runs/{id}/pay", new { });
+
+    public Task<object?> PublishPayslipsAsync(Guid id) =>
+        PostAsync<object>(_options.Payroll, $"/api/payroll/runs/{id}/publish-payslips", new { });
+
+    public Task<PayrollPolicyRecord?> UpsertPayrollPolicyAsync(PayrollPolicyRecord request) =>
+        PostAsync<PayrollPolicyRecord>(_options.Payroll, "/api/payroll/policies", request);
+
+    public Task<SalaryComponentRecord?> UpsertSalaryComponentAsync(SalaryComponentRecord request) =>
+        PostAsync<SalaryComponentRecord>(_options.Payroll, "/api/payroll/components", request);
+
+    public Task<PayrollPeriodRecord?> UpsertPayrollPeriodAsync(PayrollPeriodRecord request) =>
+        PostAsync<PayrollPeriodRecord>(_options.Payroll, "/api/payroll/periods", request);
+
+    public Task<PayrollRunRecord?> UpsertPayrollRunAsync(PayrollRunRecord request) =>
+        PostAsync<PayrollRunRecord>(_options.Payroll, "/api/payroll/runs", request);
+
+    public Task<PayslipRecord?> UpsertPayslipAsync(PayslipRecord request) =>
+        PostAsync<PayslipRecord>(_options.Payroll, "/api/payroll/payslips", request);
+
+    public Task<PayrollPaymentRecord?> UpsertPayrollPaymentAsync(PayrollPaymentRecord request) =>
+        PostAsync<PayrollPaymentRecord>(_options.Payroll, "/api/payroll/payments", request);
+
+    public Task DeletePayrollEntityAsync(string endpoint, Guid tenantId, Guid id) =>
+        DeleteAsync(_options.Payroll, $"/api/payroll/{endpoint}/{id}?tenantId={tenantId}");
+
     public Task<IReadOnlyList<SubscriptionPlanDto>?> GetSubscriptionPlansAsync() =>
         GetAsync<IReadOnlyList<SubscriptionPlanDto>>(_options.Tenant, "/api/subscription-plans/");
 
@@ -267,6 +411,17 @@ public sealed class TenantPortalApiClient
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    private Task<IReadOnlyList<T>?> GetListAsync<T>(string baseUrl, string path, Guid tenantId, string? search)
+    {
+        var query = $"{path}?tenantId={tenantId}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        return GetAsync<IReadOnlyList<T>>(baseUrl, query);
     }
 
     private async Task<T?> PostPublicAsync<T>(string baseUrl, string path, object request)

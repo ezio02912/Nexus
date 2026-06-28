@@ -58,7 +58,8 @@ public enum ContractStatus
     Active = 3,
     Expired = 4,
     Terminated = 5,
-    Cancelled = 6
+    Cancelled = 6,
+    Completed = 7
 }
 
 public enum CrmActivityType

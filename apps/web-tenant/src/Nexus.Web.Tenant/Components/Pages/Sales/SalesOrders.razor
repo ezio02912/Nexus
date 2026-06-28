@@ -36,6 +36,9 @@
                 <h2>Danh sách đơn hàng</h2>
                 <div class="app-list-toolbar">
                     <BootstrapInput @bind-Value="searchText" ShowLabel="false" PlaceHolder="Tìm số đơn, nguồn, trạng thái, mã hàng..." />
+                    <Select TValue="string" @bind-Value="statusFilter" Items="@statusFilterOptions" ShowLabel="false" ShowSearch="false" class="app-filter-select" />
+                    <Select TValue="string" @bind-Value="reservationFilter" Items="@reservationFilterOptions" ShowLabel="false" ShowSearch="false" class="app-filter-select" />
+                    <Select TValue="string" @bind-Value="deliveryFilter" Items="@deliveryFilterOptions" ShowLabel="false" ShowSearch="false" class="app-filter-select" />
                     <Button Text="Tìm" Color="Color.Primary" IsAsync="true" OnClick="LoadAsync" />
                     <Button Text="Xoá lọc" Color="Color.Secondary" IsAsync="true" OnClick="ClearSearchAsync" />
                 </div>
@@ -73,9 +76,9 @@
                                         }
                                     </td>
                                     <td>@CustomerText(order.CustomerId)</td>
-                                    <td><span class="@StatusCss(order.Status)">@SalesLabels.OrderStatus(order.Status)</span></td>
-                                    <td><span class="@ReservationStatusCss(order.InventoryReservationStatus)">@ReservationStatusText(order.InventoryReservationStatus)</span></td>
-                                    <td><span class="@DeliveryStatusCss(order.DeliveryStatus)">@DeliveryStatusText(order.DeliveryStatus)</span></td>
+                                    <td><span class="@SalesLabels.OrderStatusCss(order.Status)">@SalesLabels.OrderStatus(order.Status)</span></td>
+                                    <td><span class="@SalesLabels.ReservationStatusCss(order.InventoryReservationStatus)">@SalesLabels.ReservationStatus(order.InventoryReservationStatus)</span></td>
+                                    <td><span class="@SalesLabels.DeliveryStatusCss(order.DeliveryStatus)">@SalesLabels.DeliveryStatus(order.DeliveryStatus)</span></td>
                                     <td>
                                         <div>@order.TotalAmount.ToString("N2")</div>
                                         <small class="text-muted">Thuế @order.TaxAmount.ToString("N0") / CK @order.DiscountAmount.ToString("N0")</small>
@@ -195,6 +198,9 @@
     private string productCode = "SKU-001";
     private string description = "Hàng mẫu";
     private string? searchText;
+    private string statusFilter = "";
+    private string reservationFilter = "";
+    private string deliveryFilter = "";
     private decimal quantity = 1;
     private decimal unitPrice = 100;
     private decimal discountPercent;
@@ -207,6 +213,27 @@
     private Guid? sourceId;
     private string sourceNo = "";
     private bool prefillApplied;
+    private List<SelectedItem> statusFilterOptions =
+    [
+        new("", "Tất cả trạng thái"),
+        new("Draft", "Nháp"),
+        new("Approved", "Đã duyệt"),
+        new("Completed", "Hoàn tất"),
+        new("Cancelled", "Đã huỷ")
+    ];
+    private List<SelectedItem> reservationFilterOptions =
+    [
+        new("", "Tất cả giữ hàng"),
+        new("Reserved", "Đã giữ"),
+        new("Pending", "Chờ giữ")
+    ];
+    private List<SelectedItem> deliveryFilterOptions =
+    [
+        new("", "Tất cả giao hàng"),
+        new("Delivered", "Đã giao"),
+        new("Ready", "Sẵn sàng giao"),
+        new("Pending", "Chờ giao")
+    ];
     private decimal LineSubtotal => quantity * unitPrice;
     private decimal LineDiscountAmount => decimal.Round(LineSubtotal * Math.Clamp(discountPercent, 0m, 100m) / 100m, 2, MidpointRounding.AwayFromZero);
     private decimal LineTaxAmount => decimal.Round((LineSubtotal - LineDiscountAmount) * Math.Max(0m, taxPercent) / 100m, 2, MidpointRounding.AwayFromZero);
@@ -272,7 +299,8 @@
         }
 
         isLoading = true;
-        orders = (await Api.GetSalesOrdersAsync(tenantId, searchText))?.Items.ToList() ?? [];
+        var result = (await Api.GetSalesOrdersAsync(tenantId, searchText))?.Items.ToList() ?? [];
+        orders = result.Where(MatchesFilters).ToList();
         customers = (await CrmApi.GetCustomersAsync(new CustomerListQuery { MaxResultCount = 500 }))?.Items.ToList() ?? [];
         products = await LoadProductsAsync(tenantId);
         warehouses = await LoadWarehousesAsync(tenantId);
@@ -385,11 +413,8 @@
 
         await Api.CreateSalesOrderAsync(new CreateSalesOrderRequest(tenantId, customerId, orderNo, sourceType, sourceId, sourceNo, lines));
         ShowSuccess("Đã tạo đơn bán hàng.");
-        draftLines.Clear();
-        sourceType = "";
-        sourceId = null;
-        sourceNo = "";
         await createModal!.Close();
+        ResetForm();
         await LoadAsync();
     }
 
@@ -627,7 +652,48 @@
     private async Task ClearSearchAsync()
     {
         searchText = null;
+        statusFilter = "";
+        reservationFilter = "";
+        deliveryFilter = "";
         await LoadAsync();
+    }
+
+    private bool MatchesFilters(SalesOrderRecord order)
+    {
+        if (!string.IsNullOrWhiteSpace(statusFilter) && order.Status != statusFilter)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(reservationFilter))
+        {
+            var reservationStatus = order.InventoryReservationStatus ?? "Pending";
+            if (reservationFilter == "Pending" && reservationStatus == "Reserved")
+            {
+                return false;
+            }
+
+            if (reservationFilter != "Pending" && reservationStatus != reservationFilter)
+            {
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(deliveryFilter))
+        {
+            var deliveryStatus = order.DeliveryStatus ?? "Pending";
+            if (deliveryFilter == "Pending" && deliveryStatus is "Delivered" or "Ready")
+            {
+                return false;
+            }
+
+            if (deliveryFilter != "Pending" && deliveryStatus != deliveryFilter)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string LinesText(SalesOrderRecord order)
@@ -675,39 +741,6 @@
         var customer = customers.FirstOrDefault(x => x.Id == customerId);
         return customer is null ? "Không xác định" : CustomerOption(customer);
     }
-
-    private static string StatusCss(string status) => status switch
-    {
-        "Approved" => "app-status-badge app-status-active",
-        "Completed" => "app-status-badge app-status-active",
-        _ => "app-status-badge app-status-muted"
-    };
-
-    private static string DeliveryStatusText(string? status) => status switch
-    {
-        "Delivered" => "Đã giao",
-        "Ready" => "Sẵn sàng giao",
-        _ => "Chờ giao"
-    };
-
-    private static string ReservationStatusText(string? status) => status switch
-    {
-        "Reserved" => "Đã giữ",
-        _ => "Chờ giữ"
-    };
-
-    private static string DeliveryStatusCss(string? status) => status switch
-    {
-        "Delivered" => "app-status-badge app-status-active",
-        "Ready" => "app-status-badge app-status-pending",
-        _ => "app-status-badge app-status-muted"
-    };
-
-    private static string ReservationStatusCss(string? status) => status switch
-    {
-        "Reserved" => "app-status-badge app-status-active",
-        _ => "app-status-badge app-status-muted"
-    };
 
     private void ShowSuccess(string text)
     {

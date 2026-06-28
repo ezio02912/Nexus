@@ -150,7 +150,12 @@
 
         <div class="crm-related-grid">
             <section class="app-card">
-                <h3>Liên hệ</h3>
+                <header class="crm-card-header">
+                    <h3>Liên hệ</h3>
+                    <button class="crm-card-add" type="button" title="Thêm liên hệ" @onclick="ShowCreateContactAsync">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </header>
                 @if (!_contacts.Any())
                 {
                     <div class="app-empty-state">Chưa có liên hệ.</div>
@@ -171,7 +176,12 @@
             </section>
 
             <section class="app-card">
-                <h3>Cơ hội</h3>
+                <header class="crm-card-header">
+                    <h3>Cơ hội</h3>
+                    <button class="crm-card-add" type="button" title="Thêm cơ hội" @onclick="ShowCreateOpportunityAsync">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </header>
                 @if (!_opportunities.Any())
                 {
                     <div class="app-empty-state">Chưa có cơ hội.</div>
@@ -192,7 +202,12 @@
             </section>
 
             <section class="app-card">
-                <h3>Báo giá</h3>
+                <header class="crm-card-header">
+                    <h3>Báo giá</h3>
+                    <button class="crm-card-add" type="button" title="Thêm báo giá" @onclick="ShowCreateQuotationAsync">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </header>
                 @if (!_quotations.Any())
                 {
                     <div class="app-empty-state">Chưa có báo giá.</div>
@@ -213,7 +228,12 @@
             </section>
 
             <section class="app-card">
-                <h3>Hợp đồng</h3>
+                <header class="crm-card-header">
+                    <h3>Hợp đồng</h3>
+                    <button class="crm-card-add" type="button" title="Thêm hợp đồng" @onclick="ShowCreateContractAsync">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </header>
                 @if (!_contracts.Any())
                 {
                     <div class="app-empty-state">Chưa có hợp đồng.</div>
@@ -234,7 +254,12 @@
             </section>
 
             <section class="app-card app-card-wide">
-                <h3>Hoạt động gần đây</h3>
+                <header class="crm-card-header">
+                    <h3>Hoạt động gần đây</h3>
+                    <button class="crm-card-add" type="button" title="Thêm hoạt động" @onclick="ShowCreateActivityAsync">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </header>
                 @if (!_activities.Any())
                 {
                     <div class="app-empty-state">Chưa có hoạt động.</div>
@@ -295,6 +320,136 @@
         <FooterTemplate>
             <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseEditModalAsync" />
             <Button Text="Lưu" Color="Color.Primary" IsAsync="true" OnClick="SaveEditAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+<Modal @ref="_contactModal" IsBackdrop="true">
+    <ModalDialog Title="Thêm liên hệ" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Họ tên" Required="true">
+                    <BootstrapInput @bind-Value="_contactModel.FullName" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Email">
+                    <BootstrapInput @bind-Value="_contactModel.Email" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điện thoại">
+                    <BootstrapInput @bind-Value="_contactModel.Phone" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Di động">
+                    <BootstrapInput @bind-Value="_contactModel.Mobile" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Chức vụ">
+                    <BootstrapInput @bind-Value="_contactModel.Position" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Phòng ban">
+                    <BootstrapInput @bind-Value="_contactModel.Department" ShowLabel="false" />
+                </AppFormField>
+                <Checkbox @bind-Value="_contactModel.IsPrimary" ShowAfterLabel="true" DisplayText="Liên hệ chính" />
+                <Checkbox @bind-Value="_contactModel.IsDecisionMaker" ShowAfterLabel="true" DisplayText="Người ra quyết định" />
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseContactModalAsync" />
+            <Button Text="Tạo liên hệ" Color="Color.Primary" IsAsync="true" OnClick="CreateContactAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+<Modal @ref="_opportunityModal" IsBackdrop="true">
+    <ModalDialog Title="Thêm cơ hội" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Tên cơ hội" Required="true">
+                    <BootstrapInput @bind-Value="_opportunityModel.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá trị" @bind-Value="_opportunityModel.Amount" DecimalPlaces="0" />
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseOpportunityModalAsync" />
+            <Button Text="Tạo cơ hội" Color="Color.Primary" IsAsync="true" OnClick="CreateOpportunityAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+<Modal @ref="_quotationModal" IsBackdrop="true">
+    <ModalDialog Title="Thêm báo giá" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Tiêu đề">
+                    <BootstrapInput @bind-Value="_quotationModel.Subject" ShowLabel="false" />
+                </AppFormField>
+                <ProductLinesEditor Label="Dòng sản phẩm" @bind-Lines="_quotationModel.Lines" />
+                <PendingFileAttachmentInput Label="Tệp báo giá" @bind-Files="_quotationModel.PendingFiles" />
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseQuotationModalAsync" />
+            <Button Text="Tạo báo giá" Color="Color.Primary" IsAsync="true" OnClick="CreateQuotationAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+<Modal @ref="_contractModal" IsBackdrop="true">
+    <ModalDialog Title="Thêm hợp đồng" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Tiêu đề" Required="true">
+                    <BootstrapInput @bind-Value="_contractModel.Title" ShowLabel="false" />
+                </AppFormField>
+                <AppMoneyInput Label="Giá trị" @bind-Value="_contractModel.ContractValue" DecimalPlaces="0" />
+                <AppFormField Label="Tiền tệ">
+                    <BootstrapInput @bind-Value="_contractModel.Currency" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Cơ hội liên quan">
+                    <Select TValue="string" @bind-Value="_contractOpportunityIdText"
+                            Items="@ContractOpportunityOptions" ShowLabel="false" ShowSearch="true" />
+                </AppFormField>
+                <AppFormField Label="Ngày bắt đầu">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_contractModel.StartDate"
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
+                </AppFormField>
+                <AppFormField Label="Ngày kết thúc">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_contractModel.EndDate"
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
+                </AppFormField>
+                <AppFormField Label="Điều khoản thanh toán">
+                    <BootstrapInput @bind-Value="_contractModel.PaymentTerms" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Điều khoản hợp đồng" Class="app-form-field-full">
+                    <Textarea @bind-Value="_contractModel.Terms" ShowLabel="false" rows="3" />
+                </AppFormField>
+                <PendingFileAttachmentInput Label="Tệp hợp đồng" @bind-Files="_contractModel.PendingFiles" />
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseContractModalAsync" />
+            <Button Text="Tạo hợp đồng" Color="Color.Primary" IsAsync="true" OnClick="CreateContractAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+<Modal @ref="_activityModal" IsBackdrop="true">
+    <ModalDialog Title="Thêm hoạt động" Size="Size.Large" ShowCloseButton="false">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="Loại hoạt động">
+                    <Select TValue="string" @bind-Value="_activityTypeText" Items="@_activityTypeOptions" ShowLabel="false" ShowSearch="true" />
+                </AppFormField>
+                <AppFormField Label="Tiêu đề" Required="true">
+                    <BootstrapInput @bind-Value="_activityModel.Subject" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Thời gian">
+                    <DateTimePicker @bind-Value="_activityModel.ActivityDate" ShowLabel="false"
+                                    DateTimeFormat="dd/MM/yyyy HH:mm:ss" DateTimePlaceHolderText="Chọn ngày giờ..." />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="CloseActivityModalAsync" />
+            <Button Text="Tạo hoạt động" Color="Color.Primary" IsAsync="true" OnClick="CreateActivityAsync" />
         </FooterTemplate>
     </ModalDialog>
 </Modal>

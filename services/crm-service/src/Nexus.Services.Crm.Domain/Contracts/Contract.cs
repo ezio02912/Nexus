@@ -141,6 +141,12 @@ public sealed class Contract : FullAuditedAggregateRoot<Guid>
         Status = ContractStatus.Active;
         SetModificationAudit(modifierId, now);
     }
+
+    public void Complete(Guid? modifierId, DateTimeOffset now)
+    {
+        Status = ContractStatus.Completed;
+        SetModificationAudit(modifierId, now);
+    }
 }
 
 public sealed class ContractLine : NexusEntity<Guid>

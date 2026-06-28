@@ -5,6 +5,8 @@ namespace Nexus.Web.Tenant.Components.Pages.Crm.Opportunities;
 
 public partial class CrmOpportunityDetail
 {
+    [Inject] private FileApiClient FileApi { get; set; } = default!;
+
     [Parameter] public Guid Id { get; set; }
 
     private bool _loading;
@@ -21,7 +23,9 @@ public partial class CrmOpportunityDetail
     private List<SelectedItem> _stageOptions = CrmLabels.OpportunityStageOptions();
     private Dictionary<string, (string Text, string BadgeClass)> _stageMeta = CrmLabels.OpportunityStageMeta();
     private Modal? _quotationModal;
+    private Modal? _contractModal;
     private QuickQuotationModel _quotationModel = new();
+    private QuickContractModel _contractModel = new();
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -219,11 +223,104 @@ public partial class CrmOpportunityDetail
         }
     }
 
+    private Task ShowCreateContractAsync()
+    {
+        if (_item is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        _contractModel = new QuickContractModel
+        {
+            Title = $"Hợp đồng - {_item.Name}",
+            ContractValue = _item.Amount,
+            Currency = string.IsNullOrWhiteSpace(_item.Currency) ? "VND" : _item.Currency,
+            StartDate = DateTime.Today,
+            PendingFiles = []
+        };
+        return _contractModal!.Show();
+    }
+
+    private Task CloseContractModalAsync() => _contractModal!.Close();
+
+    private async Task CreateContractAsync()
+    {
+        if (_item?.CustomerId is not Guid customerId || string.IsNullOrWhiteSpace(_contractModel.Title))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Cơ hội cần có khách hàng và tiêu đề hợp đồng."));
+            return;
+        }
+
+        if (_contractModel.PendingFiles.Count == 0)
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng đính kèm tệp hợp đồng trước khi lưu."));
+            return;
+        }
+
+        try
+        {
+            var contract = await CrmApi.CreateContractAsync(new CreateContractRequest(
+                customerId,
+                "AUTO",
+                _contractModel.Title.Trim(),
+                null,
+                _item.Id,
+                _item.ContactId,
+                _contractModel.ContractValue,
+                string.IsNullOrWhiteSpace(_contractModel.Currency) ? "VND" : _contractModel.Currency.Trim(),
+                ToDateOnly(_contractModel.StartDate),
+                ToDateOnly(_contractModel.EndDate),
+                null,
+                _contractModel.PaymentTerms,
+                null,
+                _contractModel.Terms,
+                null,
+                null,
+                []));
+
+            if (contract is not null)
+            {
+                await MarkOpportunityWonAsync(_item.Id);
+                await FileApi.UploadAndLinkAsync(_contractModel.PendingFiles, "CRM", "Contract", contract.Id.ToString(), DocumentFileCatalog.Contract);
+            }
+
+            await _contractModal!.Close();
+            await ToastService.Success("Thành công", "Đã tạo hợp đồng và đánh dấu cơ hội thắng 100%.");
+            if (contract is not null)
+            {
+                Navigation.NavigateTo($"crm/contracts/{contract.Id}");
+            }
+            else
+            {
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
     private sealed class QuickQuotationModel
     {
         public string? Subject { get; set; }
         public List<ProductLineInput> Lines { get; set; } = [];
     }
+
+    private sealed class QuickContractModel
+    {
+        public string Title { get; set; } = "";
+        public decimal ContractValue { get; set; }
+        public string Currency { get; set; } = "VND";
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string? PaymentTerms { get; set; }
+        public string? Terms { get; set; }
+        public List<PendingFileAttachment> PendingFiles { get; set; } = [];
+    }
+
+    private static DateOnly? ToDateOnly(DateTime? value) =>
+        value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
 
     private sealed class OpportunityEditModel
     {

@@ -60,7 +60,8 @@ public enum ContractStatus
     Active = 3,
     Expired = 4,
     Terminated = 5,
-    Cancelled = 6
+    Cancelled = 6,
+    Completed = 7
 }
 
 public enum CrmActivityType
@@ -532,6 +533,7 @@ public sealed record ActivityDto
     public CrmActivityStatus Status { get; set; }
     public Guid? OwnerId { get; set; }
     public Guid? AssignedToId { get; set; }
+    public IReadOnlyList<Guid> AssignedToIds { get; set; } = [];
     public int? DurationMinutes { get; set; }
     public DateTimeOffset CreationTime { get; set; }
     public Guid? CreatorId { get; set; }
@@ -547,7 +549,8 @@ public sealed record CreateActivityRequest(
     string Subject,
     DateTimeOffset ActivityDate,
     Guid? OwnerId,
-    Guid? AssignedToId);
+    Guid? AssignedToId,
+    IReadOnlyList<Guid>? AssignedToIds);
 
 public sealed record UpdateActivityRequest(
     CrmActivityType ActivityType,
@@ -558,6 +561,7 @@ public sealed record UpdateActivityRequest(
     CrmActivityStatus Status,
     Guid? OwnerId,
     Guid? AssignedToId,
+    IReadOnlyList<Guid>? AssignedToIds,
     int? DurationMinutes);
 
 public sealed record CrmPipelineFunnelItemDto

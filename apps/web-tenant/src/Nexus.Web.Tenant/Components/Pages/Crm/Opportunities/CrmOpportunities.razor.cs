@@ -131,6 +131,7 @@ public partial class CrmOpportunities
             }
 
             await _editModal!.Close();
+            ResetModalState();
             await ReloadTableAsync();
         }
         catch (Exception ex)
@@ -223,6 +224,15 @@ public partial class CrmOpportunities
         {
             await _table.QueryAsync();
         }
+    }
+
+    private void ResetModalState()
+    {
+        _editing = null;
+        _isCreate = false;
+        _model = new OpportunityFormModel();
+        _customerIdText = "";
+        _stageText = OpportunityStage.Prospecting.ToString();
     }
 
     private sealed class OpportunityFormModel

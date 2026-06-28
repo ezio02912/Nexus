@@ -109,9 +109,10 @@ public sealed record WarehouseRecord
     public string Name { get; set; } = "";
     public string Location { get; set; } = "";
     public bool IsActive { get; set; }
+    public bool AllowNegativeStock { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
-public sealed record UpsertWarehouseRequest(Guid TenantId, string WarehouseCode, string Name, string? Location, bool IsActive);
+public sealed record UpsertWarehouseRequest(Guid TenantId, string WarehouseCode, string Name, string? Location, bool IsActive, bool AllowNegativeStock);
 
 public sealed record SupplierRecord
 {
@@ -154,3 +155,268 @@ public sealed record GoodsReceiptRecord
     public DateTimeOffset ReceivedAt { get; set; }
 }
 public sealed record GoodsReceiptLineRecord(Guid Id, string WarehouseCode, string ProductCode, string ProductName, decimal Quantity, decimal UnitCost);
+
+public abstract record TenantEntityRecord
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public string ConcurrencyStamp { get; set; } = "";
+}
+
+public sealed record HrmEmployeeRecord : TenantEntityRecord
+{
+    public string EmployeeCode { get; set; } = "";
+    public string FullName { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string Gender { get; set; } = "";
+    public DateOnly? DateOfBirth { get; set; }
+    public string Nationality { get; set; } = "VN";
+    public string PersonalEmail { get; set; } = "";
+    public string WorkEmail { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public Guid? DepartmentId { get; set; }
+    public Guid? PositionId { get; set; }
+    public Guid? ManagerId { get; set; }
+    public string EmploymentStatus { get; set; } = "";
+    public string EmploymentType { get; set; } = "";
+    public DateOnly? JoinDate { get; set; }
+    public DateOnly? OfficialDate { get; set; }
+    public DateOnly? ResignDate { get; set; }
+    public decimal BaseSalary { get; set; }
+    public string SalaryCurrency { get; set; } = "VND";
+    public string Notes { get; set; } = "";
+}
+
+public sealed record HrmDepartmentRecord : TenantEntityRecord
+{
+    public string DepartmentCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public Guid? ParentDepartmentId { get; set; }
+    public Guid? ManagerId { get; set; }
+    public string CostCenterCode { get; set; } = "";
+    public string Location { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string Description { get; set; } = "";
+}
+
+public sealed record HrmPositionRecord : TenantEntityRecord
+{
+    public string PositionCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public Guid? DepartmentId { get; set; }
+    public string Level { get; set; } = "";
+    public string JobGrade { get; set; } = "";
+    public decimal MinSalary { get; set; }
+    public decimal MaxSalary { get; set; }
+    public string Description { get; set; } = "";
+    public string Status { get; set; } = "";
+}
+
+public sealed record HrmContractRecord : TenantEntityRecord
+{
+    public string ContractNo { get; set; } = "";
+    public Guid EmployeeId { get; set; }
+    public string ContractType { get; set; } = "";
+    public string Status { get; set; } = "";
+    public DateOnly? EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public DateOnly? SignedDate { get; set; }
+    public decimal BaseSalary { get; set; }
+    public decimal AllowanceAmount { get; set; }
+    public string Currency { get; set; } = "VND";
+    public string WorkingLocation { get; set; } = "";
+}
+
+public sealed record HrmCandidateRecord : TenantEntityRecord
+{
+    public string CandidateCode { get; set; } = "";
+    public string FullName { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string Phone { get; set; } = "";
+    public string Source { get; set; } = "";
+    public decimal ExpectedSalary { get; set; }
+    public string Currency { get; set; } = "VND";
+    public string Status { get; set; } = "";
+    public string Tags { get; set; } = "";
+}
+
+public sealed record HrmRequisitionRecord : TenantEntityRecord
+{
+    public string RequisitionNo { get; set; } = "";
+    public string Title { get; set; } = "";
+    public Guid? DepartmentId { get; set; }
+    public Guid? PositionId { get; set; }
+    public int Headcount { get; set; }
+    public string EmploymentType { get; set; } = "";
+    public string WorkLocation { get; set; } = "";
+    public decimal SalaryMin { get; set; }
+    public decimal SalaryMax { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed record HrmApplicationRecord : TenantEntityRecord
+{
+    public Guid JobRequisitionId { get; set; }
+    public Guid CandidateId { get; set; }
+    public string Stage { get; set; } = "";
+    public string Status { get; set; } = "";
+    public DateOnly AppliedDate { get; set; }
+    public decimal ScreeningScore { get; set; }
+    public decimal InterviewScore { get; set; }
+    public decimal OfferSalary { get; set; }
+}
+
+public sealed record HrmOfferRecord : TenantEntityRecord
+{
+    public Guid ApplicationId { get; set; }
+    public string OfferNo { get; set; } = "";
+    public string Status { get; set; } = "";
+    public decimal OfferedSalary { get; set; }
+    public string Currency { get; set; } = "VND";
+    public DateOnly? StartDate { get; set; }
+    public DateTimeOffset? AcceptedAt { get; set; }
+}
+
+public sealed record AttendanceCalendarRecord : TenantEntityRecord
+{
+    public string CalendarCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string CountryCode { get; set; } = "VN";
+    public string WorkingDays { get; set; } = "";
+    public TimeOnly DefaultStartTime { get; set; }
+    public TimeOnly DefaultEndTime { get; set; }
+    public TimeOnly BreakStartTime { get; set; }
+    public TimeOnly BreakEndTime { get; set; }
+    public decimal StandardHoursPerDay { get; set; }
+    public bool IsDefault { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed record AttendanceShiftRecord : TenantEntityRecord
+{
+    public string ShiftCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public TimeOnly StartTime { get; set; }
+    public TimeOnly EndTime { get; set; }
+    public decimal StandardHours { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed record AttendanceRecordItem : TenantEntityRecord
+{
+    public Guid EmployeeId { get; set; }
+    public DateOnly WorkDate { get; set; }
+    public Guid? ShiftId { get; set; }
+    public DateTimeOffset? CheckInAt { get; set; }
+    public DateTimeOffset? CheckOutAt { get; set; }
+    public int LateMinutes { get; set; }
+    public int EarlyLeaveMinutes { get; set; }
+    public int WorkedMinutes { get; set; }
+    public int OvertimeMinutes { get; set; }
+    public string Status { get; set; } = "";
+    public string CorrectionStatus { get; set; } = "";
+}
+
+public sealed record LeaveRequestRecord : TenantEntityRecord
+{
+    public string RequestNo { get; set; } = "";
+    public Guid EmployeeId { get; set; }
+    public Guid LeaveTypeId { get; set; }
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
+    public decimal TotalDays { get; set; }
+    public string Reason { get; set; } = "";
+    public string Status { get; set; } = "";
+}
+
+public sealed record OvertimeRequestRecord : TenantEntityRecord
+{
+    public string RequestNo { get; set; } = "";
+    public Guid EmployeeId { get; set; }
+    public DateOnly WorkDate { get; set; }
+    public TimeOnly FromTime { get; set; }
+    public TimeOnly ToTime { get; set; }
+    public decimal TotalHours { get; set; }
+    public string OvertimeType { get; set; } = "";
+    public decimal RateMultiplier { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed record PayrollPolicyRecord : TenantEntityRecord
+{
+    public string PolicyCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string CountryCode { get; set; } = "VN";
+    public DateOnly EffectiveFrom { get; set; }
+    public decimal SocialInsuranceEmployeeRate { get; set; }
+    public decimal HealthInsuranceEmployeeRate { get; set; }
+    public decimal UnemploymentInsuranceEmployeeRate { get; set; }
+    public decimal PersonalDeductionAmount { get; set; }
+    public decimal DependentDeductionAmount { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed record SalaryComponentRecord : TenantEntityRecord
+{
+    public string ComponentCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string ComponentType { get; set; } = "";
+    public bool Taxable { get; set; }
+    public bool InsuranceIncluded { get; set; }
+    public bool Recurring { get; set; }
+    public string Formula { get; set; } = "";
+    public string Status { get; set; } = "";
+}
+
+public sealed record PayrollPeriodRecord : TenantEntityRecord
+{
+    public string PeriodCode { get; set; } = "";
+    public int Month { get; set; }
+    public int Year { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public DateOnly PaymentDate { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed record PayrollRunRecord : TenantEntityRecord
+{
+    public string RunNo { get; set; } = "";
+    public Guid PeriodId { get; set; }
+    public string Status { get; set; } = "";
+    public decimal TotalGross { get; set; }
+    public decimal TotalInsuranceEmployee { get; set; }
+    public decimal TotalTaxableIncome { get; set; }
+    public decimal TotalPit { get; set; }
+    public decimal TotalNetPay { get; set; }
+    public DateTimeOffset? CalculatedAt { get; set; }
+    public DateTimeOffset? ApprovedAt { get; set; }
+    public DateTimeOffset? PaidAt { get; set; }
+}
+
+public sealed record PayslipRecord : TenantEntityRecord
+{
+    public string PayslipNo { get; set; } = "";
+    public Guid PayrollLineId { get; set; }
+    public Guid EmployeeId { get; set; }
+    public string Status { get; set; } = "";
+    public DateTimeOffset? PublishedAt { get; set; }
+    public DateTimeOffset? ViewedAt { get; set; }
+}
+
+public sealed record PayrollPaymentRecord : TenantEntityRecord
+{
+    public string PaymentNo { get; set; } = "";
+    public Guid PayrollRunId { get; set; }
+    public Guid EmployeeId { get; set; }
+    public string PaymentMethod { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string Status { get; set; } = "";
+    public DateTimeOffset? PaidAt { get; set; }
+    public string ReferenceNo { get; set; } = "";
+}
+
+public sealed record TenantScopedRequest(Guid TenantId);
+public sealed record ApprovalRequest(Guid? ApproverId);

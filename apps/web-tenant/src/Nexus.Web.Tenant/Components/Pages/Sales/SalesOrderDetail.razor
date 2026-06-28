@@ -53,9 +53,9 @@
             <div class="app-detail-grid">
                 <div><span class="app-detail-label">Số đơn</span><span>@_order.OrderNo</span></div>
                 <div><span class="app-detail-label">Khách hàng</span><span>@CustomerText(_order.CustomerId)</span></div>
-                <div><span class="app-detail-label">Trạng thái</span><span class="@StatusCss(_order.Status)">@StatusText(_order.Status)</span></div>
-                <div><span class="app-detail-label">Giữ hàng</span><span class="@ReservationStatusCss(_order.InventoryReservationStatus)">@ReservationStatusText(_order.InventoryReservationStatus)</span></div>
-                <div><span class="app-detail-label">Giao hàng</span><span class="@DeliveryStatusCss(_order.DeliveryStatus)">@DeliveryStatusText(_order.DeliveryStatus)</span></div>
+                <div><span class="app-detail-label">Trạng thái</span><span class="@SalesLabels.OrderStatusCss(_order.Status)">@SalesLabels.OrderStatus(_order.Status)</span></div>
+                <div><span class="app-detail-label">Giữ hàng</span><span class="@SalesLabels.ReservationStatusCss(_order.InventoryReservationStatus)">@SalesLabels.ReservationStatus(_order.InventoryReservationStatus)</span></div>
+                <div><span class="app-detail-label">Giao hàng</span><span class="@SalesLabels.DeliveryStatusCss(_order.DeliveryStatus)">@SalesLabels.DeliveryStatus(_order.DeliveryStatus)</span></div>
                 <div><span class="app-detail-label">Tạm tính</span><span>@_order.Subtotal.ToString("N0")</span></div>
                 <div><span class="app-detail-label">Chiết khấu</span><span>@_order.DiscountAmount.ToString("N0")</span></div>
                 <div><span class="app-detail-label">Thuế</span><span>@_order.TaxAmount.ToString("N0")</span></div>
@@ -259,46 +259,6 @@
     {
         return _customer is null ? customerId.ToString("N") : $"{_customer.Code} - {_customer.Name}";
     }
-
-    private static string StatusText(string status) => status switch
-    {
-        "Approved" => "Đã duyệt",
-        "Completed" => "Hoàn tất",
-        _ => "Nháp"
-    };
-
-    private static string StatusCss(string status) => status switch
-    {
-        "Approved" => "app-status-badge app-status-active",
-        "Completed" => "app-status-badge app-status-active",
-        _ => "app-status-badge app-status-muted"
-    };
-
-    private static string DeliveryStatusText(string? status) => status switch
-    {
-        "Delivered" => "Đã giao",
-        "Ready" => "Sẵn sàng giao",
-        _ => "Chờ giao"
-    };
-
-    private static string ReservationStatusText(string? status) => status switch
-    {
-        "Reserved" => "Đã giữ",
-        _ => "Chờ giữ"
-    };
-
-    private static string DeliveryStatusCss(string? status) => status switch
-    {
-        "Delivered" => "app-status-badge app-status-active",
-        "Ready" => "app-status-badge app-status-pending",
-        _ => "app-status-badge app-status-muted"
-    };
-
-    private static string ReservationStatusCss(string? status) => status switch
-    {
-        "Reserved" => "app-status-badge app-status-active",
-        _ => "app-status-badge app-status-muted"
-    };
 
     private static string SourceTypeText(string? value) => value switch
     {

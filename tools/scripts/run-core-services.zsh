@@ -14,7 +14,7 @@ run_service() {
   local name="$1"
   local project="$2"
   echo "==> Starting $name"
-  dotnet run --project "$project" --launch-profile http > "logs/${name}.log" 2>&1 &
+  dotnet run --no-build --project "$project" --launch-profile http > "logs/${name}.log" 2>&1 &
 }
 
 run_service "tenant-service" "services/tenant-service/src/Nexus.Services.Tenant.Api/Nexus.Services.Tenant.Api.csproj"
@@ -28,6 +28,9 @@ run_service "crm-service" "services/crm-service/src/Nexus.Services.Crm.Api/Nexus
 run_service "sales-service" "services/sales-service/src/Nexus.Services.Sales.Api/Nexus.Services.Sales.Api.csproj"
 run_service "inventory-service" "services/inventory-service/src/Nexus.Services.Inventory.Api/Nexus.Services.Inventory.Api.csproj"
 run_service "purchase-service" "services/purchase-service/src/Nexus.Services.Purchase.Api/Nexus.Services.Purchase.Api.csproj"
+run_service "hrm-service" "services/hrm-service/src/Nexus.Services.Hrm.Api/Nexus.Services.Hrm.Api.csproj"
+run_service "attendance-service" "services/attendance-service/src/Nexus.Services.Attendance.Api/Nexus.Services.Attendance.Api.csproj"
+run_service "payroll-service" "services/payroll-service/src/Nexus.Services.Payroll.Api/Nexus.Services.Payroll.Api.csproj"
 run_service "notification-service" "services/notification-service/src/Nexus.Services.Notification.Api/Nexus.Services.Notification.Api.csproj"
 run_service "masterdata-service" "services/masterdata-service/src/Nexus.Services.MasterData.Api/Nexus.Services.MasterData.Api.csproj"
 run_service "api-gateway" "gateways/api-gateway/src/Nexus.Gateway.Api/Nexus.Gateway.Api.csproj"
@@ -55,3 +58,6 @@ echo "  Inventory     http://localhost:7210"
 echo "  Master Data   http://localhost:7211"
 echo "  Purchase      http://localhost:7212"
 echo "  Notification  http://localhost:7213"
+echo "  HRM           http://localhost:7214"
+echo "  Attendance    http://localhost:7215"
+echo "  Payroll       http://localhost:7216"

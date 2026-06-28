@@ -15,6 +15,7 @@ public sealed class CrmActivityConfiguration : IEntityTypeConfiguration<CrmActiv
         builder.Property(x => x.ActivityType).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(x => x.Subject).HasMaxLength(ActivityConsts.SubjectMaxLength).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(x => x.AssignedToIds).HasMaxLength(2048).IsRequired();
         builder.Property(x => x.ConcurrencyStamp).HasMaxLength(64).IsConcurrencyToken();
 
         builder.HasIndex(x => x.TenantId);

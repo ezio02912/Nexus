@@ -107,10 +107,12 @@
     [Parameter] public string WarningText { get; set; } = "Chưa có chứng từ đính kèm. Vui lòng tải lên tài liệu liên quan.";
     // Optional business document category; when set, the panel only lists/uploads files of this category.
     [Parameter] public string? Category { get; set; }
+    [Parameter] public bool AllowUpload { get; set; } = true;
+    [Parameter] public bool AllowDelete { get; set; } = true;
 
     private bool CanView => Session.IsGranted(NexusPermissions.Files.View);
-    private bool CanUpload => Session.IsGranted(NexusPermissions.Files.Upload);
-    private bool CanDelete => Session.IsGranted(NexusPermissions.Files.Delete);
+    private bool CanUpload => AllowUpload && Session.IsGranted(NexusPermissions.Files.Upload);
+    private bool CanDelete => AllowDelete && Session.IsGranted(NexusPermissions.Files.Delete);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -154,6 +156,12 @@
         var file = e.File;
         if (file is null || string.IsNullOrWhiteSpace(EntityId))
         {
+            return;
+        }
+
+        if (!CanUpload)
+        {
+            await ToastService.Warning("Không thể tải lên", "Mục này đã khoá đính kèm.");
             return;
         }
 
@@ -216,6 +224,12 @@
 
     private async Task DeleteAsync(FileLinkRecord link)
     {
+        if (!CanDelete)
+        {
+            await ToastService.Warning("Không thể xoá", "Mục này đã khoá đính kèm.");
+            return;
+        }
+
         try
         {
             await FileApi.DeleteAsync(link.FileId);

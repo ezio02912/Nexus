@@ -10,8 +10,17 @@ public partial class CrmContracts
     private ContractFormModel _model = new();
     private string _customerIdText = "";
     private string? _contactIdText;
+    private string _opportunityIdText = "";
     private List<SelectedItem> _customerOptions = [];
+    private IReadOnlyList<OpportunityDto> _opportunities = [];
     private Dictionary<Guid, string> _customerNames = [];
+    private List<SelectedItem> OpportunityOptions =>
+    [
+        new("", "Không gắn cơ hội"),
+        .. _opportunities
+            .Where(x => !Guid.TryParse(_customerIdText, out var customerId) || x.CustomerId == customerId)
+            .Select(x => new SelectedItem(x.Id.ToString(), $"{x.Name} - {VnMoney.Format(x.Amount)} {x.Currency} / {CrmLabels.FormatOpportunityStage(x.Stage)}"))
+    ];
 
     [Inject] private FileApiClient FileApi { get; set; } = default!;
 
@@ -24,6 +33,7 @@ public partial class CrmContracts
             var result = await CrmApi.GetCustomersAsync(new CustomerListQuery { MaxResultCount = 500 });
             _customerNames = (result?.Items ?? []).ToDictionary(x => x.Id, x => $"{x.Code} - {x.Name}");
             _customerOptions = _customerNames.Select(x => new SelectedItem(x.Key.ToString(), x.Value)).ToList();
+            _opportunities = (await CrmApi.GetOpportunitiesAsync(new OpportunityListQuery { MaxResultCount = 500 }))?.Items ?? [];
         }
         catch (Exception ex)
         {
@@ -69,6 +79,7 @@ public partial class CrmContracts
         };
         _customerIdText = _customerOptions.FirstOrDefault()?.Value ?? "";
         _contactIdText = null;
+        _opportunityIdText = "";
         return _editModal!.Show();
     }
 
@@ -94,22 +105,34 @@ public partial class CrmContracts
         try
         {
             Guid? contactId = Guid.TryParse(_contactIdText, out var parsedContactId) ? parsedContactId : null;
+            Guid? opportunityId = Guid.TryParse(_opportunityIdText, out var parsedOpportunityId) ? parsedOpportunityId : null;
+            if (opportunityId.HasValue && !_opportunities.Any(x => x.Id == opportunityId.Value && x.CustomerId == customerId))
+            {
+                await ShowErrorAsync(new InvalidOperationException("Cơ hội liên quan phải thuộc khách hàng đang chọn."));
+                return;
+            }
+
             var startDate = ToDateOnly(_model.StartDate);
             var endDate = ToDateOnly(_model.EndDate);
             var renewalDate = ToDateOnly(_model.RenewalDate);
             var contract = await CrmApi.CreateContractAsync(new CreateContractRequest(
                 customerId, _model.ContractNo.Trim(), _model.Title.Trim(),
-                null, null, contactId, _model.ContractValue,
+                null, opportunityId, contactId, _model.ContractValue,
                 string.IsNullOrWhiteSpace(_model.Currency) ? "VND" : _model.Currency.Trim(),
                 startDate, endDate, renewalDate,
                 _model.PaymentTerms, _model.Notes, _model.Terms, null, null, []));
-            if (contract is not null && _model.PendingFiles.Count > 0)
+            if (contract is not null)
             {
-                await FileApi.UploadAndLinkAsync(_model.PendingFiles, "CRM", "Contract", contract.Id.ToString(), DocumentFileCatalog.Contract);
+                await MarkOpportunityWonAsync(opportunityId);
+                if (_model.PendingFiles.Count > 0)
+                {
+                    await FileApi.UploadAndLinkAsync(_model.PendingFiles, "CRM", "Contract", contract.Id.ToString(), DocumentFileCatalog.Contract);
+                }
             }
 
             await ToastService.Success("Thành công", "Đã tạo hợp đồng.");
             await _editModal!.Close();
+            ResetModalState();
             await ReloadTableAsync();
         }
         catch (Exception ex)
@@ -132,10 +155,41 @@ public partial class CrmContracts
         }
     }
 
+    private async Task CompleteAsync(Guid id)
+    {
+        var confirmed = await SwalService.ShowModal(new SwalOption
+        {
+            Category = SwalCategory.Question,
+            Title = "Xác nhận hoàn thành",
+            Content = "Bạn có chắc muốn đánh dấu hợp đồng này là đã hoàn thành?"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            await CrmApi.CompleteContractAsync(id);
+            await ToastService.Success("Thành công", "Hợp đồng đã được đánh dấu hoàn thành.");
+            await ReloadTableAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
     private void ViewDetailAsync(Guid id) => Navigation.NavigateTo($"crm/contracts/{id}");
 
-    private async Task DeleteAsync(Guid id)
+    private async Task DeleteAsync(ContractDto contract)
     {
+        if (contract.Status == ContractStatus.Completed)
+        {
+            await ShowErrorAsync(new InvalidOperationException("Hợp đồng đã hoàn thành, không thể xoá."));
+            return;
+        }
+
         if (!await ConfirmDeleteAsync())
         {
             return;
@@ -143,7 +197,7 @@ public partial class CrmContracts
 
         try
         {
-            await CrmApi.DeleteContractAsync(id);
+            await CrmApi.DeleteContractAsync(contract.Id);
             await ToastService.Success("Đã xoá", "Hợp đồng đã được xoá.");
             await ReloadTableAsync();
         }
@@ -159,6 +213,14 @@ public partial class CrmContracts
         {
             await _table.QueryAsync();
         }
+    }
+
+    private void ResetModalState()
+    {
+        _model = new ContractFormModel();
+        _customerIdText = "";
+        _contactIdText = null;
+        _opportunityIdText = "";
     }
 
     private sealed class ContractFormModel
@@ -178,4 +240,13 @@ public partial class CrmContracts
 
     private static DateOnly? ToDateOnly(DateTime? value) =>
         value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
+
+    private static bool CanSign(ContractDto contract) =>
+        contract.Status is ContractStatus.Draft or ContractStatus.PendingSign;
+
+    private static bool CanComplete(ContractDto contract) =>
+        contract.Status is ContractStatus.Signed or ContractStatus.Active;
+
+    private static bool CanDelete(ContractDto contract) =>
+        contract.Status != ContractStatus.Completed;
 }

@@ -11,5 +11,6 @@ public interface IContractAppService
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ContractDto> SignAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ContractDto> ActivateAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ContractDto> CompleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ContractDto> TerminateAsync(Guid id, TerminateContractDto input, CancellationToken cancellationToken = default);
 }

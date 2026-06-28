@@ -266,6 +266,7 @@ public partial class CrmQuotationDetail
             await ToastService.Success("Thành công", "Đã tạo hợp đồng từ báo giá.");
             if (contract is not null)
             {
+                await MarkOpportunityWonAsync(_item.OpportunityId);
                 Navigation.NavigateTo($"crm/contracts/{contract.Id}");
             }
             else

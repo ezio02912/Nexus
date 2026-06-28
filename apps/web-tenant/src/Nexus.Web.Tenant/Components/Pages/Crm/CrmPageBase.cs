@@ -41,6 +41,18 @@ public partial class CrmPageBase : ComponentBase
             CloseButtonText = "Đóng"
         });
 
+    protected async Task MarkOpportunityWonAsync(Guid? opportunityId)
+    {
+        if (!opportunityId.HasValue)
+        {
+            return;
+        }
+
+        await CrmApi.ChangeOpportunityStageAsync(
+            opportunityId.Value,
+            new ChangeOpportunityStageRequest(OpportunityStage.ClosedWon, 100, null, null));
+    }
+
     protected static QueryData<T> EmptyQuery<T>() => new() { Items = [], TotalCount = 0 };
 
     protected static QueryData<T> ToQueryData<T>(PagedResultDto<T>? result, QueryPageOptions options)

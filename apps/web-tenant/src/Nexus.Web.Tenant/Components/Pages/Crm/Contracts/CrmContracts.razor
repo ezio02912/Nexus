@@ -30,7 +30,7 @@
                        ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
                        ShowEditButton="false" ShowDeleteButton="false"
                        ShowExtendEditButton="false" ShowExtendDeleteButton="false"
-                       ExtendButtonColumnWidth="220"
+                       ExtendButtonColumnWidth="320"
                        ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
                     <TableToolbarTemplate>
                         @if (Can(NexusPermissions.Crm.Contracts.Create))
@@ -45,13 +45,20 @@
                         @if (Can(NexusPermissions.Crm.Contracts.Sign))
                         {
                             <TableCellButton Color="Color.Success" Icon="fa-solid fa-signature" Text="Ký"
-                                         IsDisabled="@(context.Status >= ContractStatus.Signed)"
+                                         IsDisabled="@(!CanSign(context))"
                                          OnClick="@(() => SignAsync(context.Id))" />
+                        }
+                        @if (Can(NexusPermissions.Crm.Contracts.Edit))
+                        {
+                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-check-double" Text="Hoàn thành"
+                                         IsDisabled="@(!CanComplete(context))"
+                                         OnClick="@(() => CompleteAsync(context.Id))" />
                         }
                         @if (Can(NexusPermissions.Crm.Contracts.Delete))
                         {
                             <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá"
-                                         OnClick="@(() => DeleteAsync(context.Id))" />
+                                         IsDisabled="@(!CanDelete(context))"
+                                         OnClick="@(() => DeleteAsync(context))" />
                         }
                     </RowButtonTemplate>
                     <TableColumns>
@@ -143,21 +150,25 @@
                 <AppFormField Label="Tiêu đề" Required="true">
                     <BootstrapInput @bind-Value="_model.Title" ShowLabel="false" />
                 </AppFormField>
+                <AppFormField Label="Cơ hội liên quan">
+                    <Select TValue="string" @bind-Value="_opportunityIdText"
+                            Items="@OpportunityOptions" ShowLabel="false" ShowSearch="true" />
+                </AppFormField>
                 <AppMoneyInput Label="Giá trị" @bind-Value="_model.ContractValue" DecimalPlaces="0" />
                 <AppFormField Label="Tiền tệ">
                     <BootstrapInput @bind-Value="_model.Currency" ShowLabel="false" />
                 </AppFormField>
                 <AppFormField Label="Ngày bắt đầu">
                     <DateTimePicker TValue="DateTime?" @bind-Value="_model.StartDate"
-                                    ShowLabel="false" DateFormat="yyyy-MM-dd" />
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
                 </AppFormField>
                 <AppFormField Label="Ngày kết thúc">
                     <DateTimePicker TValue="DateTime?" @bind-Value="_model.EndDate"
-                                    ShowLabel="false" DateFormat="yyyy-MM-dd" />
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
                 </AppFormField>
                 <AppFormField Label="Ngày gia hạn">
                     <DateTimePicker TValue="DateTime?" @bind-Value="_model.RenewalDate"
-                                    ShowLabel="false" DateFormat="yyyy-MM-dd" />
+                                    ShowLabel="false" DateFormat="dd/MM/yyyy" DatePlaceHolderText="Chọn ngày..." />
                 </AppFormField>
                 <AppFormField Label="Điều khoản thanh toán">
                     <BootstrapInput @bind-Value="_model.PaymentTerms" ShowLabel="false" />

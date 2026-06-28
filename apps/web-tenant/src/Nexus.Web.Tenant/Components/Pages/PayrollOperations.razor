@@ -1,0 +1,416 @@
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject NavigationManager Navigation
+@inject ToastService ToastService
+@inject SwalService SwalService
+
+<PageTitle>@Definition.Title</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Payroll</p>
+            <h1>@Definition.Title</h1>
+            <p>@Definition.Description</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("PAYROLL"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Lương.</div>
+    }
+    else if (!Session.IsGranted(Definition.ViewPermission))
+    {
+        <div class="app-alert">Bạn không có quyền xem màn hình này.</div>
+    }
+    else
+    {
+        <Card HeaderText="@Definition.Title" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="PayrollRow" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="260"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        <TableToolbarButton TItem="PayrollRow" Color="Color.Primary" Icon="fa-solid fa-plus" Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        <TableToolbarButton TItem="PayrollRow" Color="Color.Primary" Icon="fa-solid fa-gear" Text="Thiết lập VN" OnClickCallback="SetupDefaultsAsync" />
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa" OnClick="@(() => ShowEditAsync(context))" />
+                        <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá" OnClick="@(() => DeleteAsync(context))" />
+                        @if (context.Kind == "run")
+                        {
+                            <TableCellButton Color="Color.Primary" Icon="fa-solid fa-calculator" Text="Tính" OnClick="@(() => CalculateAsync(context.Id))" />
+                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-check" Text="Duyệt" OnClick="@(() => ApproveAsync(context.Id))" />
+                            <TableCellButton Color="Color.Info" Icon="fa-solid fa-receipt" Text="Phiếu" OnClick="@(() => PublishPayslipsAsync(context.Id))" />
+                            <TableCellButton Color="Color.Warning" Icon="fa-solid fa-building-columns" Text="Chi" OnClick="@(() => PayAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.Code" Text="Mã/Số" Sortable="true" Searchable="true">
+                            <Template Context="v"><span class="app-table-link-code">@v.Row.Code</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Name" Text="Nội dung" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v"><span class="@StatusCss(v.Row.Status)">@StatusText(v.Row.Status)</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Amount" Text="Số tiền" Sortable="true">
+                            <Template Context="v">@FormatAmount(v.Row.Amount)</Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Extra" Text="Thông tin nghiệp vụ" Searchable="true" />
+                        <TableColumn @bind-Field="@context.UpdatedAt" Text="Cập nhật" Sortable="true">
+                            <Template Context="v">@v.Row.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_dialogTitle" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="@CodeLabel" Required="true">
+                    <BootstrapInput @bind-Value="_form.Code" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="@NameLabel" Required="true">
+                    <BootstrapInput @bind-Value="_form.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Trạng thái">
+                    <BootstrapInput @bind-Value="_form.Status" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="@AmountLabel">
+                    <BootstrapInputNumber @bind-Value="_form.Amount" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Tháng">
+                    <BootstrapInputNumber @bind-Value="_form.Month" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Năm">
+                    <BootstrapInputNumber @bind-Value="_form.Year" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Ngày bắt đầu">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_form.StartDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
+                </AppFormField>
+                <AppFormField Label="Ngày kết thúc">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_form.EndDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
+                </AppFormField>
+                <AppFormField Label="Công thức/Ghi chú" Class="app-form-field-full">
+                    <Textarea @bind-Value="_form.Extra" ShowLabel="false" rows="3" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="@(() => _editModal!.Close())" />
+            <Button Text="Lưu" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<PayrollRow>? _table;
+    private Modal? _editModal;
+    private PayrollFormModel _form = new();
+    private string _dialogTitle = "";
+    private PayrollDefinition Definition => ResolveDefinition();
+    private string CodeLabel => Definition.Kind switch { "settings" => "Mã policy", "components" => "Mã thành phần", "periods" => "Mã kỳ", "payslips" => "Số phiếu", "payments" => "Số lệnh", _ => "Số bảng lương" };
+    private string NameLabel => Definition.Kind switch { "settings" => "Tên policy", "components" => "Tên thành phần", "periods" => "Tên kỳ", _ => "Nội dung" };
+    private string AmountLabel => Definition.Kind switch { "settings" => "Giảm trừ cá nhân", "payments" => "Số tiền", _ => "Số tiền" };
+
+    private async Task<QueryData<PayrollRow>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("PAYROLL") || !Session.IsGranted(Definition.ViewPermission))
+        {
+            return new QueryData<PayrollRow> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var rows = await LoadRowsAsync(tenantId, options.SearchText);
+            var items = rows.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+            return new QueryData<PayrollRow> { Items = items, TotalCount = rows.Count, IsSearch = !string.IsNullOrWhiteSpace(options.SearchText), IsFiltered = !string.IsNullOrWhiteSpace(options.SearchText) };
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            return new QueryData<PayrollRow> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private async Task<List<PayrollRow>> LoadRowsAsync(Guid tenantId, string? search)
+    {
+        if (Definition.Kind == "settings")
+        {
+            var items = await Api.GetPayrollPoliciesAsync(tenantId, search) ?? [];
+            return items.Select(x => new PayrollRow(x.Id, x.PolicyCode, x.Name, x.Status, x.PersonalDeductionAmount, $"BHXH/BHYT/BHTN NLĐ {x.SocialInsuranceEmployeeRate + x.HealthInsuranceEmployeeRate + x.UnemploymentInsuranceEmployeeRate:N1}% | Giảm trừ {FormatAmount(x.PersonalDeductionAmount)}", x.UpdatedAt, "policy")).ToList();
+        }
+
+        if (Definition.Kind == "components")
+        {
+            var items = await Api.GetSalaryComponentsAsync(tenantId, search) ?? [];
+            return items.Select(x => new PayrollRow(x.Id, x.ComponentCode, x.Name, x.Status, 0, $"{x.ComponentType} | Tax {YesNo(x.Taxable)} | BH {YesNo(x.InsuranceIncluded)} | {x.Formula}", x.UpdatedAt, "component")).ToList();
+        }
+
+        if (Definition.Kind == "periods")
+        {
+            var items = await Api.GetPayrollPeriodsAsync(tenantId, search) ?? [];
+            return items.Select(x => new PayrollRow(x.Id, x.PeriodCode, $"Tháng {x.Month}/{x.Year}", x.Status, 0, $"{x.StartDate:dd/MM/yyyy} - {x.EndDate:dd/MM/yyyy} | Chi {x.PaymentDate:dd/MM/yyyy}", x.UpdatedAt, "period")).ToList();
+        }
+
+        if (Definition.Kind == "payslips")
+        {
+            var items = await Api.GetPayslipsAsync(tenantId, search) ?? [];
+            return items.Select(x => new PayrollRow(x.Id, x.PayslipNo, $"Employee {x.EmployeeId.ToString("N")[..8]}", x.Status, 0, $"Published {DateTimeText(x.PublishedAt)} | Viewed {DateTimeText(x.ViewedAt)}", x.UpdatedAt, "payslip")).ToList();
+        }
+
+        if (Definition.Kind == "payments")
+        {
+            var items = await Api.GetPayrollPaymentsAsync(tenantId, search) ?? [];
+            return items.Select(x => new PayrollRow(x.Id, x.PaymentNo, $"Employee {x.EmployeeId.ToString("N")[..8]}", x.Status, x.Amount, $"{x.PaymentMethod} | {x.ReferenceNo} | Paid {DateTimeText(x.PaidAt)}", x.UpdatedAt, "payment")).ToList();
+        }
+
+        var runs = await Api.GetPayrollRunsAsync(tenantId, search) ?? [];
+        return runs.Select(x => new PayrollRow(x.Id, x.RunNo, "Bảng lương", x.Status, x.TotalNetPay, $"Gross {FormatAmount(x.TotalGross)} | BH NLĐ {FormatAmount(x.TotalInsuranceEmployee)} | TNCN {FormatAmount(x.TotalPit)}", x.UpdatedAt, "run")).ToList();
+    }
+
+    private async Task SetupDefaultsAsync(IEnumerable<PayrollRow> _)
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        await RunActionAsync(async () => { await Api.SetupPayrollVietnamDefaultsAsync(tenantId); }, "Đã tạo chính sách lương Việt Nam và thành phần lương mặc định.");
+    }
+
+    private Task ShowCreateAsync(IEnumerable<PayrollRow> _)
+    {
+        var today = DateTime.Today;
+        _dialogTitle = $"Thêm {Definition.Title.ToLowerInvariant()}";
+        _form = new PayrollFormModel
+        {
+            Status = Definition.Kind is "settings" or "components" ? "Active" : "Draft",
+            Month = today.Month,
+            Year = today.Year,
+            StartDate = new DateTime(today.Year, today.Month, 1),
+            EndDate = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)),
+            Amount = Definition.Kind == "settings" ? 11000000 : 0
+        };
+        return _editModal!.Show();
+    }
+
+    private Task ShowEditAsync(PayrollRow row)
+    {
+        _dialogTitle = $"Sửa {Definition.Title.ToLowerInvariant()}";
+        _form = new PayrollFormModel { Id = row.Id, Code = row.Code, Name = row.Name, Status = row.Status, Amount = row.Amount, Extra = row.Extra, Month = DateTime.Today.Month, Year = DateTime.Today.Year };
+        return _editModal!.Show();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(_form.Code) || string.IsNullOrWhiteSpace(_form.Name))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập đầy đủ mã và tên."));
+            return;
+        }
+
+        try
+        {
+            await UpsertAsync(tenantId);
+            await ToastService.Success("Thành công", "Đã lưu dữ liệu.");
+            await _editModal!.Close();
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task DeleteAsync(PayrollRow row)
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        try
+        {
+            await Api.DeletePayrollEntityAsync(DeleteEndpoint(), tenantId, row.Id);
+            await ToastService.Success("Đã xoá", "Đã xoá dữ liệu.");
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private Task ReloadAsync() => _table is null ? Task.CompletedTask : _table.QueryAsync();
+
+    private async Task UpsertAsync(Guid tenantId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (Definition.Kind == "settings")
+        {
+            await Api.UpsertPayrollPolicyAsync(new PayrollPolicyRecord { Id = _form.Id, TenantId = tenantId, PolicyCode = _form.Code.Trim(), Name = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Active"), CountryCode = "VN", EffectiveFrom = ToDate(_form.StartDate), PersonalDeductionAmount = _form.Amount <= 0 ? 11000000 : _form.Amount, DependentDeductionAmount = 4400000, SocialInsuranceEmployeeRate = 8, HealthInsuranceEmployeeRate = 1.5m, UnemploymentInsuranceEmployeeRate = 1, UpdatedAt = now });
+        }
+        else if (Definition.Kind == "components")
+        {
+            await Api.UpsertSalaryComponentAsync(new SalaryComponentRecord { Id = _form.Id, TenantId = tenantId, ComponentCode = _form.Code.Trim(), Name = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Active"), ComponentType = "Allowance", Taxable = true, Recurring = true, Formula = _form.Extra ?? "", UpdatedAt = now });
+        }
+        else if (Definition.Kind == "periods")
+        {
+            await Api.UpsertPayrollPeriodAsync(new PayrollPeriodRecord { Id = _form.Id, TenantId = tenantId, PeriodCode = _form.Code.Trim(), Month = _form.Month <= 0 ? DateTime.Today.Month : _form.Month, Year = _form.Year <= 0 ? DateTime.Today.Year : _form.Year, StartDate = ToDate(_form.StartDate), EndDate = ToDate(_form.EndDate), PaymentDate = ToDate(_form.EndDate), Status = BlankDefault(_form.Status, "Open"), UpdatedAt = now });
+        }
+        else if (Definition.Kind is "payslips")
+        {
+            await Api.UpsertPayslipAsync(new PayslipRecord { Id = _form.Id, TenantId = tenantId, PayslipNo = _form.Code.Trim(), EmployeeId = Guid.Empty, PayrollLineId = Guid.Empty, Status = BlankDefault(_form.Status, "Draft"), UpdatedAt = now });
+        }
+        else if (Definition.Kind == "payments")
+        {
+            await Api.UpsertPayrollPaymentAsync(new PayrollPaymentRecord { Id = _form.Id, TenantId = tenantId, PaymentNo = _form.Code.Trim(), EmployeeId = Guid.Empty, PayrollRunId = Guid.Empty, PaymentMethod = _form.Name.Trim(), Amount = _form.Amount, Status = BlankDefault(_form.Status, "Pending"), ReferenceNo = _form.Extra ?? "", UpdatedAt = now });
+        }
+        else
+        {
+            await Api.UpsertPayrollRunAsync(new PayrollRunRecord { Id = _form.Id, TenantId = tenantId, RunNo = _form.Code.Trim(), PeriodId = Guid.Empty, Status = BlankDefault(_form.Status, "Draft"), TotalNetPay = _form.Amount, UpdatedAt = now });
+        }
+    }
+
+    private string DeleteEndpoint() => Definition.Kind switch
+    {
+        "settings" => "policies",
+        "components" => "components",
+        "periods" => "periods",
+        "payslips" => "payslips",
+        "payments" => "payments",
+        _ => "runs"
+    };
+
+    private Task CalculateAsync(Guid id) =>
+        RunActionAsync(async () => { await Api.CalculatePayrollRunAsync(id); }, "Đã tính lại bảng lương.");
+
+    private Task ApproveAsync(Guid id) =>
+        RunActionAsync(async () => { await Api.ApprovePayrollRunAsync(id); }, "Đã duyệt bảng lương.");
+
+    private Task PublishPayslipsAsync(Guid id) =>
+        RunActionAsync(async () => { await Api.PublishPayslipsAsync(id); }, "Đã phát hành phiếu lương.");
+
+    private Task PayAsync(Guid id) =>
+        RunActionAsync(async () => { await Api.PayPayrollRunAsync(id); }, "Đã ghi nhận chi lương.");
+
+    private async Task RunActionAsync(Func<Task> action, string message)
+    {
+        try
+        {
+            await action();
+            await ToastService.Success("Thành công", message);
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private PayrollDefinition ResolveDefinition()
+    {
+        var path = Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/').ToLowerInvariant();
+        return path switch
+        {
+            "payroll/settings" => new("settings", "Cấu hình lương", "Policy hiệu lực ngày, BHXH/BHYT/BHTN, công đoàn, giảm trừ cá nhân/phụ thuộc.", NexusPermissions.Payroll.Settings.View),
+            "payroll/components" => new("components", "Thành phần lương", "Phụ cấp, khấu trừ, taxable, insurance included, recurring và công thức.", NexusPermissions.Payroll.Components.View),
+            "payroll/periods" => new("periods", "Kỳ lương", "Tháng/năm, ngày bắt đầu/kết thúc, ngày chi lương và trạng thái khóa.", NexusPermissions.Payroll.Periods.View),
+            "payroll/payslips" => new("payslips", "Phiếu lương", "Phiếu lương phát hành cho nhân viên, trạng thái xem và file.", NexusPermissions.Payroll.Payslips.View),
+            "payroll/payments" => new("payments", "Chi lương", "Lệnh chi lương, phương thức thanh toán, trạng thái và tham chiếu ngân hàng.", NexusPermissions.Payroll.Payments.View),
+            "payroll/reports" => new("runs", "Báo cáo lương", "Tổng hợp gross, bảo hiểm, thuế TNCN và net pay.", NexusPermissions.Payroll.Runs.View),
+            _ => new("runs", "Bảng lương", "Payroll run đầy đủ từ bảng công, phép, tăng ca, phụ cấp, khấu trừ, bảo hiểm và TNCN.", NexusPermissions.Payroll.Runs.View)
+        };
+    }
+
+    private static string YesNo(bool value) => value ? "Có" : "Không";
+    private static string DateTimeText(DateTimeOffset? value) => value?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "-";
+    private static string FormatAmount(decimal amount) => amount <= 0 ? "-" : string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), "{0:N0} VND", amount);
+    private static string StatusText(string status) => status switch
+    {
+        "Active" => "Hoạt động",
+        "Draft" => "Nháp",
+        "Calculated" => "Đã tính",
+        "Approved" => "Đã duyệt",
+        "Published" => "Đã phát hành",
+        "Paid" => "Đã chi",
+        "Open" => "Đang mở",
+        _ => string.IsNullOrWhiteSpace(status) ? "-" : status
+    };
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Active" or "Approved" or "Published" or "Paid" => "app-status-badge app-status-active",
+        "Draft" or "Calculated" or "Open" or "Pending" => "app-status-badge app-status-pending",
+        "Failed" or "Rejected" => "app-status-badge app-status-danger",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private Task ShowErrorAsync(Exception ex) =>
+        SwalService.Show(new SwalOption { Category = SwalCategory.Error, Title = "Đã xảy ra lỗi", Content = ex.Message });
+
+    private sealed record PayrollDefinition(string Kind, string Title, string Description, string ViewPermission);
+
+    private sealed class PayrollRow
+    {
+        public PayrollRow()
+        {
+            Code = string.Empty;
+            Name = string.Empty;
+            Status = string.Empty;
+            Extra = string.Empty;
+            Kind = string.Empty;
+        }
+
+        public PayrollRow(Guid id, string code, string name, string status, decimal amount, string extra, DateTimeOffset updatedAt, string kind)
+        {
+            Id = id;
+            Code = code;
+            Name = name;
+            Status = status;
+            Amount = amount;
+            Extra = extra;
+            UpdatedAt = updatedAt;
+            Kind = kind;
+        }
+
+        public Guid Id { get; set; }
+        public string Code { get; set; }
+        public string Name { get; set; }
+        public string Status { get; set; }
+        public decimal Amount { get; set; }
+        public string Extra { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+        public string Kind { get; set; }
+    }
+
+    private sealed class PayrollFormModel
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Status { get; set; } = "";
+        public decimal Amount { get; set; }
+        public int Month { get; set; }
+        public int Year { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string? Extra { get; set; }
+    }
+
+    private static string BlankDefault(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    private static DateOnly ToDate(DateTime? value) => DateOnly.FromDateTime(value ?? DateTime.Today);
+}

@@ -1,0 +1,410 @@
+@inject TenantPortalApiClient Api
+@inject TenantSessionService Session
+@inject NavigationManager Navigation
+@inject ToastService ToastService
+@inject SwalService SwalService
+
+<PageTitle>@Definition.Title</PageTitle>
+
+<section class="app-page">
+    <header class="app-page-header">
+        <div>
+            <p class="app-eyebrow">Attendance</p>
+            <h1>@Definition.Title</h1>
+            <p>@Definition.Description</p>
+        </div>
+    </header>
+
+    @if (!Session.HasModule("ATTENDANCE"))
+    {
+        <div class="app-alert">Tenant này chưa được bật module Chấm công.</div>
+    }
+    else if (!Session.IsGranted(Definition.ViewPermission))
+    {
+        <div class="app-alert">Bạn không có quyền xem màn hình này.</div>
+    }
+    else
+    {
+        <Card HeaderText="@Definition.Title" IsShadow="true">
+            <BodyTemplate>
+                <Table @ref="_table" TItem="AttendanceRow" OnQueryAsync="OnQueryAsync"
+                       IsPagination="true" PageItemsSource="@PageItems" IsStriped="true" IsBordered="true"
+                       ShowToolbar="true" ShowDefaultButtons="false" ShowExtendButtons="true"
+                       ShowEditButton="false" ShowDeleteButton="false"
+                       ShowExtendEditButton="false" ShowExtendDeleteButton="false"
+                       ExtendButtonColumnWidth="150"
+                       ShowSearch="true" ShowSearchText="true" ShowRefresh="true" ShowAdvancedSearch="false">
+                    <TableToolbarTemplate>
+                        <TableToolbarButton TItem="AttendanceRow" Color="Color.Primary" Icon="fa-solid fa-plus" Text="Thêm mới" OnClickCallback="ShowCreateAsync" />
+                        <TableToolbarButton TItem="AttendanceRow" Color="Color.Primary" Icon="fa-solid fa-gear" Text="Thiết lập VN" OnClickCallback="SetupDefaultsAsync" />
+                    </TableToolbarTemplate>
+                    <RowButtonTemplate>
+                        <TableCellButton Color="Color.Primary" Icon="fa-solid fa-pen" Text="Sửa" OnClick="@(() => ShowEditAsync(context))" />
+                        <TableCellButton Color="Color.Danger" Icon="fa-solid fa-trash" Text="Xoá" OnClick="@(() => DeleteAsync(context))" />
+                        @if (context.Kind == "leave" && context.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) && Session.IsGranted(NexusPermissions.Attendance.LeaveRequests.Approve))
+                        {
+                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-check" Text="Duyệt" OnClick="@(() => ApproveLeaveAsync(context.Id))" />
+                        }
+                        @if (context.Kind == "overtime" && context.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) && Session.IsGranted(NexusPermissions.Attendance.OvertimeRequests.Approve))
+                        {
+                            <TableCellButton Color="Color.Success" Icon="fa-solid fa-check" Text="Duyệt" OnClick="@(() => ApproveOvertimeAsync(context.Id))" />
+                        }
+                    </RowButtonTemplate>
+                    <TableColumns>
+                        <TableColumn @bind-Field="@context.Code" Text="Mã/Số" Sortable="true" Searchable="true">
+                            <Template Context="v"><span class="app-table-link-code">@v.Row.Code</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Name" Text="Nội dung" Sortable="true" Searchable="true" />
+                        <TableColumn @bind-Field="@context.DateText" Text="Ngày" Sortable="true" />
+                        <TableColumn @bind-Field="@context.Status" Text="Trạng thái" Sortable="true">
+                            <Template Context="v"><span class="@StatusCss(v.Row.Status)">@StatusText(v.Row.Status)</span></Template>
+                        </TableColumn>
+                        <TableColumn @bind-Field="@context.Metric" Text="Số liệu" Sortable="true" />
+                        <TableColumn @bind-Field="@context.Extra" Text="Thông tin nghiệp vụ" Searchable="true" />
+                        <TableColumn @bind-Field="@context.UpdatedAt" Text="Cập nhật" Sortable="true">
+                            <Template Context="v">@v.Row.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</Template>
+                        </TableColumn>
+                    </TableColumns>
+                </Table>
+            </BodyTemplate>
+        </Card>
+    }
+</section>
+
+<Modal @ref="_editModal" IsBackdrop="true">
+    <ModalDialog Title="@_dialogTitle" Size="Size.Large" ShowCloseButton="true">
+        <BodyTemplate>
+            <div class="app-form-grid">
+                <AppFormField Label="@CodeLabel" Required="true">
+                    <BootstrapInput @bind-Value="_form.Code" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="@NameLabel" Required="true">
+                    <BootstrapInput @bind-Value="_form.Name" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Trạng thái">
+                    <BootstrapInput @bind-Value="_form.Status" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Ngày">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_form.WorkDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
+                </AppFormField>
+                <AppFormField Label="Giờ bắt đầu">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_form.StartTime" ShowLabel="false" DateTimeFormat="HH:mm" />
+                </AppFormField>
+                <AppFormField Label="Giờ kết thúc">
+                    <DateTimePicker TValue="DateTime?" @bind-Value="_form.EndTime" ShowLabel="false" DateTimeFormat="HH:mm" />
+                </AppFormField>
+                <AppFormField Label="Số liệu">
+                    <BootstrapInputNumber @bind-Value="_form.Amount" ShowLabel="false" />
+                </AppFormField>
+                <AppFormField Label="Ghi chú" Class="app-form-field-full">
+                    <Textarea @bind-Value="_form.Extra" ShowLabel="false" rows="3" />
+                </AppFormField>
+            </div>
+        </BodyTemplate>
+        <FooterTemplate>
+            <Button Text="Huỷ" Color="Color.Secondary" OnClick="@(() => _editModal!.Close())" />
+            <Button Text="Lưu" Color="Color.Primary" Icon="fa-solid fa-floppy-disk" IsAsync="true" OnClick="SaveAsync" />
+        </FooterTemplate>
+    </ModalDialog>
+</Modal>
+
+@code {
+    private static readonly int[] PageItems = [10, 20, 50];
+    private Table<AttendanceRow>? _table;
+    private Modal? _editModal;
+    private AttendanceFormModel _form = new();
+    private string _dialogTitle = "";
+    private AttendanceDefinition Definition => ResolveDefinition();
+    private string CodeLabel => Definition.Kind switch { "calendars" => "Mã lịch", "shifts" or "assignments" => "Mã ca", "leaves" or "overtime" => "Số đơn", _ => "Mã" };
+    private string NameLabel => Definition.Kind switch { "calendars" => "Tên lịch", "shifts" or "assignments" => "Tên ca", "leaves" => "Lý do nghỉ", "overtime" => "Loại tăng ca", _ => "Nội dung" };
+
+    private async Task<QueryData<AttendanceRow>> OnQueryAsync(QueryPageOptions options)
+    {
+        if (Session.TenantId is not Guid tenantId || !Session.HasModule("ATTENDANCE") || !Session.IsGranted(Definition.ViewPermission))
+        {
+            return new QueryData<AttendanceRow> { Items = [], TotalCount = 0 };
+        }
+
+        try
+        {
+            var rows = await LoadRowsAsync(tenantId, options.SearchText);
+            var items = rows.Skip((options.PageIndex - 1) * options.PageItems).Take(options.PageItems).ToList();
+            return new QueryData<AttendanceRow> { Items = items, TotalCount = rows.Count, IsSearch = !string.IsNullOrWhiteSpace(options.SearchText), IsFiltered = !string.IsNullOrWhiteSpace(options.SearchText) };
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+            return new QueryData<AttendanceRow> { Items = [], TotalCount = 0 };
+        }
+    }
+
+    private async Task<List<AttendanceRow>> LoadRowsAsync(Guid tenantId, string? search)
+    {
+        if (Definition.Kind == "calendars")
+        {
+            var items = await Api.GetAttendanceCalendarsAsync(tenantId, search) ?? [];
+            return items.Select(x => new AttendanceRow(x.Id, x.CalendarCode, x.Name, "-", x.Status, $"{x.StandardHoursPerDay:N1}h/ngày", $"{x.WorkingDays} | {x.DefaultStartTime:HH\\:mm}-{x.DefaultEndTime:HH\\:mm} | nghỉ {x.BreakStartTime:HH\\:mm}-{x.BreakEndTime:HH\\:mm}", x.UpdatedAt, "calendar")).ToList();
+        }
+
+        if (Definition.Kind == "shifts" || Definition.Kind == "assignments")
+        {
+            var items = await Api.GetAttendanceShiftsAsync(tenantId, search) ?? [];
+            return items.Select(x => new AttendanceRow(x.Id, x.ShiftCode, x.Name, "-", x.Status, $"{x.StandardHours:N1}h", $"{x.StartTime:HH\\:mm}-{x.EndTime:HH\\:mm}", x.UpdatedAt, "shift")).ToList();
+        }
+
+        if (Definition.Kind == "records" || Definition.Kind == "timesheets")
+        {
+            var items = await Api.GetAttendanceRecordsAsync(tenantId, search) ?? [];
+            return items.Select(x => new AttendanceRow(x.Id, x.EmployeeId.ToString("N")[..8], "Chấm công", x.WorkDate.ToString("dd/MM/yyyy"), x.Status, $"{x.WorkedMinutes / 60m:N1}h", $"Muộn {x.LateMinutes}p | Sớm {x.EarlyLeaveMinutes}p | OT {x.OvertimeMinutes}p | {x.CorrectionStatus}", x.UpdatedAt, "record")).ToList();
+        }
+
+        if (Definition.Kind == "leaves")
+        {
+            var items = await Api.GetLeaveRequestsAsync(tenantId, search) ?? [];
+            return items.Select(x => new AttendanceRow(x.Id, x.RequestNo, x.Reason, $"{x.FromDate:dd/MM/yyyy} - {x.ToDate:dd/MM/yyyy}", x.Status, $"{x.TotalDays:N1} ngày", $"Employee {x.EmployeeId.ToString("N")[..8]}", x.UpdatedAt, "leave")).ToList();
+        }
+
+        var overtime = await Api.GetOvertimeRequestsAsync(tenantId, search) ?? [];
+        return overtime.Select(x => new AttendanceRow(x.Id, x.RequestNo, x.OvertimeType, x.WorkDate.ToString("dd/MM/yyyy"), x.Status, $"{x.TotalHours:N1}h x{x.RateMultiplier:N1}", $"{x.FromTime:HH\\:mm}-{x.ToTime:HH\\:mm} | Employee {x.EmployeeId.ToString("N")[..8]}", x.UpdatedAt, "overtime")).ToList();
+    }
+
+    private async Task SetupDefaultsAsync(IEnumerable<AttendanceRow> _)
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        try
+        {
+            await Api.SetupAttendanceVietnamDefaultsAsync(tenantId);
+            await ToastService.Success("Thành công", "Đã tạo lịch T2-T6 08:00-17:00, ca hành chính và loại phép năm 12 ngày.");
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private Task ShowCreateAsync(IEnumerable<AttendanceRow> _)
+    {
+        _dialogTitle = $"Thêm {Definition.Title.ToLowerInvariant()}";
+        _form = new AttendanceFormModel
+        {
+            Status = Definition.Kind is "calendars" or "shifts" or "assignments" ? "Active" : "Pending",
+            WorkDate = DateTime.Today,
+            StartTime = DateTime.Today.AddHours(8),
+            EndTime = DateTime.Today.AddHours(17),
+            Amount = Definition.Kind == "calendars" ? 8 : 0
+        };
+        return _editModal!.Show();
+    }
+
+    private Task ShowEditAsync(AttendanceRow row)
+    {
+        _dialogTitle = $"Sửa {Definition.Title.ToLowerInvariant()}";
+        _form = new AttendanceFormModel { Id = row.Id, Code = row.Code, Name = row.Name, Status = row.Status, Amount = ParseLeadingDecimal(row.Metric), Extra = row.Extra };
+        return _editModal!.Show();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Session.TenantId is not Guid tenantId || string.IsNullOrWhiteSpace(_form.Code) || string.IsNullOrWhiteSpace(_form.Name))
+        {
+            await ShowErrorAsync(new InvalidOperationException("Vui lòng nhập đầy đủ mã và nội dung."));
+            return;
+        }
+
+        try
+        {
+            await UpsertAsync(tenantId);
+            await ToastService.Success("Thành công", "Đã lưu dữ liệu.");
+            await _editModal!.Close();
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private async Task DeleteAsync(AttendanceRow row)
+    {
+        if (Session.TenantId is not Guid tenantId)
+        {
+            return;
+        }
+
+        try
+        {
+            await Api.DeleteAttendanceEntityAsync(DeleteEndpoint(), tenantId, row.Id);
+            await ToastService.Success("Đã xoá", "Đã xoá dữ liệu.");
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private Task ReloadAsync() => _table is null ? Task.CompletedTask : _table.QueryAsync();
+
+    private async Task UpsertAsync(Guid tenantId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (Definition.Kind == "calendars")
+        {
+            await Api.UpsertAttendanceCalendarAsync(new AttendanceCalendarRecord { Id = _form.Id, TenantId = tenantId, CalendarCode = _form.Code.Trim(), Name = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Active"), CountryCode = "VN", WorkingDays = "Mon,Tue,Wed,Thu,Fri", StandardHoursPerDay = _form.Amount <= 0 ? 8 : _form.Amount, DefaultStartTime = ToTime(_form.StartTime, 8), DefaultEndTime = ToTime(_form.EndTime, 17), BreakStartTime = new TimeOnly(12, 0), BreakEndTime = new TimeOnly(13, 0), UpdatedAt = now });
+        }
+        else if (Definition.Kind is "shifts" or "assignments")
+        {
+            await Api.UpsertAttendanceShiftAsync(new AttendanceShiftRecord { Id = _form.Id, TenantId = tenantId, ShiftCode = _form.Code.Trim(), Name = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Active"), StandardHours = _form.Amount <= 0 ? 8 : _form.Amount, StartTime = ToTime(_form.StartTime, 8), EndTime = ToTime(_form.EndTime, 17), UpdatedAt = now });
+        }
+        else if (Definition.Kind is "records" or "timesheets")
+        {
+            await Api.UpsertAttendanceRecordAsync(new AttendanceRecordItem { Id = _form.Id, TenantId = tenantId, EmployeeId = Guid.Empty, WorkDate = ToDate(_form.WorkDate), Status = BlankDefault(_form.Status, "Draft"), WorkedMinutes = (int)(_form.Amount * 60), UpdatedAt = now });
+        }
+        else if (Definition.Kind == "leaves")
+        {
+            await Api.UpsertLeaveRequestAsync(new LeaveRequestRecord { Id = _form.Id, TenantId = tenantId, RequestNo = _form.Code.Trim(), EmployeeId = Guid.Empty, LeaveTypeId = Guid.Empty, FromDate = ToDate(_form.WorkDate), ToDate = ToDate(_form.WorkDate), TotalDays = _form.Amount <= 0 ? 1 : _form.Amount, Reason = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Pending"), UpdatedAt = now });
+        }
+        else
+        {
+            await Api.UpsertOvertimeRequestAsync(new OvertimeRequestRecord { Id = _form.Id, TenantId = tenantId, RequestNo = _form.Code.Trim(), EmployeeId = Guid.Empty, WorkDate = ToDate(_form.WorkDate), FromTime = ToTime(_form.StartTime, 18), ToTime = ToTime(_form.EndTime, 20), TotalHours = _form.Amount <= 0 ? 2 : _form.Amount, OvertimeType = _form.Name.Trim(), RateMultiplier = 1.5m, Status = BlankDefault(_form.Status, "Pending"), UpdatedAt = now });
+        }
+    }
+
+    private string DeleteEndpoint() => Definition.Kind switch
+    {
+        "calendars" => "work-calendars",
+        "shifts" or "assignments" => "shifts",
+        "records" or "timesheets" => "records",
+        "leaves" => "leave-requests",
+        _ => "overtime-requests"
+    };
+
+    private async Task ApproveLeaveAsync(Guid id)
+    {
+        await RunActionAsync(async () => { await Api.ApproveLeaveRequestAsync(id); }, "Đã duyệt đơn phép và cập nhật số ngày phép.");
+    }
+
+    private async Task ApproveOvertimeAsync(Guid id)
+    {
+        await RunActionAsync(async () => { await Api.ApproveOvertimeRequestAsync(id); }, "Đã duyệt đơn tăng ca.");
+    }
+
+    private async Task RunActionAsync(Func<Task> action, string message)
+    {
+        try
+        {
+            await action();
+            await ToastService.Success("Thành công", message);
+            if (_table is not null)
+            {
+                await _table.QueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync(ex);
+        }
+    }
+
+    private AttendanceDefinition ResolveDefinition()
+    {
+        var path = Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/').ToLowerInvariant();
+        return path switch
+        {
+            "attendance/work-calendars" => new("calendars", "Lịch làm việc", "Lịch chuẩn theo Việt Nam: T2-T6, 08:00-17:00, nghỉ trưa 12:00-13:00.", NexusPermissions.Attendance.WorkCalendars.View),
+            "attendance/shifts" => new("shifts", "Ca làm", "Danh mục ca, giờ bắt đầu/kết thúc, nghỉ giữa ca và grace time.", NexusPermissions.Attendance.Shifts.View),
+            "attendance/shift-assignments" => new("assignments", "Phân ca", "Phân ca nhân viên theo ngày, bộ phận và trạng thái duyệt.", NexusPermissions.Attendance.Shifts.View),
+            "attendance/records" => new("records", "Chấm công", "Check-in/out, đi muộn, về sớm, thời gian làm và sửa công.", NexusPermissions.Attendance.Records.View),
+            "attendance/leaves" => new("leaves", "Đơn phép", "Đơn nghỉ phép, phép năm, phê duyệt và trừ số dư phép.", NexusPermissions.Attendance.LeaveRequests.View),
+            "attendance/overtime" => new("overtime", "Tăng ca", "Đề nghị tăng ca, hệ số tính lương và phê duyệt.", NexusPermissions.Attendance.OvertimeRequests.View),
+            "attendance/timesheets" => new("timesheets", "Bảng công", "Tổng hợp bảng công cho payroll.", NexusPermissions.Attendance.Timesheets.View),
+            _ => new("records", "Chấm công", "Tổng quan chấm công, nghỉ phép và tăng ca.", NexusPermissions.Attendance.Records.View)
+        };
+    }
+
+    private static string StatusText(string status) => status switch
+    {
+        "Active" => "Hoạt động",
+        "Pending" => "Chờ duyệt",
+        "Approved" => "Đã duyệt",
+        "Rejected" => "Từ chối",
+        "Draft" => "Nháp",
+        _ => string.IsNullOrWhiteSpace(status) ? "-" : status
+    };
+
+    private static string StatusCss(string status) => status switch
+    {
+        "Active" or "Approved" => "app-status-badge app-status-active",
+        "Pending" or "Draft" => "app-status-badge app-status-pending",
+        "Rejected" => "app-status-badge app-status-danger",
+        _ => "app-status-badge app-status-muted"
+    };
+
+    private Task ShowErrorAsync(Exception ex) =>
+        SwalService.Show(new SwalOption { Category = SwalCategory.Error, Title = "Đã xảy ra lỗi", Content = ex.Message });
+
+    private sealed record AttendanceDefinition(string Kind, string Title, string Description, string ViewPermission);
+
+    private sealed class AttendanceRow
+    {
+        public AttendanceRow()
+        {
+            Code = string.Empty;
+            Name = string.Empty;
+            DateText = string.Empty;
+            Status = string.Empty;
+            Metric = string.Empty;
+            Extra = string.Empty;
+            Kind = string.Empty;
+        }
+
+        public AttendanceRow(Guid id, string code, string name, string dateText, string status, string metric, string extra, DateTimeOffset updatedAt, string kind)
+        {
+            Id = id;
+            Code = code;
+            Name = name;
+            DateText = dateText;
+            Status = status;
+            Metric = metric;
+            Extra = extra;
+            UpdatedAt = updatedAt;
+            Kind = kind;
+        }
+
+        public Guid Id { get; set; }
+        public string Code { get; set; }
+        public string Name { get; set; }
+        public string DateText { get; set; }
+        public string Status { get; set; }
+        public string Metric { get; set; }
+        public string Extra { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+        public string Kind { get; set; }
+    }
+
+    private sealed class AttendanceFormModel
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Status { get; set; } = "";
+        public DateTime? WorkDate { get; set; }
+        public DateTime? StartTime { get; set; }
+        public DateTime? EndTime { get; set; }
+        public decimal Amount { get; set; }
+        public string? Extra { get; set; }
+    }
+
+    private static string BlankDefault(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    private static DateOnly ToDate(DateTime? value) => DateOnly.FromDateTime(value ?? DateTime.Today);
+    private static TimeOnly ToTime(DateTime? value, int fallbackHour) => TimeOnly.FromDateTime(value ?? DateTime.Today.AddHours(fallbackHour));
+    private static decimal ParseLeadingDecimal(string text) => decimal.TryParse(new string(text.TakeWhile(x => char.IsDigit(x) || x == '.' || x == ',').ToArray()).Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : 0;
+}

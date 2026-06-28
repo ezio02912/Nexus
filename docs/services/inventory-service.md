@@ -36,6 +36,7 @@
 - Reservation/shipment idempotent theo `TenantId + SourceType + SourceId`.
 - Reservation line nhận `WarehouseCode`, `ProductCode`, mô tả và số lượng để giữ/xuất tồn theo đúng kho trên từng dòng Sales Order.
 - Request cũ không truyền `WarehouseCode` vẫn fallback về kho `MAIN`.
+- Nếu warehouse bật `AllowNegativeStock`, reservation được phép giữ vượt tồn khả dụng để xử lý đơn chờ hàng về.
 
 ## Purchase integration
 
@@ -51,12 +52,14 @@
 - Tồn kho hiển thị On hand, Reserved, Available.
 - Nhập kho nhanh tự tạo product/warehouse catalog nếu chưa có.
 - Product catalog có SKU, đơn vị tính lookup từ Master Data `Unit`, loại hàng hoá lookup từ Master Data `ProductType`, ảnh/tệp qua File Service, thuộc tính, biến thể, giá, thuế, active state.
-- Warehouse catalog có mã kho, tên kho, vị trí, active state.
+- Warehouse catalog có mã kho, tên kho, vị trí, active state và cấu hình cho phép tồn kho âm.
 - Stock balances phản ánh cả nhập kho thủ công và nhập kho từ Purchase Goods Receipt.
 
 ## Migration
 
-- SQL migration: `services/inventory-service/migrations/003_add_product_catalog_metadata.sql`
+- SQL migrations mới:
+  - `services/inventory-service/migrations/003_add_product_catalog_metadata.sql`
+  - `services/inventory-service/migrations/006_add_warehouse_negative_stock.sql`
 - Chạy thủ công bằng `./tools/scripts/apply-core-migrations.zsh` hoặc apply riêng folder `services/inventory-service/migrations` vào `inventory_db`.
 
 ## Events

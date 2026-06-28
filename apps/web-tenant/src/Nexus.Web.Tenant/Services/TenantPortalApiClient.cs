@@ -243,6 +243,15 @@ public sealed class TenantPortalApiClient
     public Task<IReadOnlyList<HrmContractRecord>?> GetHrmContractsAsync(Guid tenantId, string? search = null) =>
         GetListAsync<HrmContractRecord>(_options.Hrm, "/api/hrm/contracts", tenantId, search);
 
+    public Task<IReadOnlyList<HrmEmployeeAllowanceRecord>?> GetHrmEmployeeAllowancesAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmEmployeeAllowanceRecord>(_options.Hrm, "/api/hrm/allowances", tenantId, search);
+
+    public Task<IReadOnlyList<HrmEmployeeBenefitRecord>?> GetHrmEmployeeBenefitsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmEmployeeBenefitRecord>(_options.Hrm, "/api/hrm/benefits", tenantId, search);
+
+    public Task<IReadOnlyList<HrmEmployeeDocumentRecord>?> GetHrmEmployeeDocumentsAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HrmEmployeeDocumentRecord>(_options.Hrm, "/api/hrm/documents", tenantId, search);
+
     public Task<IReadOnlyList<HrmRequisitionRecord>?> GetHrmRequisitionsAsync(Guid tenantId, string? search = null) =>
         GetListAsync<HrmRequisitionRecord>(_options.Hrm, "/api/hrm/requisitions", tenantId, search);
 
@@ -270,6 +279,15 @@ public sealed class TenantPortalApiClient
     public Task<HrmContractRecord?> UpsertHrmContractAsync(HrmContractRecord request) =>
         PostAsync<HrmContractRecord>(_options.Hrm, "/api/hrm/contracts", request);
 
+    public Task<HrmEmployeeAllowanceRecord?> UpsertHrmEmployeeAllowanceAsync(HrmEmployeeAllowanceRecord request) =>
+        PostAsync<HrmEmployeeAllowanceRecord>(_options.Hrm, "/api/hrm/allowances", request);
+
+    public Task<HrmEmployeeBenefitRecord?> UpsertHrmEmployeeBenefitAsync(HrmEmployeeBenefitRecord request) =>
+        PostAsync<HrmEmployeeBenefitRecord>(_options.Hrm, "/api/hrm/benefits", request);
+
+    public Task<HrmEmployeeDocumentRecord?> UpsertHrmEmployeeDocumentAsync(HrmEmployeeDocumentRecord request) =>
+        PostAsync<HrmEmployeeDocumentRecord>(_options.Hrm, "/api/hrm/documents", request);
+
     public Task<HrmRequisitionRecord?> UpsertHrmRequisitionAsync(HrmRequisitionRecord request) =>
         PostAsync<HrmRequisitionRecord>(_options.Hrm, "/api/hrm/requisitions", request);
 
@@ -290,6 +308,12 @@ public sealed class TenantPortalApiClient
 
     public Task<IReadOnlyList<LeaveRequestRecord>?> GetLeaveRequestsAsync(Guid tenantId, string? search = null) =>
         GetListAsync<LeaveRequestRecord>(_options.Attendance, "/api/attendance/leave-requests", tenantId, search);
+
+    public Task<IReadOnlyList<LeaveTypeRecord>?> GetLeaveTypesAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<LeaveTypeRecord>(_options.Attendance, "/api/attendance/leave-types", tenantId, search);
+
+    public Task<IReadOnlyList<HolidayRecord>?> GetHolidaysAsync(Guid tenantId, string? search = null) =>
+        GetListAsync<HolidayRecord>(_options.Attendance, "/api/attendance/holidays", tenantId, search);
 
     public Task<IReadOnlyList<OvertimeRequestRecord>?> GetOvertimeRequestsAsync(Guid tenantId, string? search = null) =>
         GetListAsync<OvertimeRequestRecord>(_options.Attendance, "/api/attendance/overtime-requests", tenantId, search);
@@ -314,6 +338,12 @@ public sealed class TenantPortalApiClient
 
     public Task<LeaveRequestRecord?> UpsertLeaveRequestAsync(LeaveRequestRecord request) =>
         PostAsync<LeaveRequestRecord>(_options.Attendance, "/api/attendance/leave-requests", request);
+
+    public Task<LeaveTypeRecord?> UpsertLeaveTypeAsync(LeaveTypeRecord request) =>
+        PostAsync<LeaveTypeRecord>(_options.Attendance, "/api/attendance/leave-types", request);
+
+    public Task<HolidayRecord?> UpsertHolidayAsync(HolidayRecord request) =>
+        PostAsync<HolidayRecord>(_options.Attendance, "/api/attendance/holidays", request);
 
     public Task<OvertimeRequestRecord?> UpsertOvertimeRequestAsync(OvertimeRequestRecord request) =>
         PostAsync<OvertimeRequestRecord>(_options.Attendance, "/api/attendance/overtime-requests", request);

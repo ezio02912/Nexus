@@ -10,6 +10,9 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options) : Nexus
     public DbSet<Position> Positions => Set<Position>();
     public DbSet<EmployeeContract> EmployeeContracts => Set<EmployeeContract>();
     public DbSet<EmployeeHistory> EmployeeHistories => Set<EmployeeHistory>();
+    public DbSet<EmployeeAllowance> EmployeeAllowances => Set<EmployeeAllowance>();
+    public DbSet<EmployeeBenefit> EmployeeBenefits => Set<EmployeeBenefit>();
+    public DbSet<EmployeeDocument> EmployeeDocuments => Set<EmployeeDocument>();
     public DbSet<JobRequisition> JobRequisitions => Set<JobRequisition>();
     public DbSet<Candidate> Candidates => Set<Candidate>();
     public DbSet<JobApplication> Applications => Set<JobApplication>();
@@ -25,6 +28,9 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options) : Nexus
         modelBuilder.Entity<Department>().HasIndex(x => new { x.TenantId, x.DepartmentCode }).IsUnique();
         modelBuilder.Entity<Position>().HasIndex(x => new { x.TenantId, x.PositionCode }).IsUnique();
         modelBuilder.Entity<EmployeeContract>().HasIndex(x => new { x.TenantId, x.ContractNo }).IsUnique();
+        modelBuilder.Entity<EmployeeAllowance>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.Name, x.EffectiveFrom });
+        modelBuilder.Entity<EmployeeBenefit>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.Name, x.StartDate });
+        modelBuilder.Entity<EmployeeDocument>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.DocumentType });
         modelBuilder.Entity<JobRequisition>().HasIndex(x => new { x.TenantId, x.RequisitionNo }).IsUnique();
         modelBuilder.Entity<Candidate>().HasIndex(x => new { x.TenantId, x.CandidateCode }).IsUnique();
         modelBuilder.Entity<Offer>().HasIndex(x => new { x.TenantId, x.OfferNo }).IsUnique();
@@ -67,6 +73,8 @@ public sealed class Employee : HrmRecord
     public Guid? DepartmentId { get; set; }
     public Guid? PositionId { get; set; }
     public Guid? ManagerId { get; set; }
+    public string JobLevel { get; set; } = "";
+    public string JobGrade { get; set; } = "";
     public string EmploymentStatus { get; set; } = "Draft";
     public string EmploymentType { get; set; } = "FullTime";
     public DateOnly? JoinDate { get; set; }
@@ -75,12 +83,53 @@ public sealed class Employee : HrmRecord
     public DateOnly? OfficialDate { get; set; }
     public DateOnly? ResignDate { get; set; }
     public string ResignReason { get; set; } = "";
+    public decimal ProbationSalary { get; set; }
+    public decimal OfficialSalary { get; set; }
     public decimal BaseSalary { get; set; }
+    public decimal PerformanceBonusPercent { get; set; }
     public string SalaryCurrency { get; set; } = "VND";
     public Guid? PayrollGroupId { get; set; }
     public Guid? WorkCalendarId { get; set; }
     public Guid? AvatarFileId { get; set; }
     public Guid? OwnerId { get; set; }
+    public string Notes { get; set; } = "";
+}
+
+public sealed class EmployeeAllowance : HrmRecord
+{
+    public Guid EmployeeId { get; set; }
+    public string AllowanceType { get; set; } = "";
+    public string Name { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "VND";
+    public bool Taxable { get; set; } = true;
+    public bool InsuranceIncluded { get; set; }
+    public DateOnly? EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public string Status { get; set; } = "Active";
+}
+
+public sealed class EmployeeBenefit : HrmRecord
+{
+    public Guid EmployeeId { get; set; }
+    public string BenefitType { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string PolicyCode { get; set; } = "";
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public string Status { get; set; } = "Active";
+    public string Notes { get; set; } = "";
+}
+
+public sealed class EmployeeDocument : HrmRecord
+{
+    public Guid EmployeeId { get; set; }
+    public string DocumentType { get; set; } = "";
+    public Guid FileId { get; set; }
+    public string FileName { get; set; } = "";
+    public DateOnly? IssuedDate { get; set; }
+    public DateOnly? ExpiredDate { get; set; }
+    public string Status { get; set; } = "Active";
     public string Notes { get; set; } = "";
 }
 

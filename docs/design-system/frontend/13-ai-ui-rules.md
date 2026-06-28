@@ -11,3 +11,5 @@
 - Editor dòng hàng nên đặt mã hàng, tên hàng, đơn vị, số lượng, đơn giá và nút thêm trên cùng một hàng ở desktop; xuống một cột trên mobile.
 - Upload file trong form tạo mới dùng pending attachments: chọn file trong form, upload và link sau khi entity tạo thành công.
 - Tệp đã upload: ảnh cho xem trước trong dialog, tài liệu thường giữ action tải về.
+- Mọi field tiền trong web-tenant phải dùng `AppMoneyInput` để format realtime phân cách hàng nghìn/thập phân theo chuẩn Việt Nam. Không dùng `BootstrapInputNumber` cho các field có ý nghĩa tiền như `Salary`, `Amount`, `Allowance`, `Deduction`, `Bonus`, `InsuranceSalary`, `NetPay`, `GrossIncome`, `UnitPrice`, `ContractValue`, `TotalAmount`.
+- Field phần trăm, số ngày, số giờ, số lượng vẫn dùng numeric input phù hợp; không dùng `AppMoneyInput` cho phần trăm hoặc quantity.

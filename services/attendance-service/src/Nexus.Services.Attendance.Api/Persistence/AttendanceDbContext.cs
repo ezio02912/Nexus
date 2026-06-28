@@ -95,6 +95,7 @@ public sealed class ShiftAssignment : AttendanceEntity
 public sealed class AttendanceRecord : AttendanceEntity
 {
     public Guid EmployeeId { get; set; }
+    public Guid? DepartmentId { get; set; }
     public DateOnly WorkDate { get; set; }
     public Guid? ShiftId { get; set; }
     public DateTimeOffset? CheckInAt { get; set; }
@@ -145,6 +146,7 @@ public sealed class LeaveRequest : AttendanceEntity
 {
     public string RequestNo { get; set; } = "";
     public Guid EmployeeId { get; set; }
+    public Guid? DepartmentId { get; set; }
     public Guid LeaveTypeId { get; set; }
     public DateOnly FromDate { get; set; }
     public DateOnly ToDate { get; set; }

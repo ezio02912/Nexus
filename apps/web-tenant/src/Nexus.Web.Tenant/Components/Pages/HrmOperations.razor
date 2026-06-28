@@ -1,4 +1,5 @@
 @inject TenantPortalApiClient Api
+@inject FileApiClient FileApi
 @inject TenantSessionService Session
 @inject NavigationManager Navigation
 @inject ToastService ToastService
@@ -78,11 +79,75 @@
                     <BootstrapInput @bind-Value="_form.Name" ShowLabel="false" />
                 </AppFormField>
                 <AppFormField Label="Trạng thái">
-                    <BootstrapInput @bind-Value="_form.Status" ShowLabel="false" />
+                    <Select TValue="string" @bind-Value="_form.Status" Items="@StatusOptions" ShowLabel="false" />
                 </AppFormField>
-                <AppFormField Label="@AmountLabel">
-                    <BootstrapInputNumber @bind-Value="_form.Amount" ShowLabel="false" />
-                </AppFormField>
+                @if (Definition.Kind is "employees" or "profiles" or "dashboard")
+                {
+                    <AppFormField Label="Phòng ban">
+                        <Select TValue="string" @bind-Value="_form.DepartmentIdText" Items="@_departmentOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Chức vụ">
+                        <Select TValue="string" @bind-Value="_form.PositionIdText" Items="@_positionOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Cấp trên trực tiếp">
+                        <Select TValue="string" @bind-Value="_form.ManagerIdText" Items="@_managerOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Loại lao động">
+                        <Select TValue="string" @bind-Value="_form.EmploymentType" Items="@_employmentTypeOptions" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Level">
+                        <BootstrapInput @bind-Value="_form.JobLevel" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Cấp bậc">
+                        <BootstrapInput @bind-Value="_form.JobGrade" ShowLabel="false" />
+                    </AppFormField>
+                    <AppMoneyInput Label="Lương thử việc" @bind-Value="_form.ProbationSalary" DecimalPlaces="0" />
+                    <AppMoneyInput Label="Lương chính thức" @bind-Value="_form.OfficialSalary" DecimalPlaces="0" />
+                    <AppMoneyInput Label="Lương cơ bản" @bind-Value="_form.Amount" DecimalPlaces="0" />
+                    <AppFormField Label="Thưởng hiệu suất (%)">
+                        <BootstrapInputNumber @bind-Value="_form.PerformanceBonusPercent" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Bắt đầu thử việc">
+                        <DateTimePicker TValue="DateTime?" @bind-Value="_form.ProbationStartDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
+                    </AppFormField>
+                    <AppFormField Label="Kết thúc thử việc">
+                        <DateTimePicker TValue="DateTime?" @bind-Value="_form.ProbationEndDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
+                    </AppFormField>
+                    <PendingFileAttachmentInput Label="Ảnh nhân viên, bằng cấp, hợp đồng, hồ sơ" @bind-Files="_employeeFiles" />
+                }
+                else if (Definition.Kind == "departments")
+                {
+                    <AppFormField Label="Phòng ban cha">
+                        <Select TValue="string" @bind-Value="_form.ParentDepartmentIdText" Items="@_departmentOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Trưởng phòng">
+                        <Select TValue="string" @bind-Value="_form.ManagerIdText" Items="@_managerOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Cost center">
+                        <BootstrapInput @bind-Value="_form.CostCenterCode" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Địa điểm">
+                        <BootstrapInput @bind-Value="_form.Location" ShowLabel="false" />
+                    </AppFormField>
+                }
+                else if (Definition.Kind == "positions")
+                {
+                    <AppFormField Label="Phòng ban">
+                        <Select TValue="string" @bind-Value="_form.DepartmentIdText" Items="@_departmentOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Level">
+                        <BootstrapInput @bind-Value="_form.JobLevel" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Job grade">
+                        <BootstrapInput @bind-Value="_form.JobGrade" ShowLabel="false" />
+                    </AppFormField>
+                    <AppMoneyInput Label="Lương tối thiểu" @bind-Value="_form.MinSalary" DecimalPlaces="0" />
+                    <AppMoneyInput Label="Lương tối đa" @bind-Value="_form.Amount" DecimalPlaces="0" />
+                }
+                else
+                {
+                    <AppMoneyInput Label="@AmountLabel" @bind-Value="_form.Amount" DecimalPlaces="0" />
+                }
                 <AppFormField Label="Ngày bắt đầu">
                     <DateTimePicker TValue="DateTime?" @bind-Value="_form.StartDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
                 </AppFormField>
@@ -106,12 +171,35 @@
     private Table<OperationRow>? _table;
     private Modal? _editModal;
     private HrmFormModel _form = new();
+    private List<PendingFileAttachment> _employeeFiles = [];
+    private IReadOnlyList<HrmEmployeeRecord> _employees = [];
+    private IReadOnlyList<HrmDepartmentRecord> _departments = [];
+    private IReadOnlyList<HrmPositionRecord> _positions = [];
+    private IReadOnlyList<HrmContractRecord> _contracts = [];
+    private List<SelectedItem> _departmentOptions = [new("", "Chọn phòng ban...")];
+    private List<SelectedItem> _positionOptions = [new("", "Chọn chức vụ...")];
+    private List<SelectedItem> _managerOptions = [new("", "Chọn cấp trên...")];
+    private readonly List<SelectedItem> _employmentTypeOptions =
+    [
+        new("FullTime", "Toàn thời gian"),
+        new("PartTime", "Bán thời gian"),
+        new("Outsource", "Outsource"),
+        new("Probation", "Thử việc"),
+        new("Intern", "Thực tập")
+    ];
     private string _dialogTitle = "";
 
     private HrmDefinition Definition => ResolveDefinition();
     private string CodeLabel => Definition.Kind switch { "employees" or "profiles" or "dashboard" => "Mã nhân viên", "departments" => "Mã phòng ban", "positions" => "Mã chức vụ", "contracts" => "Số hợp đồng", "recruitment" => "Mã/Số", _ => "Mã" };
     private string NameLabel => Definition.Kind switch { "employees" or "profiles" or "dashboard" => "Họ tên", "departments" => "Tên phòng ban", "positions" => "Tên chức vụ", "contracts" => "Loại hợp đồng", "recruitment" => "Tiêu đề/Họ tên", _ => "Tên" };
     private string AmountLabel => Definition.Kind switch { "positions" => "Lương tối đa", "contracts" => "Lương cơ bản", "recruitment" => "Ngân sách/Lương", _ => "Lương/Giá trị" };
+    private List<SelectedItem> StatusOptions => Definition.Kind switch
+    {
+        "employees" or "profiles" or "dashboard" => [new("Draft", "Nháp"), new("Probation", "Thử việc"), new("Official", "Chính thức"), new("Outsource", "Outsource"), new("PartTime", "Part-time"), new("Suspended", "Tạm ngưng"), new("Resigned", "Nghỉ việc")],
+        "departments" or "positions" => [new("Active", "Hoạt động"), new("Inactive", "Ngừng dùng")],
+        "contracts" => [new("Draft", "Nháp"), new("Signed", "Đã ký"), new("Completed", "Đã hoàn thành"), new("Terminated", "Đã chấm dứt")],
+        _ => [new("Open", "Đang mở"), new("Draft", "Nháp"), new("Accepted", "Đã nhận"), new("Rejected", "Từ chối"), new("Closed", "Đã đóng")]
+    };
 
     private async Task<QueryData<OperationRow>> OnQueryAsync(QueryPageOptions options)
     {
@@ -141,22 +229,27 @@
 
     private async Task<List<OperationRow>> LoadRowsAsync(Guid tenantId, string? search)
     {
+        await LoadLookupsAsync(tenantId);
+
         if (Definition.Kind == "employees" || Definition.Kind == "profiles" || Definition.Kind == "dashboard")
         {
             var items = await Api.GetHrmEmployeesAsync(tenantId, search) ?? [];
-            return items.Select(x => new OperationRow(x.Id, x.EmployeeCode, x.FullName, x.EmploymentStatus, x.BaseSalary, x.SalaryCurrency, $"{x.EmploymentType} | {x.WorkEmail} | {x.Phone}", x.UpdatedAt)).ToList();
+            _employees = items;
+            return items.Select(x => new OperationRow(x.Id, x.EmployeeCode, x.FullName, x.EmploymentStatus, x.BaseSalary, x.SalaryCurrency, $"{DepartmentName(x.DepartmentId)} | {PositionName(x.PositionId)} | {ManagerName(x.ManagerId)} | {x.EmploymentType}", x.UpdatedAt)).ToList();
         }
 
         if (Definition.Kind == "departments")
         {
             var items = await Api.GetHrmDepartmentsAsync(tenantId, search) ?? [];
-            return items.Select(x => new OperationRow(x.Id, x.DepartmentCode, x.Name, x.Status, 0, "VND", $"{x.CostCenterCode} | {x.Location}", x.UpdatedAt)).ToList();
+            _departments = items;
+            return items.Select(x => new OperationRow(x.Id, x.DepartmentCode, x.Name, x.Status, 0, "VND", $"Cha: {DepartmentName(x.ParentDepartmentId)} | Quản lý: {ManagerName(x.ManagerId)} | {x.CostCenterCode} | {x.Location}", x.UpdatedAt)).ToList();
         }
 
         if (Definition.Kind == "positions")
         {
             var items = await Api.GetHrmPositionsAsync(tenantId, search) ?? [];
-            return items.Select(x => new OperationRow(x.Id, x.PositionCode, x.Name, x.Status, x.MaxSalary, "VND", $"{x.Level} | {x.JobGrade} | {FormatAmount(x.MinSalary, "VND")} - {FormatAmount(x.MaxSalary, "VND")}", x.UpdatedAt)).ToList();
+            _positions = items;
+            return items.Select(x => new OperationRow(x.Id, x.PositionCode, x.Name, x.Status, x.MaxSalary, "VND", $"{DepartmentName(x.DepartmentId)} | {x.Level} | {x.JobGrade} | {FormatAmount(x.MinSalary, "VND")} - {FormatAmount(x.MaxSalary, "VND")}", x.UpdatedAt)).ToList();
         }
 
         if (Definition.Kind == "contracts")
@@ -200,17 +293,107 @@
         }
     }
 
-    private Task ShowCreateAsync(IEnumerable<OperationRow> _)
+    private async Task ShowCreateAsync(IEnumerable<OperationRow> _)
     {
+        if (Session.TenantId is Guid tenantId)
+        {
+            await LoadLookupsAsync(tenantId);
+        }
+
         _dialogTitle = $"Thêm {Definition.Title.ToLowerInvariant()}";
-        _form = new HrmFormModel { Status = DefaultStatus(), Currency = "VND" };
-        return _editModal!.Show();
+        _employeeFiles = [];
+        _form = new HrmFormModel { Status = DefaultStatus(), Currency = "VND", EmploymentType = "FullTime" };
+        await _editModal!.Show();
     }
 
-    private Task ShowEditAsync(OperationRow row)
+    private async Task ShowEditAsync(OperationRow row)
     {
+        if (Session.TenantId is Guid tenantId)
+        {
+            await LoadLookupsAsync(tenantId);
+        }
+
         _dialogTitle = $"Sửa {Definition.Title.ToLowerInvariant()}";
-        _form = new HrmFormModel
+        _employeeFiles = [];
+        _form = BuildForm(row);
+        await _editModal!.Show();
+    }
+
+    private HrmFormModel BuildForm(OperationRow row)
+    {
+        if (Definition.Kind is "employees" or "profiles" or "dashboard")
+        {
+            var employee = _employees.FirstOrDefault(x => x.Id == row.Id);
+            if (employee is not null)
+            {
+                return new HrmFormModel
+                {
+                    Id = employee.Id,
+                    Code = employee.EmployeeCode,
+                    Name = employee.FullName,
+                    Status = employee.EmploymentStatus,
+                    Amount = employee.BaseSalary,
+                    Currency = employee.SalaryCurrency,
+                    DepartmentIdText = employee.DepartmentId?.ToString() ?? "",
+                    PositionIdText = employee.PositionId?.ToString() ?? "",
+                    ManagerIdText = employee.ManagerId?.ToString() ?? "",
+                    EmploymentType = string.IsNullOrWhiteSpace(employee.EmploymentType) ? "FullTime" : employee.EmploymentType,
+                    JobLevel = employee.JobLevel,
+                    JobGrade = employee.JobGrade,
+                    ProbationSalary = employee.ProbationSalary,
+                    OfficialSalary = employee.OfficialSalary,
+                    PerformanceBonusPercent = employee.PerformanceBonusPercent,
+                    StartDate = ToDateTime(employee.JoinDate),
+                    ProbationStartDate = ToDateTime(employee.ProbationStartDate),
+                    ProbationEndDate = ToDateTime(employee.ProbationEndDate),
+                    EndDate = ToDateTime(employee.ResignDate),
+                    Extra = employee.Notes
+                };
+            }
+        }
+
+        if (Definition.Kind == "departments")
+        {
+            var department = _departments.FirstOrDefault(x => x.Id == row.Id);
+            if (department is not null)
+            {
+                return new HrmFormModel
+                {
+                    Id = department.Id,
+                    Code = department.DepartmentCode,
+                    Name = department.Name,
+                    Status = department.Status,
+                    ParentDepartmentIdText = department.ParentDepartmentId?.ToString() ?? "",
+                    ManagerIdText = department.ManagerId?.ToString() ?? "",
+                    CostCenterCode = department.CostCenterCode,
+                    Location = department.Location,
+                    Extra = department.Description
+                };
+            }
+        }
+
+        if (Definition.Kind == "positions")
+        {
+            var position = _positions.FirstOrDefault(x => x.Id == row.Id);
+            if (position is not null)
+            {
+                return new HrmFormModel
+                {
+                    Id = position.Id,
+                    Code = position.PositionCode,
+                    Name = position.Name,
+                    Status = position.Status,
+                    Amount = position.MaxSalary,
+                    MinSalary = position.MinSalary,
+                    DepartmentIdText = position.DepartmentId?.ToString() ?? "",
+                    JobLevel = position.Level,
+                    JobGrade = position.JobGrade,
+                    Extra = position.Description
+                };
+            }
+        }
+
+        return new HrmFormModel
         {
             Id = row.Id,
             Code = row.Code,
@@ -220,7 +403,6 @@
             Currency = row.Currency,
             Extra = row.Extra
         };
-        return _editModal!.Show();
     }
 
     private async Task SaveAsync()
@@ -233,7 +415,12 @@
 
         try
         {
-            await UpsertAsync(tenantId);
+            var savedId = await UpsertAsync(tenantId);
+            if (savedId is Guid employeeId && Definition.Kind is "employees" or "profiles" or "dashboard" && _employeeFiles.Count > 0)
+            {
+                await FileApi.UploadAndLinkAsync(_employeeFiles, "HRM", "Employee", employeeId.ToString(), "EmployeeProfile");
+            }
+
             await ToastService.Success("Thành công", "Đã lưu dữ liệu.");
             await _editModal!.Close();
             await ReloadAsync();
@@ -265,7 +452,30 @@
 
     private Task ReloadAsync() => _table is null ? Task.CompletedTask : _table.QueryAsync();
 
-    private async Task UpsertAsync(Guid tenantId)
+    private async Task LoadLookupsAsync(Guid tenantId)
+    {
+        _departments = await Api.GetHrmDepartmentsAsync(tenantId) ?? [];
+        _positions = await Api.GetHrmPositionsAsync(tenantId) ?? [];
+        _employees = await Api.GetHrmEmployeesAsync(tenantId) ?? [];
+
+        _departmentOptions =
+        [
+            new("", "Chọn phòng ban..."),
+            .. _departments.Select(x => new SelectedItem(x.Id.ToString(), $"{x.DepartmentCode} - {x.Name}"))
+        ];
+        _positionOptions =
+        [
+            new("", "Chọn chức vụ..."),
+            .. _positions.Select(x => new SelectedItem(x.Id.ToString(), $"{x.PositionCode} - {x.Name}"))
+        ];
+        _managerOptions =
+        [
+            new("", "Chọn cấp trên..."),
+            .. _employees.Select(x => new SelectedItem(x.Id.ToString(), $"{x.EmployeeCode} - {x.FullName}"))
+        ];
+    }
+
+    private async Task<Guid?> UpsertAsync(Guid tenantId)
     {
         var id = _form.Id;
         var now = DateTimeOffset.UtcNow;
@@ -274,20 +484,20 @@
             case "employees":
             case "profiles":
             case "dashboard":
-                await Api.UpsertHrmEmployeeAsync(new HrmEmployeeRecord { Id = id, TenantId = tenantId, EmployeeCode = _form.Code.Trim(), FullName = _form.Name.Trim(), DisplayName = _form.Name.Trim(), EmploymentStatus = BlankDefault(_form.Status, "Draft"), EmploymentType = "FullTime", BaseSalary = _form.Amount, SalaryCurrency = "VND", WorkEmail = _form.Extra ?? "", UpdatedAt = now });
-                break;
+                var employee = await Api.UpsertHrmEmployeeAsync(new HrmEmployeeRecord { Id = id, TenantId = tenantId, EmployeeCode = _form.Code.Trim(), FullName = _form.Name.Trim(), DisplayName = _form.Name.Trim(), DepartmentId = ParseGuid(_form.DepartmentIdText), PositionId = ParseGuid(_form.PositionIdText), ManagerId = ParseGuid(_form.ManagerIdText), JobLevel = _form.JobLevel.Trim(), JobGrade = _form.JobGrade.Trim(), EmploymentStatus = BlankDefault(_form.Status, "Draft"), EmploymentType = BlankDefault(_form.EmploymentType, "FullTime"), JoinDate = ToDateOnly(_form.StartDate), ProbationStartDate = ToDateOnly(_form.ProbationStartDate), ProbationEndDate = ToDateOnly(_form.ProbationEndDate), ResignDate = ToDateOnly(_form.EndDate), ProbationSalary = _form.ProbationSalary, OfficialSalary = _form.OfficialSalary, BaseSalary = _form.Amount, PerformanceBonusPercent = _form.PerformanceBonusPercent, SalaryCurrency = "VND", Notes = _form.Extra ?? "", UpdatedAt = now });
+                return employee?.Id ?? id;
             case "departments":
-                await Api.UpsertHrmDepartmentAsync(new HrmDepartmentRecord { Id = id, TenantId = tenantId, DepartmentCode = _form.Code.Trim(), Name = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Active"), Description = _form.Extra ?? "", UpdatedAt = now });
-                break;
+                var department = await Api.UpsertHrmDepartmentAsync(new HrmDepartmentRecord { Id = id, TenantId = tenantId, DepartmentCode = _form.Code.Trim(), Name = _form.Name.Trim(), ParentDepartmentId = ParseGuid(_form.ParentDepartmentIdText), ManagerId = ParseGuid(_form.ManagerIdText), CostCenterCode = _form.CostCenterCode.Trim(), Location = _form.Location.Trim(), Status = BlankDefault(_form.Status, "Active"), Description = _form.Extra ?? "", UpdatedAt = now });
+                return department?.Id ?? id;
             case "positions":
-                await Api.UpsertHrmPositionAsync(new HrmPositionRecord { Id = id, TenantId = tenantId, PositionCode = _form.Code.Trim(), Name = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Active"), MaxSalary = _form.Amount, Description = _form.Extra ?? "", UpdatedAt = now });
-                break;
+                var position = await Api.UpsertHrmPositionAsync(new HrmPositionRecord { Id = id, TenantId = tenantId, PositionCode = _form.Code.Trim(), Name = _form.Name.Trim(), DepartmentId = ParseGuid(_form.DepartmentIdText), Level = _form.JobLevel.Trim(), JobGrade = _form.JobGrade.Trim(), MinSalary = _form.MinSalary, MaxSalary = _form.Amount, Status = BlankDefault(_form.Status, "Active"), Description = _form.Extra ?? "", UpdatedAt = now });
+                return position?.Id ?? id;
             case "contracts":
-                await Api.UpsertHrmContractAsync(new HrmContractRecord { Id = id, TenantId = tenantId, ContractNo = _form.Code.Trim(), ContractType = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Draft"), BaseSalary = _form.Amount, Currency = "VND", WorkingLocation = _form.Extra ?? "", EffectiveFrom = ToDateOnly(_form.StartDate), EffectiveTo = ToDateOnly(_form.EndDate), UpdatedAt = now });
-                break;
+                var contract = await Api.UpsertHrmContractAsync(new HrmContractRecord { Id = id, TenantId = tenantId, ContractNo = _form.Code.Trim(), ContractType = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Draft"), BaseSalary = _form.Amount, Currency = "VND", WorkingLocation = _form.Extra ?? "", EffectiveFrom = ToDateOnly(_form.StartDate), EffectiveTo = ToDateOnly(_form.EndDate), UpdatedAt = now });
+                return contract?.Id ?? id;
             default:
-                await Api.UpsertHrmRequisitionAsync(new HrmRequisitionRecord { Id = id, TenantId = tenantId, RequisitionNo = _form.Code.Trim(), Title = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Open"), SalaryMax = _form.Amount, WorkLocation = _form.Extra ?? "", UpdatedAt = now });
-                break;
+                var requisition = await Api.UpsertHrmRequisitionAsync(new HrmRequisitionRecord { Id = id, TenantId = tenantId, RequisitionNo = _form.Code.Trim(), Title = _form.Name.Trim(), DepartmentId = ParseGuid(_form.DepartmentIdText), PositionId = ParseGuid(_form.PositionIdText), Status = BlankDefault(_form.Status, "Open"), SalaryMax = _form.Amount, WorkLocation = _form.Extra ?? "", UpdatedAt = now });
+                return requisition?.Id ?? id;
         }
     }
 
@@ -309,6 +519,11 @@
 
     private static string BlankDefault(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     private static DateOnly? ToDateOnly(DateTime? value) => value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
+    private static DateTime? ToDateTime(DateOnly? value) => value.HasValue ? value.Value.ToDateTime(TimeOnly.MinValue) : null;
+    private static Guid? ParseGuid(string? value) => Guid.TryParse(value, out var id) ? id : null;
+    private string DepartmentName(Guid? id) => id.HasValue ? _departments.FirstOrDefault(x => x.Id == id.Value)?.Name ?? "-" : "-";
+    private string PositionName(Guid? id) => id.HasValue ? _positions.FirstOrDefault(x => x.Id == id.Value)?.Name ?? "-" : "-";
+    private string ManagerName(Guid? id) => id.HasValue ? _employees.FirstOrDefault(x => x.Id == id.Value)?.FullName ?? "-" : "-";
 
     private HrmDefinition ResolveDefinition()
     {
@@ -333,7 +548,13 @@
     {
         "Active" => "Hoạt động",
         "Draft" => "Nháp",
+        "Probation" => "Thử việc",
+        "Official" => "Chính thức",
+        "Outsource" => "Outsource",
+        "PartTime" => "Part-time",
+        "Suspended" => "Tạm ngưng",
         "Signed" => "Đã ký",
+        "Completed" => "Đã hoàn thành",
         "Accepted" => "Đã nhận",
         "Resigned" => "Nghỉ việc",
         "Open" => "Đang mở",
@@ -343,9 +564,9 @@
 
     private static string StatusCss(string status) => status switch
     {
-        "Active" or "Signed" or "Accepted" or "Won" => "app-status-badge app-status-active",
-        "Draft" or "Open" => "app-status-badge app-status-pending",
-        "Resigned" or "Rejected" => "app-status-badge app-status-danger",
+        "Active" or "Official" or "Signed" or "Accepted" or "Won" or "Completed" => "app-status-badge app-status-active",
+        "Draft" or "Open" or "Probation" or "Outsource" or "PartTime" or "Suspended" => "app-status-badge app-status-pending",
+        "Resigned" or "Rejected" or "Terminated" => "app-status-badge app-status-danger",
         _ => "app-status-badge app-status-muted"
     };
 
@@ -397,9 +618,24 @@
         public string Name { get; set; } = "";
         public string Status { get; set; } = "";
         public decimal Amount { get; set; }
+        public decimal MinSalary { get; set; }
+        public decimal ProbationSalary { get; set; }
+        public decimal OfficialSalary { get; set; }
+        public decimal PerformanceBonusPercent { get; set; }
         public string Currency { get; set; } = "VND";
+        public string DepartmentIdText { get; set; } = "";
+        public string PositionIdText { get; set; } = "";
+        public string ManagerIdText { get; set; } = "";
+        public string ParentDepartmentIdText { get; set; } = "";
+        public string EmploymentType { get; set; } = "FullTime";
+        public string JobLevel { get; set; } = "";
+        public string JobGrade { get; set; } = "";
+        public string CostCenterCode { get; set; } = "";
+        public string Location { get; set; } = "";
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+        public DateTime? ProbationStartDate { get; set; }
+        public DateTime? ProbationEndDate { get; set; }
         public string? Extra { get; set; }
     }
 }

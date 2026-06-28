@@ -82,8 +82,41 @@
                     <BootstrapInput @bind-Value="_form.Name" ShowLabel="false" />
                 </AppFormField>
                 <AppFormField Label="Trạng thái">
-                    <BootstrapInput @bind-Value="_form.Status" ShowLabel="false" />
+                    <Select TValue="string" @bind-Value="_form.Status" Items="@StatusOptions" ShowLabel="false" />
                 </AppFormField>
+                @if (Definition.Kind is "records" or "timesheets" or "leaves" or "overtime")
+                {
+                    <AppFormField Label="Nhân viên" Required="true">
+                        <Select TValue="string" @bind-Value="_form.EmployeeIdText" Items="@_employeeOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Phòng ban">
+                        <Select TValue="string" @bind-Value="_form.DepartmentIdText" Items="@_departmentOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                }
+                @if (Definition.Kind is "records" or "timesheets")
+                {
+                    <AppFormField Label="Ca làm">
+                        <Select TValue="string" @bind-Value="_form.ShiftIdText" Items="@_shiftOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Đi muộn (phút)">
+                        <BootstrapInputNumber @bind-Value="_form.LateMinutes" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Về sớm (phút)">
+                        <BootstrapInputNumber @bind-Value="_form.EarlyLeaveMinutes" ShowLabel="false" />
+                    </AppFormField>
+                    <AppFormField Label="Tăng ca (phút)">
+                        <BootstrapInputNumber @bind-Value="_form.OvertimeMinutes" ShowLabel="false" />
+                    </AppFormField>
+                }
+                @if (Definition.Kind == "leaves")
+                {
+                    <AppFormField Label="Loại phép">
+                        <Select TValue="string" @bind-Value="_form.LeaveTypeIdText" Items="@_leaveTypeOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                    <AppFormField Label="Người duyệt">
+                        <Select TValue="string" @bind-Value="_form.ApproverIdText" Items="@_employeeOptions" ShowLabel="false" ShowSearch="true" />
+                    </AppFormField>
+                }
                 <AppFormField Label="Ngày">
                     <DateTimePicker TValue="DateTime?" @bind-Value="_form.WorkDate" ShowLabel="false" DateTimeFormat="dd/MM/yyyy" />
                 </AppFormField>
@@ -113,10 +146,27 @@
     private Table<AttendanceRow>? _table;
     private Modal? _editModal;
     private AttendanceFormModel _form = new();
+    private IReadOnlyList<HrmEmployeeRecord> _employees = [];
+    private IReadOnlyList<HrmDepartmentRecord> _departments = [];
+    private IReadOnlyList<AttendanceShiftRecord> _shifts = [];
+    private IReadOnlyList<LeaveTypeRecord> _leaveTypes = [];
+    private IReadOnlyList<AttendanceRecordItem> _records = [];
+    private IReadOnlyList<LeaveRequestRecord> _leaveRequests = [];
+    private IReadOnlyList<OvertimeRequestRecord> _overtimeRequests = [];
+    private List<SelectedItem> _employeeOptions = [new("", "Chọn nhân viên...")];
+    private List<SelectedItem> _departmentOptions = [new("", "Chọn phòng ban...")];
+    private List<SelectedItem> _shiftOptions = [new("", "Chọn ca...")];
+    private List<SelectedItem> _leaveTypeOptions = [new("", "Chọn loại phép...")];
     private string _dialogTitle = "";
     private AttendanceDefinition Definition => ResolveDefinition();
     private string CodeLabel => Definition.Kind switch { "calendars" => "Mã lịch", "shifts" or "assignments" => "Mã ca", "leaves" or "overtime" => "Số đơn", _ => "Mã" };
     private string NameLabel => Definition.Kind switch { "calendars" => "Tên lịch", "shifts" or "assignments" => "Tên ca", "leaves" => "Lý do nghỉ", "overtime" => "Loại tăng ca", _ => "Nội dung" };
+    private List<SelectedItem> StatusOptions => Definition.Kind switch
+    {
+        "calendars" or "shifts" or "assignments" => [new("Active", "Hoạt động"), new("Inactive", "Ngừng dùng")],
+        "records" or "timesheets" => [new("Draft", "Nháp"), new("Present", "Có mặt"), new("Late", "Đi muộn"), new("EarlyLeave", "Về sớm"), new("Absent", "Vắng"), new("OnLeave", "Nghỉ phép")],
+        _ => [new("Pending", "Chờ duyệt"), new("Approved", "Đã duyệt"), new("Rejected", "Từ chối"), new("Cancelled", "Đã huỷ")]
+    };
 
     private async Task<QueryData<AttendanceRow>> OnQueryAsync(QueryPageOptions options)
     {
@@ -140,6 +190,8 @@
 
     private async Task<List<AttendanceRow>> LoadRowsAsync(Guid tenantId, string? search)
     {
+        await LoadLookupsAsync(tenantId);
+
         if (Definition.Kind == "calendars")
         {
             var items = await Api.GetAttendanceCalendarsAsync(tenantId, search) ?? [];
@@ -155,17 +207,20 @@
         if (Definition.Kind == "records" || Definition.Kind == "timesheets")
         {
             var items = await Api.GetAttendanceRecordsAsync(tenantId, search) ?? [];
-            return items.Select(x => new AttendanceRow(x.Id, x.EmployeeId.ToString("N")[..8], "Chấm công", x.WorkDate.ToString("dd/MM/yyyy"), x.Status, $"{x.WorkedMinutes / 60m:N1}h", $"Muộn {x.LateMinutes}p | Sớm {x.EarlyLeaveMinutes}p | OT {x.OvertimeMinutes}p | {x.CorrectionStatus}", x.UpdatedAt, "record")).ToList();
+            _records = items;
+            return items.Select(x => new AttendanceRow(x.Id, EmployeeCode(x.EmployeeId), EmployeeName(x.EmployeeId), x.WorkDate.ToString("dd/MM/yyyy"), x.Status, $"{x.WorkedMinutes / 60m:N1}h", $"{DepartmentName(x.DepartmentId)} | {ShiftName(x.ShiftId)} | Muộn {x.LateMinutes}p | Sớm {x.EarlyLeaveMinutes}p | OT {x.OvertimeMinutes}p | {x.CorrectionStatus}", x.UpdatedAt, "record")).ToList();
         }
 
         if (Definition.Kind == "leaves")
         {
             var items = await Api.GetLeaveRequestsAsync(tenantId, search) ?? [];
-            return items.Select(x => new AttendanceRow(x.Id, x.RequestNo, x.Reason, $"{x.FromDate:dd/MM/yyyy} - {x.ToDate:dd/MM/yyyy}", x.Status, $"{x.TotalDays:N1} ngày", $"Employee {x.EmployeeId.ToString("N")[..8]}", x.UpdatedAt, "leave")).ToList();
+            _leaveRequests = items;
+            return items.Select(x => new AttendanceRow(x.Id, x.RequestNo, x.Reason, $"{x.FromDate:dd/MM/yyyy} - {x.ToDate:dd/MM/yyyy}", x.Status, $"{x.TotalDays:N1} ngày", $"{EmployeeName(x.EmployeeId)} | {DepartmentName(x.DepartmentId)} | {LeaveTypeName(x.LeaveTypeId)}", x.UpdatedAt, "leave")).ToList();
         }
 
         var overtime = await Api.GetOvertimeRequestsAsync(tenantId, search) ?? [];
-        return overtime.Select(x => new AttendanceRow(x.Id, x.RequestNo, x.OvertimeType, x.WorkDate.ToString("dd/MM/yyyy"), x.Status, $"{x.TotalHours:N1}h x{x.RateMultiplier:N1}", $"{x.FromTime:HH\\:mm}-{x.ToTime:HH\\:mm} | Employee {x.EmployeeId.ToString("N")[..8]}", x.UpdatedAt, "overtime")).ToList();
+        _overtimeRequests = overtime;
+        return overtime.Select(x => new AttendanceRow(x.Id, x.RequestNo, x.OvertimeType, x.WorkDate.ToString("dd/MM/yyyy"), x.Status, $"{x.TotalHours:N1}h x{x.RateMultiplier:N1}", $"{x.FromTime:HH\\:mm}-{x.ToTime:HH\\:mm} | {EmployeeName(x.EmployeeId)}", x.UpdatedAt, "overtime")).ToList();
     }
 
     private async Task SetupDefaultsAsync(IEnumerable<AttendanceRow> _)
@@ -190,25 +245,110 @@
         }
     }
 
-    private Task ShowCreateAsync(IEnumerable<AttendanceRow> _)
+    private async Task ShowCreateAsync(IEnumerable<AttendanceRow> _)
     {
+        if (Session.TenantId is Guid tenantId)
+        {
+            await LoadLookupsAsync(tenantId);
+        }
+
         _dialogTitle = $"Thêm {Definition.Title.ToLowerInvariant()}";
         _form = new AttendanceFormModel
         {
             Status = Definition.Kind is "calendars" or "shifts" or "assignments" ? "Active" : "Pending",
+            Code = Definition.Kind is "records" or "timesheets" ? $"CC-{DateTime.Today:yyyyMMdd}" : "",
+            Name = Definition.Kind is "records" or "timesheets" ? "Chấm công" : "",
             WorkDate = DateTime.Today,
             StartTime = DateTime.Today.AddHours(8),
             EndTime = DateTime.Today.AddHours(17),
             Amount = Definition.Kind == "calendars" ? 8 : 0
         };
-        return _editModal!.Show();
+        await _editModal!.Show();
     }
 
-    private Task ShowEditAsync(AttendanceRow row)
+    private async Task ShowEditAsync(AttendanceRow row)
     {
+        if (Session.TenantId is Guid tenantId)
+        {
+            await LoadLookupsAsync(tenantId);
+        }
+
         _dialogTitle = $"Sửa {Definition.Title.ToLowerInvariant()}";
-        _form = new AttendanceFormModel { Id = row.Id, Code = row.Code, Name = row.Name, Status = row.Status, Amount = ParseLeadingDecimal(row.Metric), Extra = row.Extra };
-        return _editModal!.Show();
+        _form = BuildForm(row);
+        await _editModal!.Show();
+    }
+
+    private AttendanceFormModel BuildForm(AttendanceRow row)
+    {
+        if (Definition.Kind is "records" or "timesheets")
+        {
+            var record = _records.FirstOrDefault(x => x.Id == row.Id);
+            if (record is not null)
+            {
+                return new AttendanceFormModel
+                {
+                    Id = record.Id,
+                    Code = EmployeeCode(record.EmployeeId),
+                    Name = "Chấm công",
+                    Status = record.Status,
+                    EmployeeIdText = record.EmployeeId.ToString(),
+                    DepartmentIdText = record.DepartmentId?.ToString() ?? "",
+                    ShiftIdText = record.ShiftId?.ToString() ?? "",
+                    WorkDate = record.WorkDate.ToDateTime(TimeOnly.MinValue),
+                    StartTime = record.CheckInAt?.LocalDateTime,
+                    EndTime = record.CheckOutAt?.LocalDateTime,
+                    Amount = record.WorkedMinutes / 60m,
+                    LateMinutes = record.LateMinutes,
+                    EarlyLeaveMinutes = record.EarlyLeaveMinutes,
+                    OvertimeMinutes = record.OvertimeMinutes,
+                    Extra = record.CorrectionStatus
+                };
+            }
+        }
+
+        if (Definition.Kind == "leaves")
+        {
+            var leave = _leaveRequests.FirstOrDefault(x => x.Id == row.Id);
+            if (leave is not null)
+            {
+                return new AttendanceFormModel
+                {
+                    Id = leave.Id,
+                    Code = leave.RequestNo,
+                    Name = leave.Reason,
+                    Status = leave.Status,
+                    EmployeeIdText = leave.EmployeeId.ToString(),
+                    DepartmentIdText = leave.DepartmentId?.ToString() ?? "",
+                    LeaveTypeIdText = leave.LeaveTypeId.ToString(),
+                    ApproverIdText = leave.ApproverId?.ToString() ?? "",
+                    WorkDate = leave.FromDate.ToDateTime(TimeOnly.MinValue),
+                    EndTime = leave.ToDate.ToDateTime(TimeOnly.MinValue),
+                    Amount = leave.TotalDays
+                };
+            }
+        }
+
+        if (Definition.Kind == "overtime")
+        {
+            var overtime = _overtimeRequests.FirstOrDefault(x => x.Id == row.Id);
+            if (overtime is not null)
+            {
+                return new AttendanceFormModel
+                {
+                    Id = overtime.Id,
+                    Code = overtime.RequestNo,
+                    Name = overtime.OvertimeType,
+                    Status = overtime.Status,
+                    EmployeeIdText = overtime.EmployeeId.ToString(),
+                    WorkDate = overtime.WorkDate.ToDateTime(TimeOnly.MinValue),
+                    StartTime = DateTime.Today.Add(overtime.FromTime.ToTimeSpan()),
+                    EndTime = DateTime.Today.Add(overtime.ToTime.ToTimeSpan()),
+                    Amount = overtime.TotalHours
+                };
+            }
+        }
+
+        return new AttendanceFormModel { Id = row.Id, Code = row.Code, Name = row.Name, Status = row.Status, Amount = ParseLeadingDecimal(row.Metric), Extra = row.Extra };
     }
 
     private async Task SaveAsync()
@@ -253,6 +393,35 @@
 
     private Task ReloadAsync() => _table is null ? Task.CompletedTask : _table.QueryAsync();
 
+    private async Task LoadLookupsAsync(Guid tenantId)
+    {
+        _employees = await Api.GetHrmEmployeesAsync(tenantId) ?? [];
+        _departments = await Api.GetHrmDepartmentsAsync(tenantId) ?? [];
+        _shifts = await Api.GetAttendanceShiftsAsync(tenantId) ?? [];
+        _leaveTypes = await Api.GetLeaveTypesAsync(tenantId) ?? [];
+
+        _employeeOptions =
+        [
+            new("", "Chọn nhân viên..."),
+            .. _employees.Select(x => new SelectedItem(x.Id.ToString(), $"{x.EmployeeCode} - {x.FullName}"))
+        ];
+        _departmentOptions =
+        [
+            new("", "Chọn phòng ban..."),
+            .. _departments.Select(x => new SelectedItem(x.Id.ToString(), $"{x.DepartmentCode} - {x.Name}"))
+        ];
+        _shiftOptions =
+        [
+            new("", "Chọn ca..."),
+            .. _shifts.Select(x => new SelectedItem(x.Id.ToString(), $"{x.ShiftCode} - {x.Name}"))
+        ];
+        _leaveTypeOptions =
+        [
+            new("", "Chọn loại phép..."),
+            .. _leaveTypes.Select(x => new SelectedItem(x.Id.ToString(), $"{x.LeaveTypeCode} - {x.Name}"))
+        ];
+    }
+
     private async Task UpsertAsync(Guid tenantId)
     {
         var now = DateTimeOffset.UtcNow;
@@ -266,15 +435,15 @@
         }
         else if (Definition.Kind is "records" or "timesheets")
         {
-            await Api.UpsertAttendanceRecordAsync(new AttendanceRecordItem { Id = _form.Id, TenantId = tenantId, EmployeeId = Guid.Empty, WorkDate = ToDate(_form.WorkDate), Status = BlankDefault(_form.Status, "Draft"), WorkedMinutes = (int)(_form.Amount * 60), UpdatedAt = now });
+            await Api.UpsertAttendanceRecordAsync(new AttendanceRecordItem { Id = _form.Id, TenantId = tenantId, EmployeeId = ParseGuid(_form.EmployeeIdText) ?? Guid.Empty, DepartmentId = ParseGuid(_form.DepartmentIdText), ShiftId = ParseGuid(_form.ShiftIdText), WorkDate = ToDate(_form.WorkDate), CheckInAt = ToDateTimeOffset(_form.StartTime), CheckOutAt = ToDateTimeOffset(_form.EndTime), Status = BlankDefault(_form.Status, "Draft"), LateMinutes = _form.LateMinutes, EarlyLeaveMinutes = _form.EarlyLeaveMinutes, WorkedMinutes = _form.Amount > 0 ? (int)(_form.Amount * 60) : WorkedMinutes(_form.StartTime, _form.EndTime), OvertimeMinutes = _form.OvertimeMinutes, CorrectionStatus = _form.Extra ?? "", UpdatedAt = now });
         }
         else if (Definition.Kind == "leaves")
         {
-            await Api.UpsertLeaveRequestAsync(new LeaveRequestRecord { Id = _form.Id, TenantId = tenantId, RequestNo = _form.Code.Trim(), EmployeeId = Guid.Empty, LeaveTypeId = Guid.Empty, FromDate = ToDate(_form.WorkDate), ToDate = ToDate(_form.WorkDate), TotalDays = _form.Amount <= 0 ? 1 : _form.Amount, Reason = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Pending"), UpdatedAt = now });
+            await Api.UpsertLeaveRequestAsync(new LeaveRequestRecord { Id = _form.Id, TenantId = tenantId, RequestNo = _form.Code.Trim(), EmployeeId = ParseGuid(_form.EmployeeIdText) ?? Guid.Empty, DepartmentId = ParseGuid(_form.DepartmentIdText), LeaveTypeId = ParseGuid(_form.LeaveTypeIdText) ?? Guid.Empty, FromDate = ToDate(_form.WorkDate), ToDate = ToDate(_form.EndTime ?? _form.WorkDate), TotalDays = _form.Amount <= 0 ? 1 : _form.Amount, Reason = _form.Name.Trim(), Status = BlankDefault(_form.Status, "Pending"), ApproverId = ParseGuid(_form.ApproverIdText), UpdatedAt = now });
         }
         else
         {
-            await Api.UpsertOvertimeRequestAsync(new OvertimeRequestRecord { Id = _form.Id, TenantId = tenantId, RequestNo = _form.Code.Trim(), EmployeeId = Guid.Empty, WorkDate = ToDate(_form.WorkDate), FromTime = ToTime(_form.StartTime, 18), ToTime = ToTime(_form.EndTime, 20), TotalHours = _form.Amount <= 0 ? 2 : _form.Amount, OvertimeType = _form.Name.Trim(), RateMultiplier = 1.5m, Status = BlankDefault(_form.Status, "Pending"), UpdatedAt = now });
+            await Api.UpsertOvertimeRequestAsync(new OvertimeRequestRecord { Id = _form.Id, TenantId = tenantId, RequestNo = _form.Code.Trim(), EmployeeId = ParseGuid(_form.EmployeeIdText) ?? Guid.Empty, WorkDate = ToDate(_form.WorkDate), FromTime = ToTime(_form.StartTime, 18), ToTime = ToTime(_form.EndTime, 20), TotalHours = _form.Amount <= 0 ? 2 : _form.Amount, OvertimeType = _form.Name.Trim(), RateMultiplier = 1.5m, Status = BlankDefault(_form.Status, "Pending"), UpdatedAt = now });
         }
     }
 
@@ -336,15 +505,21 @@
         "Pending" => "Chờ duyệt",
         "Approved" => "Đã duyệt",
         "Rejected" => "Từ chối",
+        "Cancelled" => "Đã huỷ",
         "Draft" => "Nháp",
+        "Present" => "Có mặt",
+        "Late" => "Đi muộn",
+        "EarlyLeave" => "Về sớm",
+        "Absent" => "Vắng",
+        "OnLeave" => "Nghỉ phép",
         _ => string.IsNullOrWhiteSpace(status) ? "-" : status
     };
 
     private static string StatusCss(string status) => status switch
     {
-        "Active" or "Approved" => "app-status-badge app-status-active",
-        "Pending" or "Draft" => "app-status-badge app-status-pending",
-        "Rejected" => "app-status-badge app-status-danger",
+        "Active" or "Approved" or "Present" => "app-status-badge app-status-active",
+        "Pending" or "Draft" or "Late" or "EarlyLeave" or "OnLeave" => "app-status-badge app-status-pending",
+        "Rejected" or "Cancelled" or "Absent" => "app-status-badge app-status-danger",
         _ => "app-status-badge app-status-muted"
     };
 
@@ -396,15 +571,31 @@
         public string Code { get; set; } = "";
         public string Name { get; set; } = "";
         public string Status { get; set; } = "";
+        public string EmployeeIdText { get; set; } = "";
+        public string DepartmentIdText { get; set; } = "";
+        public string ShiftIdText { get; set; } = "";
+        public string LeaveTypeIdText { get; set; } = "";
+        public string ApproverIdText { get; set; } = "";
         public DateTime? WorkDate { get; set; }
         public DateTime? StartTime { get; set; }
         public DateTime? EndTime { get; set; }
         public decimal Amount { get; set; }
+        public int LateMinutes { get; set; }
+        public int EarlyLeaveMinutes { get; set; }
+        public int OvertimeMinutes { get; set; }
         public string? Extra { get; set; }
     }
 
     private static string BlankDefault(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     private static DateOnly ToDate(DateTime? value) => DateOnly.FromDateTime(value ?? DateTime.Today);
     private static TimeOnly ToTime(DateTime? value, int fallbackHour) => TimeOnly.FromDateTime(value ?? DateTime.Today.AddHours(fallbackHour));
+    private static DateTimeOffset? ToDateTimeOffset(DateTime? value) => value.HasValue ? new DateTimeOffset(value.Value) : null;
+    private static Guid? ParseGuid(string? value) => Guid.TryParse(value, out var id) ? id : null;
+    private static int WorkedMinutes(DateTime? start, DateTime? end) => start.HasValue && end.HasValue && end.Value > start.Value ? (int)(end.Value - start.Value).TotalMinutes : 0;
     private static decimal ParseLeadingDecimal(string text) => decimal.TryParse(new string(text.TakeWhile(x => char.IsDigit(x) || x == '.' || x == ',').ToArray()).Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : 0;
+    private string EmployeeCode(Guid id) => _employees.FirstOrDefault(x => x.Id == id)?.EmployeeCode ?? id.ToString("N")[..8];
+    private string EmployeeName(Guid id) => _employees.FirstOrDefault(x => x.Id == id)?.FullName ?? $"Employee {id.ToString("N")[..8]}";
+    private string DepartmentName(Guid? id) => id.HasValue ? _departments.FirstOrDefault(x => x.Id == id.Value)?.Name ?? "-" : "-";
+    private string ShiftName(Guid? id) => id.HasValue ? _shifts.FirstOrDefault(x => x.Id == id.Value)?.Name ?? "-" : "-";
+    private string LeaveTypeName(Guid id) => _leaveTypes.FirstOrDefault(x => x.Id == id)?.Name ?? "-";
 }

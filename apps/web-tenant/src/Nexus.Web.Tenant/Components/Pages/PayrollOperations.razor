@@ -84,9 +84,7 @@
                 <AppFormField Label="Trạng thái">
                     <BootstrapInput @bind-Value="_form.Status" ShowLabel="false" />
                 </AppFormField>
-                <AppFormField Label="@AmountLabel">
-                    <BootstrapInputNumber @bind-Value="_form.Amount" ShowLabel="false" />
-                </AppFormField>
+                <AppMoneyInput Label="@AmountLabel" @bind-Value="_form.Amount" DecimalPlaces="0" />
                 <AppFormField Label="Tháng">
                     <BootstrapInputNumber @bind-Value="_form.Month" ShowLabel="false" />
                 </AppFormField>

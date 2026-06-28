@@ -2218,7 +2218,7 @@ body {
 .crm-calendar-toolbar span,
 .crm-activity-agenda .crm-card-header span,
 .crm-agenda-item span {
-    color: var(--app-text-muted);
+    /* color: var(--app-text-muted); */
     font-size: .875rem;
 }
 

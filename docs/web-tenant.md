@@ -56,6 +56,7 @@ Constraint: one email can register one tenant.
 
 - Uses BootstrapBlazor from `external/bootstrap-blazor`.
 - Tenant style follows Ocean Enterprise SaaS rules in `.cursor/rules/ui-bootstrapblazor-saas-rule.mdc`.
+- Money fields use `AppMoneyInput` for realtime Vietnamese thousands/decimal formatting. `BootstrapInputNumber` is reserved for quantities, percentages, days, hours and non-money numeric fields.
 
 ## CRM UX Requirements
 

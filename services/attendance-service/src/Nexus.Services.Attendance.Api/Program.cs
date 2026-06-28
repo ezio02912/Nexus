@@ -62,20 +62,60 @@ app.MapPost("/api/attendance/setup-vn-defaults", async (SetupDefaultsRequest inp
         }, ct);
     }
 
-    if (!await db.LeaveTypes.AnyAsync(x => x.TenantId == input.TenantId && x.LeaveTypeCode == "ANNUAL", ct))
+    var leaveTypes = new[]
     {
-        await db.LeaveTypes.AddAsync(new LeaveType
+        ("ANNUAL", "Phép năm", true, 12m),
+        ("SICK", "Nghỉ ốm", true, 0m),
+        ("MATERNITY", "Nghỉ thai sản", true, 0m),
+        ("UNPAID", "Nghỉ không lương", false, 0m),
+        ("HOLIDAY", "Nghỉ lễ", true, 0m)
+    };
+
+    foreach (var (code, name, paid, quota) in leaveTypes)
+    {
+        if (!await db.LeaveTypes.AnyAsync(x => x.TenantId == input.TenantId && x.LeaveTypeCode == code, ct))
         {
-            Id = Guid.NewGuid(),
-            TenantId = input.TenantId,
-            LeaveTypeCode = "ANNUAL",
-            Name = "Phép năm",
-            AnnualQuotaDays = 12,
-            CarryForwardAllowed = true,
-            MaxCarryForwardDays = 5,
-            CreatedAt = now,
-            UpdatedAt = now
-        }, ct);
+            await db.LeaveTypes.AddAsync(new LeaveType
+            {
+                Id = Guid.NewGuid(),
+                TenantId = input.TenantId,
+                LeaveTypeCode = code,
+                Name = name,
+                IsPaid = paid,
+                AnnualQuotaDays = quota,
+                CarryForwardAllowed = code == "ANNUAL",
+                MaxCarryForwardDays = code == "ANNUAL" ? 5 : 0,
+                CreatedAt = now,
+                UpdatedAt = now
+            }, ct);
+        }
+    }
+
+    var year = DateTime.UtcNow.Year;
+    var holidays = new[]
+    {
+        (new DateOnly(year, 1, 1), "Tết Dương lịch"),
+        (new DateOnly(year, 4, 30), "Ngày Giải phóng miền Nam"),
+        (new DateOnly(year, 5, 1), "Quốc tế Lao động"),
+        (new DateOnly(year, 9, 2), "Quốc khánh")
+    };
+
+    foreach (var (date, name) in holidays)
+    {
+        if (!await db.Holidays.AnyAsync(x => x.TenantId == input.TenantId && x.HolidayDate == date, ct))
+        {
+            await db.Holidays.AddAsync(new Holiday
+            {
+                Id = Guid.NewGuid(),
+                TenantId = input.TenantId,
+                HolidayDate = date,
+                Name = name,
+                Year = year,
+                Source = "VN_DEFAULT",
+                CreatedAt = now,
+                UpdatedAt = now
+            }, ct);
+        }
     }
 
     await db.SaveChangesAsync(ct);

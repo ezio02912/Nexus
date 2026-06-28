@@ -179,13 +179,62 @@ public sealed record HrmEmployeeRecord : TenantEntityRecord
     public Guid? DepartmentId { get; set; }
     public Guid? PositionId { get; set; }
     public Guid? ManagerId { get; set; }
+    public string JobLevel { get; set; } = "";
+    public string JobGrade { get; set; } = "";
     public string EmploymentStatus { get; set; } = "";
     public string EmploymentType { get; set; } = "";
     public DateOnly? JoinDate { get; set; }
+    public DateOnly? ProbationStartDate { get; set; }
+    public DateOnly? ProbationEndDate { get; set; }
     public DateOnly? OfficialDate { get; set; }
     public DateOnly? ResignDate { get; set; }
+    public string ResignReason { get; set; } = "";
+    public decimal ProbationSalary { get; set; }
+    public decimal OfficialSalary { get; set; }
     public decimal BaseSalary { get; set; }
+    public decimal PerformanceBonusPercent { get; set; }
     public string SalaryCurrency { get; set; } = "VND";
+    public Guid? PayrollGroupId { get; set; }
+    public Guid? WorkCalendarId { get; set; }
+    public Guid? AvatarFileId { get; set; }
+    public string Notes { get; set; } = "";
+}
+
+public sealed record HrmEmployeeAllowanceRecord : TenantEntityRecord
+{
+    public Guid EmployeeId { get; set; }
+    public string AllowanceType { get; set; } = "";
+    public string Name { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "VND";
+    public bool Taxable { get; set; }
+    public bool InsuranceIncluded { get; set; }
+    public DateOnly? EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed record HrmEmployeeBenefitRecord : TenantEntityRecord
+{
+    public Guid EmployeeId { get; set; }
+    public string BenefitType { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string PolicyCode { get; set; } = "";
+    public DateOnly? StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public string Status { get; set; } = "";
+    public string Notes { get; set; } = "";
+}
+
+public sealed record HrmEmployeeDocumentRecord : TenantEntityRecord
+{
+    public Guid EmployeeId { get; set; }
+    public string DocumentType { get; set; } = "";
+    public Guid FileId { get; set; }
+    public string FileName { get; set; } = "";
+    public DateOnly? IssuedDate { get; set; }
+    public DateOnly? ExpiredDate { get; set; }
+    public string Status { get; set; } = "";
     public string Notes { get; set; } = "";
 }
 
@@ -307,6 +356,7 @@ public sealed record AttendanceShiftRecord : TenantEntityRecord
 public sealed record AttendanceRecordItem : TenantEntityRecord
 {
     public Guid EmployeeId { get; set; }
+    public Guid? DepartmentId { get; set; }
     public DateOnly WorkDate { get; set; }
     public Guid? ShiftId { get; set; }
     public DateTimeOffset? CheckInAt { get; set; }
@@ -323,12 +373,37 @@ public sealed record LeaveRequestRecord : TenantEntityRecord
 {
     public string RequestNo { get; set; } = "";
     public Guid EmployeeId { get; set; }
+    public Guid? DepartmentId { get; set; }
     public Guid LeaveTypeId { get; set; }
     public DateOnly FromDate { get; set; }
     public DateOnly ToDate { get; set; }
     public decimal TotalDays { get; set; }
     public string Reason { get; set; } = "";
     public string Status { get; set; } = "";
+    public Guid? ApproverId { get; set; }
+}
+
+public sealed record LeaveTypeRecord : TenantEntityRecord
+{
+    public string LeaveTypeCode { get; set; } = "";
+    public string Name { get; set; } = "";
+    public bool IsPaid { get; set; }
+    public decimal AnnualQuotaDays { get; set; }
+    public bool CarryForwardAllowed { get; set; }
+    public decimal MaxCarryForwardDays { get; set; }
+    public bool RequiresApproval { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed record HolidayRecord : TenantEntityRecord
+{
+    public DateOnly HolidayDate { get; set; }
+    public string Name { get; set; } = "";
+    public string HolidayType { get; set; } = "";
+    public bool IsPaid { get; set; }
+    public string CountryCode { get; set; } = "VN";
+    public int Year { get; set; }
+    public string Source { get; set; } = "";
 }
 
 public sealed record OvertimeRequestRecord : TenantEntityRecord
